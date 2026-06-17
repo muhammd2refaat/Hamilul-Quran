@@ -1,0 +1,1 @@
+export { useAdminsStore } from './adminsStore';

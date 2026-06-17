@@ -1,0 +1,31 @@
+┌─────────────────────────────────────────────────────┐
+│         QV ADMIN PANEL - LOGIN CREDENTIALS          │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  🔐 SUPER ADMIN ACCESS                              │
+│                                                     │
+│  Email:    admin@qvhealth.com                       │
+│  Password: Admin@123456                             │
+│                                                     │
+│  Role:     Super Admin                              │
+│  Name:     Ahmed Hassan                             │
+│                                                     │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  🚀 HOW TO START                                    │
+│                                                     │
+│  1. npm install                                     │
+│  2. npm run dev                                     │
+│  3. Open http://localhost:3000                      │
+│  4. Login with credentials above                    │
+│                                                     │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  📝 IMPORTANT NOTES                                 │
+│                                                     │
+│  • Admins ≠ Users (separate authentication)         │
+│  • 2FA is disabled for easy testing                 │
+│  • See CREDENTIALS.md for more test accounts        │
+│  • Development only - not for production!           │
+│                                                     │
+└─────────────────────────────────────────────────────┘
