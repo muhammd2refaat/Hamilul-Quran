@@ -26,7 +26,7 @@ interface UserEngagementTableProps {
   isLoading?: boolean;
 }
 
-export function UserEngagementTable({ isLoading }: UserEngagementTableProps) {
+export function UserEngagementTable({ isLoading: _isLoading }: UserEngagementTableProps) {
   const userEngagementData: UserEngagement[] = useMemo(() => {
     return mockUsers.map((user) => ({
       id: user.id,

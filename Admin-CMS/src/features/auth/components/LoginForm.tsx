@@ -51,8 +51,8 @@ export function LoginForm({ onSuccess, onTwoFactorRequired }: LoginFormProps) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="text-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Welcome Back</h1>
-        <p className="text-gray-600 mt-2">Sign in to your admin account</p>
+        <h2 className="text-xl font-medium text-gray-800">Welcome Back</h2>
+        <p className="text-gray-500 mt-2 font-light">Continue your memorization journey</p>
       </div>
 
       <Input

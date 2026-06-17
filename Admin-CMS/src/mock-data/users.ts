@@ -10,6 +10,7 @@ export interface User {
   lastName: string;
   email: string;
   phone: string;
+  title?: string;
   country: Country;
   city: string;
   organization: string;

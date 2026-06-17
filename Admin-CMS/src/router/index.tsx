@@ -2,33 +2,27 @@
  * Application router configuration with lazy loading
  */
 
-import { lazy, Suspense } from 'react';
+
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { MainLayout } from '@/layouts/MainLayout';
 import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage';
 import { UsersPage } from '@/features/users/pages/UsersPage';
-import { OrganizationsPage } from '@/features/organizations/pages/OrganizationsPage';
-import { CountriesPage } from '@/features/countries/pages/CountriesPage';
-import { QuizzesPage } from '@/features/quizzes/pages/QuizzesPage';
-import { QuestionsPage } from '@/features/quizzes/questions/QuestionsPage';
-import { ArticlesPage } from '@/features/articles/pages/ArticlesPage';
-import { StoriesPage } from '@/features/stories/pages/StoriesPage';
-import { CategoriesPage } from '@/features/products/pages/CategoriesPage';
-import { ProductsPage } from '@/features/products/pages/ProductsPage';
+import { TeachersPage } from '@/features/users/pages/TeachersPage';
+import { StudentsPage } from '@/features/users/pages/StudentsPage';
+
 import { ProfilePage } from '@/features/settings/pages/SettingsPage';
 import { ProtectedRoute } from './ProtectedRoute';
-import { LoadingSpinner } from '@/shared/components';
-import { WebinarPage } from '@/features/webinar/pages/WebinarPage';
-import { WhatsNewPage } from '@/features/whats-new/pages/WhatsNewPage';
-import { AdminsPage } from '@/features/admins/pages/AdminsPage';
 
-// Loading fallback
-const PageLoader = () => (
-  <div className="flex items-center justify-center min-h-[400px]">
-    <LoadingSpinner size="lg" />
-  </div>
-);
+
+import { AdminsPage } from '@/features/admins/pages/AdminsPage';
+import MemorizationLayout from '@/layouts/MemorizationLayout';
+import MemorizationMode from '@/features/memorization/MemorizationMode';
+import { PlansPage } from '@/features/plans/pages/PlansPage';
+import { AllocationsPage } from '@/features/allocations/pages/AllocationsPage';
+import { SubscriptionsPage } from '@/features/subscriptions/pages/SubscriptionsPage';
+
+
 
 // Not found page
 const NotFoundPage = () => (
@@ -80,52 +74,28 @@ export const router = createBrowserRouter([
         element: <DashboardPage />,
       },
       {
-        path: 'users',
-        element: <UsersPage />,
+        path: 'plans',
+        element: <PlansPage />,
       },
       {
-        path: 'organizations',
-        element: <OrganizationsPage />,
+        path: 'allocations',
+        element: <AllocationsPage />,
       },
       {
-        path: 'countries',
-        element: <CountriesPage />,
+        path: 'subscriptions',
+        element: <SubscriptionsPage />,
       },
       {
-        path: 'quizzes',
-        element: <QuizzesPage />,
+        path: 'students',
+        element: <StudentsPage />,
       },
       {
-        path: 'questions',
-        element: <QuestionsPage />,
-      },
-      {
-        path: 'articles',
-        element: <ArticlesPage />,
-      },
-      {
-        path: 'stories',
-        element: <StoriesPage />,
-      },
-      {
-        path: 'categories',
-        element: <CategoriesPage />,
-      },
-      {
-        path: 'products',
-        element: <ProductsPage />,
+        path: 'teachers',
+        element: <TeachersPage />,
       },
       {
         path: 'profile',
         element: <ProfilePage />,
-      },
-      {
-        path: 'webinar',
-        element: <WebinarPage />,
-      },
-      {
-        path: 'whats-new',
-        element: <WhatsNewPage />,
       },
       {
         path: 'admins',
@@ -142,9 +112,23 @@ export const router = createBrowserRouter([
     ],
   },
   {
+    path: '/memorize',
+    element: (
+      <ProtectedRoute>
+        <MemorizationLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        index: true,
+        element: <MemorizationMode />,
+      },
+    ],
+  },
+  {
     path: '*',
     element: <Navigate to="/" replace />,
   },
 ]);
 
-export default router;
+

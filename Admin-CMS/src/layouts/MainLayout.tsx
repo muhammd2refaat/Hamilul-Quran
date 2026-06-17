@@ -7,21 +7,17 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
-  Building2,
-  Globe,
-  BookOpen,
-  MessageSquare,
-  Gift,
-  FileText,
-  UserCircle,
   LogOut,
   Menu,
   X,
   ChevronDown,
   ChevronRight,
-  Video,
-  Sparkles,
   Shield,
+  GraduationCap,
+  BookOpen,
+  ClipboardList,
+  PieChart,
+  CreditCard,
 } from 'lucide-react';
 import { useAuthStore } from '@/features/auth';
 
@@ -49,32 +45,12 @@ export function MainLayout() {
 
   // Build navigation items based on user role
   const navigationItems: NavItem[] = [
-    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { name: 'Users', path: '/users', icon: Users },
-    { name: 'Organizations', path: '/organizations', icon: Building2 },
-    { name: 'Countries', path: '/countries', icon: Globe },
-    {
-      name: 'Quizzes',
-      path: '/quizzes',
-      icon: BookOpen,
-      subItems: [
-        { name: 'Quizzes', path: '/quizzes' },
-        { name: 'Questions', path: '/questions' },
-      ],
-    },
-    {
-      name: 'Products',
-      path: '/products',
-      icon: Gift,
-      subItems: [
-        { name: 'Categories', path: '/categories' },
-        { name: 'Products', path: '/products' },
-      ],
-    },
-    { name: 'Articles', path: '/articles', icon: FileText },
-    { name: 'Stories', path: '/stories', icon: MessageSquare },
-    { name: 'Webinar', path: '/webinar', icon: Video },
-    { name: 'What\'s New', path: '/whats-new', icon: Sparkles },
+    { name: 'Dashboard & Statistics', path: '/', icon: LayoutDashboard },
+    { name: 'Plans', path: '/plans', icon: ClipboardList },
+    { name: 'Allocations', path: '/allocations', icon: PieChart },
+    { name: 'Subscriptions', path: '/subscriptions', icon: CreditCard },
+    { name: 'Students', path: '/students', icon: GraduationCap },
+    { name: 'Teachers', path: '/teachers', icon: BookOpen },
     ...(isSuperAdmin ? [{ name: 'Admins', path: '/admins', icon: Shield }] : []),
   ];
 
@@ -138,7 +114,7 @@ export function MainLayout() {
                   <span className="text-white font-bold text-sm">QV</span>
                 </div>
                 <span className="text-xl font-bold text-gray-900 hidden sm:block">
-                  QV Health Admin
+                  Quran Kareem Admin
                 </span>
               </div>
             </div>
@@ -151,16 +127,15 @@ export function MainLayout() {
                   className="flex items-center gap-3 hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors"
                 >
                   <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                    <UserCircle className="h-5 w-5 text-primary-600" />
+                    <Users className="h-5 w-5 text-primary-600" />
                   </div>
                   <div className="hidden sm:block text-left">
                     <p className="text-sm font-medium text-gray-900">{user?.name}</p>
                     <p className="text-xs text-gray-500">{user?.email}</p>
                   </div>
                   <ChevronDown
-                    className={`h-4 w-4 text-gray-500 transition-transform ${
-                      isUserMenuOpen ? 'rotate-180' : ''
-                    }`}
+                    className={`h-4 w-4 text-gray-500 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''
+                      }`}
                   />
                 </button>
 
@@ -175,17 +150,10 @@ export function MainLayout() {
                       }}
                       className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                     >
-                      <UserCircle className="h-4 w-4" />
+                      <Users className="h-4 w-4" />
                       <span>Profile</span>
                     </Link>
-                    <div className="border-t border-gray-200 my-1"></div>
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors w-full"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      <span>Logout</span>
-                    </button>
+
                   </div>
                 )}
               </div>
@@ -197,9 +165,8 @@ export function MainLayout() {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside
-          className={`${
-            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-          } lg:translate-x-0 fixed lg:static inset-y-0 lg:inset-y-auto left-0 z-20 w-64 bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out lg:flex lg:flex-col lg:h-full`}
+          className={`${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+            } lg:translate-x-0 fixed lg:static inset-y-0 lg:inset-y-auto left-0 z-20 w-64 bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out lg:flex lg:flex-col lg:h-full`}
         >
           <nav className="h-full flex flex-col overflow-hidden">
             <div className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
@@ -215,11 +182,10 @@ export function MainLayout() {
                       <>
                         <button
                           onClick={() => toggleMenu(item.name)}
-                          className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                            active
-                              ? 'bg-primary-50 text-primary-700'
-                              : 'text-gray-700 hover:bg-gray-100'
-                          }`}
+                          className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors ${active
+                            ? 'bg-primary-50 text-primary-700'
+                            : 'text-gray-700 hover:bg-gray-100'
+                            }`}
                         >
                           <div className="flex items-center gap-3">
                             <Icon className="h-5 w-5" />
@@ -238,11 +204,10 @@ export function MainLayout() {
                                 key={subItem.path}
                                 to={subItem.path}
                                 onClick={() => setIsMobileMenuOpen(false)}
-                                className={`block px-3 py-2 text-sm rounded-lg transition-colors ${
-                                  location.pathname === subItem.path
-                                    ? 'bg-primary-50 text-primary-700 font-medium'
-                                    : 'text-gray-600 hover:bg-gray-100'
-                                }`}
+                                className={`block px-3 py-2 text-sm rounded-lg transition-colors ${location.pathname === subItem.path
+                                  ? 'bg-primary-50 text-primary-700 font-medium'
+                                  : 'text-gray-600 hover:bg-gray-100'
+                                  }`}
                               >
                                 {subItem.name}
                               </Link>
@@ -254,11 +219,10 @@ export function MainLayout() {
                       <Link
                         to={item.path}
                         onClick={() => setIsMobileMenuOpen(false)}
-                        className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                          active
-                            ? 'bg-primary-50 text-primary-700'
-                            : 'text-gray-700 hover:bg-gray-100'
-                        }`}
+                        className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${active
+                          ? 'bg-primary-50 text-primary-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                          }`}
                       >
                         <Icon className="h-5 w-5" />
                         <span>{item.name}</span>
@@ -267,6 +231,16 @@ export function MainLayout() {
                   </div>
                 );
               })}
+            </div>
+            {/* Logout Button */}
+            <div className="p-4 border-t border-gray-200 flex-shrink-0">
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-danger-50 hover:text-danger-700 transition-colors w-full"
+              >
+                <LogOut className="h-5 w-5" />
+                <span>Logout</span>
+              </button>
             </div>
           </nav>
         </aside>

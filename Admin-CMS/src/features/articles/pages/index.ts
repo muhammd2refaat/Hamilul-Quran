@@ -1,1 +1,0 @@
-export { ArticlesPage } from './ArticlesPage';

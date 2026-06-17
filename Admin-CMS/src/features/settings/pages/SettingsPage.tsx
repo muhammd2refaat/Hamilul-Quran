@@ -1,4 +1,3 @@
-import { Card } from '@/shared/components';
 import { useAuthStore } from '@/features/auth';
 
 export function ProfilePage() {

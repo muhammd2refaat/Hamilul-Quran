@@ -1,1 +1,0 @@
-export { WhatsNewForm } from './WhatsNewForm';

@@ -14,15 +14,15 @@ export function AuthLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-2xl mb-4">
-            <span className="text-white font-bold text-2xl">QV</span>
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-50 rounded-full mb-4">
+            <span className="text-primary-600 font-bold text-2xl">HQ</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">QV Admin Panel</h1>
-          <p className="text-gray-600 mt-1">Healthcare Wellness Engagement Platform</p>
+          <h1 className="text-3xl font-light tracking-tight text-gray-800">Hamilul Quran</h1>
+          <p className="text-gray-500 mt-2 font-light">Peaceful Memorization Environment</p>
         </div>
 
         {/* Form container */}
@@ -31,8 +31,8 @@ export function AuthLayout() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-sm text-gray-500 mt-6">
-          © {new Date().getFullYear()} QV Platform. All rights reserved.
+        <p className="text-center text-sm text-gray-400 mt-6 font-light">
+          © {new Date().getFullYear()} Hamilul Quran. All rights reserved.
         </p>
       </div>
     </div>

@@ -9,7 +9,7 @@
   }
   
   body {
-    @apply antialiased text-gray-900 bg-gray-50;
+    @apply antialiased text-gray-800 bg-white;
   }
 
   /* Custom scrollbar */

@@ -8,7 +8,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'react-hot-toast';
 import { queryClient } from '@/services/api/queryClient';
 import { router } from '@/router';
-import { Video } from 'lucide-react';
+
 
 export function App() {
   return (
@@ -46,7 +46,4 @@ export function App() {
 
 export default App;
 
-export const routes = [
-  { name: 'Home', path: '/', icon: Video },
-  { name: 'Webinar', path: '/webinar', icon: Video },
-];
+

@@ -3,10 +3,10 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2, Edit2 } from 'lucide-react';
+import { Plus, Trash2, Edit2 } from 'lucide-react';
 import { Button, Card, DataTable, Modal, ConfirmDialog, Input } from '@/shared/components';
 import { mockUsers, type User } from '@/mock-data/users';
-import { mockOrganizations } from '@/mock-data/organizations';
+
 import type { ColumnDef } from '@tanstack/react-table';
 import type { Country, Gender, UserStatus } from '@/shared/types';
 import toast from 'react-hot-toast';
@@ -548,27 +548,12 @@ export function UsersPage() {
               </select>
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Organization
-            </label>
-            <select
+            <Input
+              label="Organization"
               value={formData.organization}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                setFormData({ ...formData, organization: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-primary-500 focus:border-primary-500"
-            >
-              <option value="">Select an organization</option>
-              {mockOrganizations
-                .filter(org => org.status === 'active')
-                .map((org) => (
-                  <option key={org.id} value={org.name}>
-                    {org.name}
-                  </option>
-                ))}
-            </select>
-          </div>
+              onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+              placeholder="Enter organization name"
+            />
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">

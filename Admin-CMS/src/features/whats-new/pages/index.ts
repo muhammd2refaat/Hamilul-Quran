@@ -1,1 +1,0 @@
-export { WhatsNewPage } from './WhatsNewPage';
