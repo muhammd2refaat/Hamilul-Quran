@@ -18,7 +18,7 @@ export function ProfilePage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
               <div className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-900 text-base font-semibold">
-                {user?.email || 'admin@qvhealth.com'}
+                {user?.email || 'admin@qrkareem.com'}
               </div>
             </div>
           </div>

@@ -7,7 +7,6 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { MainLayout } from '@/layouts/MainLayout';
 import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage';
-import { UsersPage } from '@/features/users/pages/UsersPage';
 import { TeachersPage } from '@/features/users/pages/TeachersPage';
 import { StudentsPage } from '@/features/users/pages/StudentsPage';
 

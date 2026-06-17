@@ -19,7 +19,7 @@ export interface Admin {
 export const mockAdmin: Admin = {
   id: '1',
   name: 'Ahmed Hassan',
-  email: 'admin@qvhealth.com',
+  email: 'admin@qrkareem.com',
   password: 'Admin@123456',
   role: 'Super Admin',
   twoFactorEnabled: false,
@@ -61,7 +61,7 @@ export const mockAdmins: Admin[] = [
   {
     id: '1',
     name: 'Ahmed Hassan',
-    email: 'admin@qvhealth.com',
+    email: 'admin@qrkareem.com',
     password: 'Admin@123456',
     role: 'Super Admin',
     twoFactorEnabled: false,
@@ -71,7 +71,7 @@ export const mockAdmins: Admin[] = [
   {
     id: '2',
     name: 'Layla Mohammed',
-    email: 'layla@qvhealth.com',
+    email: 'layla@qrkareem.com',
     password: 'Content@123',
     role: 'Content Admin',
     twoFactorEnabled: false,
@@ -81,7 +81,7 @@ export const mockAdmins: Admin[] = [
   {
     id: '3',
     name: 'Omar Al-Fayed',
-    email: 'omar@qvhealth.com',
+    email: 'omar@qrkareem.com',
     password: 'Content@456',
     role: 'Content Admin',
     twoFactorEnabled: false,
@@ -91,7 +91,7 @@ export const mockAdmins: Admin[] = [
   {
     id: '4',
     name: 'Sara Abdullah',
-    email: 'sara@qvhealth.com',
+    email: 'sara@qrkareem.com',
     password: 'Viewer@789',
     role: 'Viewer',
     twoFactorEnabled: false,
