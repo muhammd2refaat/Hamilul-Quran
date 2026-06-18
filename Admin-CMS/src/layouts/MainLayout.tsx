@@ -18,13 +18,18 @@ import {
   ClipboardList,
   PieChart,
   CreditCard,
+  AlertCircle,
+  Inbox,
 } from 'lucide-react';
+import { useComplaintsStore } from '@/features/complaints/store/complaintsStore';
+import { useRequestsStore } from '@/features/requests/store/requestsStore';
 import { useAuthStore } from '@/features/auth';
 
 type NavItem = {
   name: string;
   path: string;
   icon: React.ElementType;
+  badge?: number;
   subItems?: { name: string; path: string }[];
 };
 
@@ -44,6 +49,9 @@ export function MainLayout() {
   const isSuperAdmin = user?.role === 'Super Admin';
 
   // Build navigation items based on user role
+  const openComplaints  = useComplaintsStore((s) => s.unreadCount);
+  const pendingRequests = useRequestsStore((s) => s.unreadCount);
+
   const navigationItems: NavItem[] = [
     { name: 'Dashboard & Statistics', path: '/', icon: LayoutDashboard },
     { name: 'Plans', path: '/plans', icon: ClipboardList },
@@ -51,6 +59,8 @@ export function MainLayout() {
     { name: 'Subscriptions', path: '/subscriptions', icon: CreditCard },
     { name: 'Students', path: '/students', icon: GraduationCap },
     { name: 'Teachers', path: '/teachers', icon: BookOpen },
+    { name: 'Complaints', path: '/complaints', icon: AlertCircle, badge: openComplaints },
+    { name: 'Requests', path: '/requests', icon: Inbox, badge: pendingRequests },
     ...(isSuperAdmin ? [{ name: 'Admins', path: '/admins', icon: Shield }] : []),
   ];
 
@@ -225,7 +235,12 @@ export function MainLayout() {
                           }`}
                       >
                         <Icon className="h-5 w-5" />
-                        <span>{item.name}</span>
+                        <span className="flex-1">{item.name}</span>
+                        {item.badge != null && item.badge > 0 && (
+                          <span className="ml-auto text-xs font-bold bg-red-500 text-white rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
+                            {item.badge}
+                          </span>
+                        )}
                       </Link>
                     )}
                   </div>

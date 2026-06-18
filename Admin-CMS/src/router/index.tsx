@@ -20,6 +20,8 @@ import MemorizationMode from '@/features/memorization/MemorizationMode';
 import { PlansPage } from '@/features/plans/pages/PlansPage';
 import { AllocationsPage } from '@/features/allocations/pages/AllocationsPage';
 import { SubscriptionsPage } from '@/features/subscriptions/pages/SubscriptionsPage';
+import { ComplaintsPage } from '@/features/complaints/pages/ComplaintsPage';
+import { RequestsPage } from '@/features/requests/pages/RequestsPage';
 
 
 
@@ -91,6 +93,14 @@ export const router = createBrowserRouter([
       {
         path: 'teachers',
         element: <TeachersPage />,
+      },
+      {
+        path: 'complaints',
+        element: <ComplaintsPage />,
+      },
+      {
+        path: 'requests',
+        element: <RequestsPage />,
       },
       {
         path: 'profile',

@@ -8,4 +8,5 @@ export * from './users';
 export * from './analytics';
 export * from './admins';
 export * from './subscriptions';
+export * from './complaints-requests';
 
