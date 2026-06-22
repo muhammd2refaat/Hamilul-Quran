@@ -59,4 +59,11 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(users_router, prefix=prefix, tags=["Users"])
 
 
+from fastapi.responses import RedirectResponse
+
 app = create_app()
+
+@app.get("/", include_in_schema=False)
+async def root():
+    """Redirect the root URL to the Swagger documentation."""
+    return RedirectResponse(url=f"{settings.api_prefix}/docs")

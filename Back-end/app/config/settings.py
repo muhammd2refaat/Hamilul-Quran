@@ -11,13 +11,13 @@ class Settings(BaseSettings):
     )
 
     # Application
-    app_name: str = "Solar Asset ERP"
+    app_name: str = "Hamilul-Quran"
     app_env: str = "development"
     debug: bool = True
     api_prefix: str = "/api/v1"
 
     # Database
-    database_url: str = "postgresql+asyncpg://solar_erp:solar_erp_secret@localhost:5432/solar_erp_db"
+    database_url: str = "postgresql+asyncpg://muhammedrefaat@localhost:5432/hamilul_quran_db"
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"

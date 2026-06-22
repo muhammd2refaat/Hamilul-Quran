@@ -1,4 +1,6 @@
+from __future__ import annotations
 import uuid
+from uuid import UUID
 from datetime import datetime, date
 from enum import Enum
 from typing import Optional, List
@@ -27,7 +29,7 @@ class Gender(str, Enum):
 class User(SQLModel, table=True):
     __tablename__ = "users"
 
-    id: uuid.UUID = Field(
+    id: Optional[uuid.UUID] = Field(
         default_factory=uuid.uuid4,
         primary_key=True,
         index=True,
@@ -47,7 +49,7 @@ class User(SQLModel, table=True):
     gender: Optional[Gender] = Field(default=None)
     date_of_birth: Optional[date] = Field(default=None)
     
-    teacher_id: Optional[uuid.UUID] = Field(
+    teacher_id: Optional[UUID] = Field(
         default=None, foreign_key="users.id", nullable=True, index=True
     )
     

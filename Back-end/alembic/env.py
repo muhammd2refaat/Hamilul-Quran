@@ -19,11 +19,6 @@ from sqlmodel import SQLModel  # noqa: E402
 
 # Import every model module to ensure tables are registered with SQLModel.metadata
 import app.features.users.models  # noqa: F401
-import app.features.sites.models  # noqa: F401
-import app.features.suppliers.models  # noqa: F401
-import app.features.inventory.models  # noqa: F401
-import app.features.transfers.models  # noqa: F401
-import app.features.orders.models  # noqa: F401
 
 target_metadata = SQLModel.metadata
 
