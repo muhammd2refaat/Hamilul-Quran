@@ -1,21 +1,28 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 
 from pydantic import BaseModel, EmailStr, field_validator
 
-from app.features.users.models import UserRole
+from app.features.users.models import UserRole, UserStatus, Gender
 
 
 # ─── Request Schemas ──────────────────────────────────────────────────────────
 
 class UserCreate(BaseModel):
-    username: str
     email: EmailStr
-    phone_number: Optional[str] = None
+    username: str
     password: str
-    role: UserRole = UserRole.SITE_ACCOUNTABLE
-    site_id: Optional[uuid.UUID] = None
+    first_name: str
+    last_name: str
+    phone_number: Optional[str] = None
+    role: UserRole = UserRole.STUDENT
+    
+    country: Optional[str] = None
+    city: Optional[str] = None
+    gender: Optional[Gender] = None
+    date_of_birth: Optional[date] = None
+    teacher_id: Optional[uuid.UUID] = None
 
     @field_validator("password")
     @classmethod
@@ -27,11 +34,17 @@ class UserCreate(BaseModel):
 
 class UserUpdate(BaseModel):
     username: Optional[str] = None
-    email: Optional[EmailStr] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     phone_number: Optional[str] = None
     role: Optional[UserRole] = None
-    is_active: Optional[bool] = None
-    site_id: Optional[uuid.UUID] = None
+    status: Optional[UserStatus] = None
+    
+    country: Optional[str] = None
+    city: Optional[str] = None
+    gender: Optional[Gender] = None
+    date_of_birth: Optional[date] = None
+    teacher_id: Optional[uuid.UUID] = None
 
 
 class PasswordChange(BaseModel):
@@ -50,14 +63,33 @@ class PasswordChange(BaseModel):
 
 class UserResponse(BaseModel):
     id: uuid.UUID
-    username: str
     email: str
+    username: str
+    first_name: str
+    last_name: str
     phone_number: Optional[str] = None
     role: UserRole
-    is_active: bool
-    site_id: Optional[uuid.UUID] = None
+    status: UserStatus
+    
+    country: Optional[str] = None
+    city: Optional[str] = None
+    gender: Optional[Gender] = None
+    date_of_birth: Optional[date] = None
+    teacher_id: Optional[uuid.UUID] = None
+    
+    joined_date: datetime
     created_at: datetime
     updated_at: datetime
+    
+    # Gamification
+    points: int
+    articles_viewed: int
+    webinars_attended: int
+    stories_submitted: int
+    webinars_registered: int
+    quizzes_taken: int
+    rank: int
+    last_active: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 

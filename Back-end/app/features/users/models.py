@@ -1,16 +1,27 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, date
 from enum import Enum
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, List
 
 from sqlmodel import SQLModel, Field, Relationship
 
 
 class UserRole(str, Enum):
     ADMIN = "ADMIN"
-    SITE_ACCOUNTABLE = "SITE_ACCOUNTABLE"
-    PROCUREMENT = "PROCUREMENT"
-    TECHNICIAN = "TECHNICIAN"
+    TEACHER = "TEACHER"
+    STUDENT = "STUDENT"
+
+
+class UserStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+    SUSPENDED = "SUSPENDED"
+    PENDING = "PENDING"
+
+
+class Gender(str, Enum):
+    MALE = "MALE"
+    FEMALE = "FEMALE"
 
 
 class User(SQLModel, table=True):
@@ -24,20 +35,42 @@ class User(SQLModel, table=True):
     )
     email: str = Field(unique=True, index=True, max_length=255)
     username: str = Field(unique=True, index=True, max_length=255)
-    phone_number: str | None = Field(default=None, max_length=50)
+    first_name: str = Field(max_length=100, default="")
+    last_name: str = Field(max_length=100, default="")
+    phone_number: Optional[str] = Field(default=None, max_length=50)
     password_hash: str = Field(max_length=255)
-    role: UserRole = Field(default=UserRole.SITE_ACCOUNTABLE)
-    is_active: bool = Field(default=True)
-    site_id: Optional[uuid.UUID] = Field(
-        default=None, foreign_key="sites.id", nullable=True, index=True
+    role: UserRole = Field(default=UserRole.STUDENT)
+    status: UserStatus = Field(default=UserStatus.PENDING)
+    
+    country: Optional[str] = Field(default=None, max_length=100)
+    city: Optional[str] = Field(default=None, max_length=100)
+    gender: Optional[Gender] = Field(default=None)
+    date_of_birth: Optional[date] = Field(default=None)
+    
+    teacher_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="users.id", nullable=True, index=True
     )
+    
+    joined_date: datetime = Field(default_factory=datetime.utcnow)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(
         default_factory=datetime.utcnow,
         sa_column_kwargs={"onupdate": datetime.utcnow},
     )
+    
+    # Gamification
+    points: int = Field(default=0)
+    articles_viewed: int = Field(default=0)
+    webinars_attended: int = Field(default=0)
+    stories_submitted: int = Field(default=0)
+    webinars_registered: int = Field(default=0)
+    quizzes_taken: int = Field(default=0)
+    rank: int = Field(default=0)
+    last_active: Optional[datetime] = Field(default=None)
 
     # Relationships
-    if TYPE_CHECKING:
-        from app.features.sites.models import Site
-        managed_sites: list["Site"] = Relationship(back_populates="accountable_user")
+    teacher: Optional["User"] = Relationship(
+        back_populates="students",
+        sa_relationship_kwargs={"remote_side": "User.id"}
+    )
+    students: List["User"] = Relationship(back_populates="teacher")

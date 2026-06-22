@@ -7,9 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.core.security import hash_password
-from app.features.users.models import User, UserRole
+from app.features.users.models import User, UserRole, UserStatus
 from app.features.users.schemas import UserCreate, UserUpdate
-from app.features.sites.models import Site
 
 
 class UserService:
@@ -24,8 +23,16 @@ class UserService:
 
         if search:
             like = f"%{search}%"
-            query = query.where(User.email.ilike(like))
-            count_query = count_query.where(User.email.ilike(like))
+            query = query.where(
+                (User.email.ilike(like)) |
+                (User.first_name.ilike(like)) |
+                (User.last_name.ilike(like))
+            )
+            count_query = count_query.where(
+                (User.email.ilike(like)) |
+                (User.first_name.ilike(like)) |
+                (User.last_name.ilike(like))
+            )
 
         total_result = await self.session.exec(count_query)
         total = total_result.one()
@@ -51,23 +58,32 @@ class UserService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Email '{data.email}' is already registered",
             )
+            
+        # If teacher_id is provided, verify the teacher exists and has TEACHER role
+        if data.teacher_id:
+            teacher = await self.session.get(User, data.teacher_id)
+            if not teacher or teacher.role != UserRole.TEACHER:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid teacher_id or the referenced user is not a teacher",
+                )
+
         user = User(
-            username=data.username,
             email=data.email,
+            username=data.username,
+            first_name=data.first_name,
+            last_name=data.last_name,
             password_hash=hash_password(data.password),
             role=data.role,
             phone_number=data.phone_number,
-            site_id=data.site_id,
+            country=data.country,
+            city=data.city,
+            gender=data.gender,
+            date_of_birth=data.date_of_birth,
+            teacher_id=data.teacher_id,
         )
         self.session.add(user)
         await self.session.flush()
-
-        # If the user is a SITE_ACCOUNTABLE and a site_id is provided, update the site
-        if user.role == UserRole.SITE_ACCOUNTABLE and user.site_id:
-            site = await self.session.get(Site, user.site_id)
-            if site:
-                site.accountable_user_id = user.id
-                self.session.add(site)
 
         await self.session.commit()
         await self.session.refresh(user)
@@ -76,16 +92,18 @@ class UserService:
     async def update(self, user_id: uuid.UUID, data: UserUpdate) -> User:
         user = await self.get_by_id(user_id)
         update_data = data.model_dump(exclude_unset=True)
+        
+        if "teacher_id" in update_data and update_data["teacher_id"] is not None:
+            teacher = await self.session.get(User, update_data["teacher_id"])
+            if not teacher or teacher.role != UserRole.TEACHER:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid teacher_id or the referenced user is not a teacher",
+                )
+        
         for field, value in update_data.items():
             setattr(user, field, value)
         self.session.add(user)
-
-        # If the user is a SITE_ACCOUNTABLE and a site_id is provided, update the site
-        if user.role == UserRole.SITE_ACCOUNTABLE and user.site_id:
-            site = await self.session.get(Site, user.site_id)
-            if site:
-                site.accountable_user_id = user.id
-                self.session.add(site)
 
         await self.session.commit()
         await self.session.refresh(user)
@@ -93,7 +111,7 @@ class UserService:
 
     async def delete(self, user_id: uuid.UUID) -> None:
         user = await self.get_by_id(user_id)
-        # Soft-delete: deactivate instead of hard delete
-        user.is_active = False
+        # Soft-delete: suspend instead of hard delete
+        user.status = UserStatus.SUSPENDED
         self.session.add(user)
         await self.session.commit()
