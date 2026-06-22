@@ -9,14 +9,10 @@ import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage';
 import { TeachersPage } from '@/features/users/pages/TeachersPage';
 import { StudentsPage } from '@/features/users/pages/StudentsPage';
-
-import { ProfilePage } from '@/features/settings/pages/SettingsPage';
 import { ProtectedRoute } from './ProtectedRoute';
 
 
 import { AdminsPage } from '@/features/admins/pages/AdminsPage';
-import MemorizationLayout from '@/layouts/MemorizationLayout';
-import MemorizationMode from '@/features/memorization/MemorizationMode';
 import { PlansPage } from '@/features/plans/pages/PlansPage';
 import { AllocationsPage } from '@/features/allocations/pages/AllocationsPage';
 import { SubscriptionsPage } from '@/features/subscriptions/pages/SubscriptionsPage';
@@ -103,10 +99,6 @@ export const router = createBrowserRouter([
         element: <RequestsPage />,
       },
       {
-        path: 'profile',
-        element: <ProfilePage />,
-      },
-      {
         path: 'admins',
         element: <AdminsPage />,
       },
@@ -117,20 +109,6 @@ export const router = createBrowserRouter([
       {
         path: '*',
         element: <NotFoundPage />,
-      },
-    ],
-  },
-  {
-    path: '/memorize',
-    element: (
-      <ProtectedRoute>
-        <MemorizationLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        index: true,
-        element: <MemorizationMode />,
       },
     ],
   },

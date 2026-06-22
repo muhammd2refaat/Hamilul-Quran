@@ -2,7 +2,7 @@
  * Main application layout with sidebar navigation
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -38,12 +38,10 @@ export function MainLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({
     Quizzes: false,
     Products: false,
   });
-  const userMenuRef = useRef<HTMLDivElement>(null);
 
   // Check if user is Super Admin
   const isSuperAdmin = user?.role === 'Super Admin';
@@ -64,18 +62,7 @@ export function MainLayout() {
     ...(isSuperAdmin ? [{ name: 'Admins', path: '/admins', icon: Shield }] : []),
   ];
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
-        setIsUserMenuOpen(false);
-      }
-    };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
 
   const handleLogout = () => {
     logout();
@@ -131,10 +118,9 @@ export function MainLayout() {
 
             {/* User Menu */}
             <div className="flex items-center gap-4 ml-auto">
-              <div className="relative" ref={userMenuRef}>
-                <button
-                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center gap-3 hover:bg-gray-50 rounded-lg px-3 py-2 transition-colors"
+              <div className="relative">
+                <div
+                  className="flex items-center gap-3 px-3 py-2 transition-colors"
                 >
                   <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
                     <Users className="h-5 w-5 text-primary-600" />
@@ -143,29 +129,7 @@ export function MainLayout() {
                     <p className="text-sm font-medium text-gray-900">{user?.name}</p>
                     <p className="text-xs text-gray-500">{user?.email}</p>
                   </div>
-                  <ChevronDown
-                    className={`h-4 w-4 text-gray-500 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''
-                      }`}
-                  />
-                </button>
-
-                {/* Dropdown Menu */}
-                {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                    <Link
-                      to="/profile"
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                    >
-                      <Users className="h-4 w-4" />
-                      <span>Profile</span>
-                    </Link>
-
-                  </div>
-                )}
+                </div>
               </div>
             </div>
           </div>
