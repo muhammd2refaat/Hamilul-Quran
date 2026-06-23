@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Edit2 } from 'lucide-react';
 import { Button, Card, DataTable, Modal, ConfirmDialog, Input } from '@/shared/components';
-import { useUsersStore, selectUsers, selectIsLoading, selectTotalCount, type User } from '../store/usersStore';
+import { useUsersStore, selectUsers, selectIsLoading, type User } from '../store/usersStore';
 
 import type { ColumnDef } from '@tanstack/react-table';
 import type { Country, Gender, UserStatus } from '@/shared/types';
@@ -35,7 +35,6 @@ type UserFormData = {
 
 export function UsersPage() {
   const users = useUsersStore(selectUsers);
-  const totalCount = useUsersStore(selectTotalCount);
   const isLoading = useUsersStore(selectIsLoading);
   const { fetchUsers, setFilters, filters, deleteUser, updateUserStatus } = useUsersStore();
 

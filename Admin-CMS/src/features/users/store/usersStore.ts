@@ -5,6 +5,7 @@ import { get, put, del } from '@/services/api/client';
 
 export interface User {
   id: string;
+  username: string;          // backend: username
   firstName: string;
   lastName: string;
   email: string;
@@ -24,8 +25,11 @@ export interface User {
   quizzesTaken: number;
   rank: number;
   createdAt: string;
+  joinedDate: string;        // backend: joined_date (differs from created_at)
+  updatedAt: string;         // backend: updated_at
   lastActive?: string;
   role: string;
+  teacherId?: string;        // backend: teacher_id — student's assigned teacher UUID
 }
 
 interface UsersState {
@@ -51,7 +55,7 @@ interface UsersState {
 
 const defaultFilters: UserFilterParams = {
   page: 1,
-  limit: 20,
+  limit: 100,
   sortBy: 'created_at',
   sortOrder: 'desc',
 };
@@ -117,6 +121,7 @@ export const useUsersStore = create<UsersState>((set, getStore) => ({
       // Map backend response
       const mappedUsers: User[] = response.items.map((u: any) => ({
         id: u.id,
+        username: u.username || '',
         firstName: u.first_name,
         lastName: u.last_name,
         email: u.email,
@@ -134,8 +139,11 @@ export const useUsersStore = create<UsersState>((set, getStore) => ({
         quizzesTaken: u.quizzes_taken,
         rank: u.rank,
         createdAt: u.created_at,
+        joinedDate: u.joined_date || u.created_at,
+        updatedAt: u.updated_at || u.created_at,
         lastActive: u.last_active,
         role: u.role,
+        teacherId: u.teacher_id ?? undefined,
       }));
 
       set({

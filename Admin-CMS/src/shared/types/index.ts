@@ -12,7 +12,7 @@ export interface BaseEntity {
 /** Status types used across modules */
 export type EntityStatus = 'active' | 'inactive';
 export type ContentStatus = 'draft' | 'published' | 'unpublished' | 'scheduled';
-export type UserStatus = 'active' | 'inactive' | 'pending' | 'suspended';
+export type UserStatus = 'active' | 'inactive' | 'pending' | 'suspended' | 'ACTIVE' | 'INACTIVE' | 'PENDING' | 'SUSPENDED';
 export type WebinarStatus = 'scheduled' | 'live' | 'completed' | 'cancelled';
 
 /** Country types */
