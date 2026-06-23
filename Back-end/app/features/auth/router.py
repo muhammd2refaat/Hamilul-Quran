@@ -76,9 +76,10 @@ async def logout(body: RefreshRequest, svc: AuthServiceDep):
 )
 async def get_me(current_user: CurrentUserDep):
     """Returns the currently authenticated user's profile."""
+    from app.features.users.models import UserStatus
     return UserInfo(
         id=current_user.id,
         email=current_user.email,
         role=current_user.role.value,
-        is_active=current_user.is_active,
+        is_active=(current_user.status == UserStatus.ACTIVE),
     )

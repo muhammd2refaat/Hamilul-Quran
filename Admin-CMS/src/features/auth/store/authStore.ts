@@ -4,10 +4,10 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { mockAdmin, mockSessions } from '@/mock-data/auth';
 import type { AuthState, AuthActions, LoginCredentials, LoginResponse, TwoFactorSetupResponse } from '../types';
-import { STORAGE_KEYS } from '@/shared/constants';
-import { sleep } from '@/shared/utils';
+import type { AdminRole } from '@/shared/types';
+import { post, get } from '@/services/api/client';
+import toast from 'react-hot-toast';
 
 interface AuthStore extends AuthState, AuthActions {}
 
@@ -23,197 +23,188 @@ const initialState: AuthState = {
 
 export const useAuthStore = create<AuthStore>()(
   persist(
-    (set, get) => ({
+    (set, getStore) => ({
       ...initialState,
 
       login: async (credentials: LoginCredentials): Promise<LoginResponse> => {
         set({ isLoading: true });
 
         try {
-          // Simulate API call
-          await sleep(1000);
+          // Step 1: Exchange credentials for tokens
+          const tokenResponse = await post<{
+            access_token: string;
+            refresh_token: string;
+            token_type: string;
+            expires_in: number;
+          }>('/auth/login', credentials);
 
-          // Find admin by email
-          const admin = mockAdmin;
-          
-          // Validate credentials
-          if (credentials.email === admin.email && credentials.password === admin.password) {
-            if (admin.twoFactorEnabled) {
-              set({
-                isLoading: false,
-                requiresTwoFactor: true,
-              });
-              return { success: true, requiresTwoFactor: true };
-            }
+          const { access_token, refresh_token } = tokenResponse;
 
-            const token = `mock-token-${Date.now()}`;
-            const refreshToken = `mock-refresh-${Date.now()}`;
+          // Store tokens so the interceptor sends them on the next request
+          localStorage.setItem('qv_auth_token', access_token);
+          localStorage.setItem('qv_refresh_token', refresh_token);
 
-            set({
-              user: admin,
-              token,
-              refreshToken,
-              isAuthenticated: true,
-              isLoading: false,
-              requiresTwoFactor: false,
-            });
+          // Step 2: Fetch real user profile from backend
+          const me = await get<{ id: string; email: string; role: string; is_active: boolean }>(
+            '/auth/me'
+          );
 
-            return { success: true, requiresTwoFactor: false, token, user: admin };
+          // Map backend role → CMS AdminRole display name
+          const roleMap: Record<string, AdminRole> = {
+            ADMIN: 'Super Admin',
+            TEACHER: 'Content Admin',
+            STUDENT: 'Viewer',
+          };
+
+          const user = {
+            id: String(me.id),
+            email: me.email,
+            name: me.email.split('@')[0],
+            role: roleMap[me.role] ?? ('Viewer' as AdminRole),
+            backendRole: me.role,
+            is_active: me.is_active,
+            twoFactorEnabled: false,
+          } as import('../types').Admin;
+
+          set({
+            user,
+            token: access_token,
+            refreshToken: refresh_token,
+            isAuthenticated: true,
+            isLoading: false,
+            requiresTwoFactor: false,
+          });
+
+          return { success: true, requiresTwoFactor: false, token: access_token, user };
+
+        } catch (error: any) {
+          // Clear any partially stored tokens
+          localStorage.removeItem('qv_auth_token');
+          localStorage.removeItem('qv_refresh_token');
+          set({ isLoading: false });
+
+          const status = error?.response?.status;
+          const detail = error?.response?.data?.detail || error?.response?.data?.message;
+
+          if (status === 401 || status === 400) {
+            const msg = detail || 'Invalid email or password';
+            toast.error(msg);
+            throw new Error(msg);
           }
 
-          set({ isLoading: false });
-          throw new Error('Invalid email or password');
-        } catch (error) {
-          set({ isLoading: false });
+          if (!error?.response) {
+            const msg = 'Cannot reach the server. Please ensure the backend is running.';
+            toast.error(msg);
+            throw new Error(msg);
+          }
+
+          toast.error(detail || 'Login failed. Please try again.');
           throw error;
         }
       },
 
       verify2FA: async (code: string): Promise<void> => {
         set({ isLoading: true });
-
         try {
-          await sleep(500);
+          const response = await post<{ access_token: string; refresh_token: string; user: any }>(
+            '/auth/verify-2fa',
+            { code }
+          );
+          
+          localStorage.setItem('qv_auth_token', response.access_token);
+          localStorage.setItem('qv_refresh_token', response.refresh_token);
 
-          // Mock verification - accept any 6-digit code for demo
-          if (code.length === 6 && /^\d+$/.test(code)) {
-            const token = `mock-token-${Date.now()}`;
-            const refreshToken = `mock-refresh-${Date.now()}`;
-
-            set({
-              user: mockAdmin,
-              token,
-              refreshToken,
-              isAuthenticated: true,
-              isLoading: false,
-              requiresTwoFactor: false,
-            });
-          } else {
-            throw new Error('Invalid verification code');
-          }
-        } catch (error) {
+          set({
+            user: response.user,
+            token: response.access_token,
+            refreshToken: response.refresh_token,
+            isAuthenticated: true,
+            isLoading: false,
+            requiresTwoFactor: false,
+          });
+        } catch (error: any) {
           set({ isLoading: false });
+          toast.error('Invalid 2FA code');
           throw error;
         }
       },
 
       setup2FA: async (): Promise<TwoFactorSetupResponse> => {
-        await sleep(500);
-
-        // Mock 2FA setup response
-        return {
-          secret: 'JBSWY3DPEHPK3PXP',
-          qrCode: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-          backupCodes: [
-            'ABC123DEF456',
-            'GHI789JKL012',
-            'MNO345PQR678',
-            'STU901VWX234',
-            'YZA567BCD890',
-          ],
-        };
+        const response = await get<TwoFactorSetupResponse>('/auth/2fa/setup');
+        return response;
       },
 
       disable2FA: async (code: string): Promise<void> => {
-        await sleep(500);
-
-        if (code.length !== 6) {
-          throw new Error('Invalid verification code');
-        }
-
-        const user = get().user;
-        if (user) {
-          set({
-            user: { ...user, twoFactorEnabled: false },
-          });
-        }
+        await post('/auth/2fa/disable', { code });
       },
 
-      logout: async (sessionId?: string): Promise<void> => {
-        set({ isLoading: true });
-
+      logout: async (): Promise<void> => {
+        const storedRefresh = localStorage.getItem('qv_refresh_token');
         try {
-          await sleep(300);
-
-          if (sessionId) {
-            // Logout specific session
-            const sessions = get().sessions.filter((s) => s.id !== sessionId);
-            set({ sessions, isLoading: false });
-          } else {
-            // Full logout
-            set(initialState);
+          if (storedRefresh) {
+            await post('/auth/logout', { refresh_token: storedRefresh });
           }
-        } catch (error) {
-          set({ isLoading: false });
-          throw error;
+        } catch {
+          // Ignore backend errors — still clear local session
+        } finally {
+          localStorage.removeItem('qv_auth_token');
+          localStorage.removeItem('qv_refresh_token');
+          set(initialState);
         }
       },
 
       logoutAllSessions: async (): Promise<void> => {
-        set({ isLoading: true });
-
+        const storedRefresh = localStorage.getItem('qv_refresh_token');
         try {
-          await sleep(500);
+          if (storedRefresh) {
+            await post('/auth/logout', { refresh_token: storedRefresh });
+          }
+        } catch {
+          // Ignore
+        } finally {
+          localStorage.removeItem('qv_auth_token');
+          localStorage.removeItem('qv_refresh_token');
           set(initialState);
-        } catch (error) {
-          set({ isLoading: false });
-          throw error;
         }
       },
 
       refreshAuthToken: async (): Promise<void> => {
-        const currentRefreshToken = get().refreshToken;
-        if (!currentRefreshToken) {
-          throw new Error('No refresh token available');
-        }
-
-        await sleep(300);
-
-        const newToken = `mock-token-${Date.now()}`;
-        const newRefreshToken = `mock-refresh-${Date.now()}`;
-
-        set({
-          token: newToken,
-          refreshToken: newRefreshToken,
-        });
-      },
-
-      requestPasswordReset: async (email: string): Promise<void> => {
-        await sleep(1000);
-
-        // Mock - always succeed for demo
-        if (!email.includes('@')) {
-          throw new Error('Invalid email address');
-        }
-      },
-
-      resetPassword: async (): Promise<void> => {
-        await sleep(1000);
-        // Mock password reset
-      },
-
-      fetchSessions: async (): Promise<void> => {
-        set({ isLoading: true });
-
+        const { refreshToken } = getStore();
         try {
-          await sleep(500);
-          set({ sessions: mockSessions, isLoading: false });
+          const response = await post<{ access_token: string }>('/auth/refresh', {
+            refresh_token: refreshToken
+          });
+          localStorage.setItem('qv_auth_token', response.access_token);
+          set({ token: response.access_token });
         } catch (error) {
-          set({ isLoading: false });
+          getStore().clearAuth();
           throw error;
         }
       },
 
-      setUser: (user) => {
-        set({ user });
+      requestPasswordReset: async (email: string): Promise<void> => {
+        await post('/auth/request-password-reset', { email });
       },
 
+      resetPassword: async (data: any): Promise<void> => {
+        await post('/auth/reset-password', data);
+      },
+
+      fetchSessions: async (): Promise<void> => {
+        const sessions = await get<any[]>('/auth/sessions');
+        set({ sessions });
+      },
+
+      setUser: (user) => set({ user }),
+
       clearAuth: () => {
+        localStorage.removeItem('qv_auth_token');
+        localStorage.removeItem('qv_refresh_token');
         set(initialState);
       },
     }),
     {
-      name: STORAGE_KEYS.AUTH_TOKEN,
+      name: 'qv_auth_store',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         token: state.token,

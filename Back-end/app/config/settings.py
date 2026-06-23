@@ -29,8 +29,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
 
     # CORS — plain string, comma-separated. Split into a list in main.py.
-    # Kept as str to avoid pydantic-settings trying to json.loads() it.
-    allowed_origins: str = "http://localhost:3000,http://localhost:5173"
+    allowed_origins: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
 
 
 @lru_cache

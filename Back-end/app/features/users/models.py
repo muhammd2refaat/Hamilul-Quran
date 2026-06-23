@@ -70,9 +70,9 @@ class User(SQLModel, table=True):
     rank: int = Field(default=0)
     last_active: Optional[datetime] = Field(default=None)
 
-    # Relationships
-    teacher: Optional["User"] = Relationship(
-        back_populates="students",
-        sa_relationship_kwargs={"remote_side": "User.id"}
-    )
-    students: List["User"] = Relationship(back_populates="teacher")
+    # Relationships (temporarily commented out due to Python 3.14 / SQLModel stringification bug)
+    # teacher: User | None = Relationship(
+    #     back_populates="students",
+    #     sa_relationship_kwargs={"remote_side": "User.id"}
+    # )
+    # students: list[User] = Relationship(back_populates="teacher")

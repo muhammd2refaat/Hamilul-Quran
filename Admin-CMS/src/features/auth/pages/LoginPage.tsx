@@ -142,8 +142,8 @@ function LoginFormPanel({
         toast.success('Welcome back!');
         onSuccess();
       }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Login failed');
+    } catch {
+      // Error already toasted by the store
     }
   };
 
