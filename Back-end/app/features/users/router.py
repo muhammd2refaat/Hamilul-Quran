@@ -54,3 +54,21 @@ async def update_user(user_id: uuid.UUID, body: UserUpdate, _: AdminDep, svc: Sv
 @router.delete("/{user_id}", status_code=204, summary="Deactivate user (ADMIN)")
 async def delete_user(user_id: uuid.UUID, _: AdminDep, svc: SvcDep):
     await svc.delete(user_id)
+
+
+from app.features.users.schemas import ComplaintResponse, TeacherHistoryResponse, SessionScoreResponse
+
+@router.get("/{user_id}/complaints", response_model=list[ComplaintResponse], summary="Get user complaints (ADMIN)")
+async def get_user_complaints(user_id: uuid.UUID, _: AdminDep, svc: SvcDep):
+    return await svc.get_user_complaints(user_id)
+
+
+@router.get("/{user_id}/teacher-history", response_model=list[TeacherHistoryResponse], summary="Get student teacher history (ADMIN)")
+async def get_student_teacher_history(user_id: uuid.UUID, _: AdminDep, svc: SvcDep):
+    return await svc.get_student_teacher_history(user_id)
+
+
+@router.get("/{user_id}/session-scores", response_model=list[SessionScoreResponse], summary="Get student session scores (ADMIN)")
+async def get_student_session_scores(user_id: uuid.UUID, _: AdminDep, svc: SvcDep):
+    return await svc.get_student_session_scores(user_id)
+

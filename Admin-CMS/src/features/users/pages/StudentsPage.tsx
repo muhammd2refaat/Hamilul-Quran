@@ -25,6 +25,7 @@ import {
   Star,
 } from 'lucide-react';
 import { useUsersStore, selectUsers, selectIsLoading } from '../store/usersStore';
+import { ComplaintsTable, TeacherHistoryTable, SessionScoresTable } from '../components/UserSubTables';
 import type { User as UserType } from '../store/usersStore';
 import { format, differenceInYears, parseISO } from 'date-fns';
 
@@ -42,7 +43,7 @@ const STATUS_MAP: Record<string, { label: string; badge: string; bar: string; ic
 };
 
 function StatusBadge({ status }: { status: string }) {
-  const cfg = STATUS_MAP[status] ?? { label: status, badge: 'bg-gray-100 text-gray-600', icon: PauseCircle };
+  const cfg = STATUS_MAP[status] ?? { label: status, badge: 'bg-gray-100 text-gray-600 border-gray-200', bar: 'border-l-gray-400', icon: PauseCircle };
   const { label, badge, icon: Icon } = cfg;
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${badge}`}>
@@ -51,17 +52,15 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function PendingFeature({ label }: { label: string }) {
-  return (
-    <div className="text-xs text-gray-400 italic py-2 px-3 bg-gray-50 border border-dashed border-gray-200 rounded-xl">
-      ⏳ {label} — backend table not yet implemented
-    </div>
-  );
-}
-
 // ─── Student Card ─────────────────────────────────────────────────────────────
 
 function StudentCard({ student, teacherName }: { student: UserType; teacherName?: string }) {
+  const allUsers = useUsersStore(selectUsers);
+  const resolveTeacherName = (id: string) => {
+    const t = allUsers.find((u) => u.id === id);
+    return t ? `${t.firstName} ${t.lastName}` : id;
+  };
+
   const fullName = `${student.firstName} ${student.lastName}`;
   const initials = `${student.firstName[0] ?? ''}${student.lastName[0] ?? ''}`.toUpperCase();
   const age = student.dateOfBirth
@@ -125,28 +124,28 @@ function StudentCard({ student, teacherName }: { student: UserType; teacherName?
         <div><p className="font-bold text-gray-800 text-sm">{student.storiesSubmitted}</p><p>Stories</p></div>
       </div>
 
-      {/* ── Complaints — pending backend table ── */}
+      {/* ── Complaints ── */}
       <div className="px-4 pb-3 border-t border-gray-100 pt-3">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5 mb-2">
           <AlertCircle className="h-3.5 w-3.5" /> Complaints
         </p>
-        <PendingFeature label="Complaints/complaints table" />
+        <ComplaintsTable userId={student.id} />
       </div>
 
-      {/* ── Teacher history — pending backend table ── */}
+      {/* ── Teacher history ── */}
       <div className="px-4 pb-3 border-t border-gray-100 pt-3">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5 mb-2">
           <BookOpen className="h-3.5 w-3.5" /> Teacher History
         </p>
-        <PendingFeature label="Teacher assignment history" />
+        <TeacherHistoryTable studentId={student.id} resolveTeacherName={resolveTeacherName} />
       </div>
 
-      {/* ── Session scores — pending backend table ── */}
+      {/* ── Session scores ── */}
       <div className="px-4 pb-4 border-t border-gray-100 pt-3">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5 mb-2">
           <Star className="h-3.5 w-3.5" /> Session Scores
         </p>
-        <PendingFeature label="Recitation session scores" />
+        <SessionScoresTable studentId={student.id} resolveTeacherName={resolveTeacherName} />
       </div>
 
       {/* ── Footer ── */}
