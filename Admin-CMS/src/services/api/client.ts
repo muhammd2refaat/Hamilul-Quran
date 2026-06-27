@@ -70,7 +70,7 @@ apiClient.interceptors.response.use(
       // Clear stale tokens and let the page refresh handle redirect
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(REFRESH_TOKEN_KEY);
-      window.location.href = '/login';
+      window.location.href = '/auth/login';
     } else if (status >= 400) {
       import('react-hot-toast').then(({ default: toast }) => {
         toast.error(data?.message || `Error ${status}`);

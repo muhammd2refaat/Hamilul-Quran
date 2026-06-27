@@ -20,6 +20,9 @@ from app.features.auth.schemas import TokenResponse
 # Redis key prefix for valid refresh tokens
 _REFRESH_TOKEN_PREFIX = "solar_erp:refresh_token:"
 
+# In-memory fallback for revoked tokens when Redis is unavailable
+_fallback_revoked_jtis = set()
+
 
 class AuthService:
     def __init__(self, session: AsyncSession, redis: aioredis.Redis):
@@ -98,7 +101,9 @@ class AuthService:
                 raise credentials_exception
         except Exception:
             # If Redis is skipped, we bypass JTI verification
-            pass
+            # BUT check if the JTI was revoked in the in-memory fallback
+            if jti in _fallback_revoked_jtis:
+                raise credentials_exception
 
         # Load user
         result = await self.session.exec(
@@ -125,6 +130,10 @@ class AuthService:
         try:
             payload = decode_token(refresh_token)
             jti: str = payload.get("jti", "")
-            await self.redis.delete(f"{_REFRESH_TOKEN_PREFIX}{jti}")
+            try:
+                await self.redis.delete(f"{_REFRESH_TOKEN_PREFIX}{jti}")
+            except Exception:
+                # Fallback to in-memory cache if Redis is down
+                _fallback_revoked_jtis.add(jti)
         except Exception:
-            pass  # Token already invalid or Redis skipped
+            pass  # Token already invalid or couldn't decode
