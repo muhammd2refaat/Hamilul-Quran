@@ -82,16 +82,6 @@ class UserResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     
-    # Gamification
-    points: int
-    articles_viewed: int
-    webinars_attended: int
-    stories_submitted: int
-    webinars_registered: int
-    quizzes_taken: int
-    rank: int
-    last_active: Optional[datetime] = None
-
     model_config = {"from_attributes": True}
 
 
@@ -102,37 +92,4 @@ class PaginatedUsers(BaseModel):
     offset: int
 
 
-class ComplaintResponse(BaseModel):
-    id: uuid.UUID
-    user_id: uuid.UUID
-    teacher_id: Optional[uuid.UUID] = None
-    subject: str
-    description: str
-    status: str
-    created_at: datetime
-    resolved_at: Optional[datetime] = None
 
-    model_config = {"from_attributes": True}
-
-
-class TeacherHistoryResponse(BaseModel):
-    id: uuid.UUID
-    student_id: uuid.UUID
-    teacher_id: uuid.UUID
-    assigned_at: datetime
-    unassigned_at: Optional[datetime] = None
-    reason: Optional[str] = None
-
-    model_config = {"from_attributes": True}
-
-
-class SessionScoreResponse(BaseModel):
-    id: uuid.UUID
-    student_id: uuid.UUID
-    teacher_id: uuid.UUID
-    date: datetime
-    score: int
-    notes: Optional[str] = None
-    recitation_type: Optional[str] = None
-
-    model_config = {"from_attributes": True}

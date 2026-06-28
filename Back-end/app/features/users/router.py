@@ -56,19 +56,29 @@ async def delete_user(user_id: uuid.UUID, _: AdminDep, svc: SvcDep):
     await svc.delete(user_id)
 
 
-from app.features.users.schemas import ComplaintResponse, TeacherHistoryResponse, SessionScoreResponse
+from app.features.complaints.schemas import ComplaintResponse
+from app.features.sessions.schemas import TeacherHistoryResponse, SessionScoreResponse
+from app.features.complaints.service import ComplaintService
+from app.features.sessions.service import SessionService
+
+def _get_complaint_svc(session=Depends(get_session)) -> ComplaintService:
+    return ComplaintService(session=session)
+
+def _get_session_svc(session=Depends(get_session)) -> SessionService:
+    return SessionService(session=session)
+
+ComplaintSvcDep = Annotated[ComplaintService, Depends(_get_complaint_svc)]
+SessionSvcDep = Annotated[SessionService, Depends(_get_session_svc)]
 
 @router.get("/{user_id}/complaints", response_model=list[ComplaintResponse], summary="Get user complaints (ADMIN)")
-async def get_user_complaints(user_id: uuid.UUID, _: AdminDep, svc: SvcDep):
+async def get_user_complaints(user_id: uuid.UUID, _: AdminDep, svc: ComplaintSvcDep):
     return await svc.get_user_complaints(user_id)
 
-
 @router.get("/{user_id}/teacher-history", response_model=list[TeacherHistoryResponse], summary="Get student teacher history (ADMIN)")
-async def get_student_teacher_history(user_id: uuid.UUID, _: AdminDep, svc: SvcDep):
+async def get_student_teacher_history(user_id: uuid.UUID, _: AdminDep, svc: SessionSvcDep):
     return await svc.get_student_teacher_history(user_id)
 
-
 @router.get("/{user_id}/session-scores", response_model=list[SessionScoreResponse], summary="Get student session scores (ADMIN)")
-async def get_student_session_scores(user_id: uuid.UUID, _: AdminDep, svc: SvcDep):
+async def get_student_session_scores(user_id: uuid.UUID, _: AdminDep, svc: SessionSvcDep):
     return await svc.get_student_session_scores(user_id)
 

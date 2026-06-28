@@ -115,21 +115,3 @@ class UserService:
         user.status = UserStatus.SUSPENDED
         self.session.add(user)
         await self.session.commit()
-
-    async def get_user_complaints(self, user_id: uuid.UUID) -> list:
-        from app.features.users.models import Complaint
-        query = select(Complaint).where(Complaint.user_id == user_id).order_by(Complaint.created_at.desc())
-        result = await self.session.exec(query)
-        return result.all()
-
-    async def get_student_teacher_history(self, student_id: uuid.UUID) -> list:
-        from app.features.users.models import TeacherHistory
-        query = select(TeacherHistory).where(TeacherHistory.student_id == student_id).order_by(TeacherHistory.assigned_at.desc())
-        result = await self.session.exec(query)
-        return result.all()
-
-    async def get_student_session_scores(self, student_id: uuid.UUID) -> list:
-        from app.features.users.models import SessionScore
-        query = select(SessionScore).where(SessionScore.student_id == student_id).order_by(SessionScore.date.desc())
-        result = await self.session.exec(query)
-        return result.all()

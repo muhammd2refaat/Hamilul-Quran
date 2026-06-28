@@ -11,7 +11,9 @@ from sqlmodel import select, SQLModel
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app.core.config import settings
-from app.features.users.models import User, UserRole, Complaint, TeacherHistory, SessionScore, ComplaintStatus
+from app.features.users.models import User, UserRole
+from app.features.complaints.models import Complaint, ComplaintStatus
+from app.features.sessions.models import TeacherHistory, SessionScore
 from datetime import datetime, timedelta
 
 async def seed_data():
