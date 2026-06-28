@@ -2,7 +2,7 @@
  * Complaints page — reads from Zustand store, actions update live count
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   AlertCircle,
   CheckCircle,
@@ -162,7 +162,11 @@ function ComplaintCard({ complaint }: { complaint: PlatformComplaint }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function ComplaintsPage() {
-  const { complaints } = useComplaintsStore();
+  const { complaints, fetchComplaints } = useComplaintsStore();
+  
+  useEffect(() => {
+    fetchComplaints();
+  }, [fetchComplaints]);
   const [search, setSearch]       = useState('');
   const [statusFilter, setStatus] = useState<ComplaintStatus | ''>('');
   const [fromFilter, setFrom]     = useState<ComplaintFrom | ''>('');

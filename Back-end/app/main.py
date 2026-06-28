@@ -58,6 +58,14 @@ def _register_routers(app: FastAPI) -> None:
     from app.features.users.router import router as users_router
     app.include_router(users_router, prefix=prefix, tags=["Users"])
 
+    # Allocations
+    from app.features.allocations.router import router as allocations_router
+    app.include_router(allocations_router, prefix=prefix, tags=["Allocations"])
+
+    # Complaints
+    from app.features.complaints.router import router as complaints_router
+    app.include_router(complaints_router, prefix=prefix, tags=["Complaints"])
+
 
 from fastapi.responses import RedirectResponse
 
