@@ -4,14 +4,20 @@
 
 import type { Session, AdminRole } from '@/shared/types';
 
+/** Backend role values from /auth/me */
+export type BackendRole = 'ADMIN' | 'TEACHER' | 'STUDENT';
+
 export interface Admin {
   id: string;
   name: string;
   email: string;
+  /** Backend role: ADMIN | TEACHER | STUDENT */
   role: AdminRole;
+  backendRole: BackendRole;
+  is_active: boolean;
   avatar?: string;
-  twoFactorEnabled: boolean;
-  createdAt: string;
+  twoFactorEnabled?: boolean;
+  createdAt?: string;
   lastLogin?: string;
 }
 

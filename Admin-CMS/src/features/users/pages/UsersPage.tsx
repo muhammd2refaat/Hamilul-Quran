@@ -2,10 +2,10 @@
  * Users management page
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Edit2 } from 'lucide-react';
 import { Button, Card, DataTable, Modal, ConfirmDialog, Input } from '@/shared/components';
-import { mockUsers, type User } from '@/mock-data/users';
+import { useUsersStore, selectUsers, selectIsLoading, type User } from '../store/usersStore';
 
 import type { ColumnDef } from '@tanstack/react-table';
 import type { Country, Gender, UserStatus } from '@/shared/types';
@@ -34,7 +34,10 @@ type UserFormData = {
 };
 
 export function UsersPage() {
-  const [users, setUsers] = useState<User[]>(mockUsers);
+  const users = useUsersStore(selectUsers);
+  const isLoading = useUsersStore(selectIsLoading);
+  const { fetchUsers, setFilters, filters, deleteUser, updateUserStatus } = useUsersStore();
+
   const [search, setSearch] = useState('');
   const [countryFilter, setCountryFilter] = useState<string>('');
   const [organizationFilter, setOrganizationFilter] = useState<string>('');
@@ -57,6 +60,10 @@ export function UsersPage() {
     dateOfBirth: '',
     status: 'active',
   });
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   // Get available cities based on selected country
   const availableCities = useMemo(() => {
@@ -102,13 +109,13 @@ export function UsersPage() {
       lastName: user.lastName,
       email: user.email,
       phone: user.phone,
-      title: user.title || '',
-      country: user.country,
+      title: '', // Not in backend schema anymore
+      country: user.country as Country,
       city: user.city,
-      organization: user.organization,
-      organizationId: user.organizationId,
-      gender: user.gender,
-      dateOfBirth: user.dateOfBirth,
+      organization: user.organization || '',
+      organizationId: user.organizationId || '',
+      gender: user.gender as Gender,
+      dateOfBirth: user.dateOfBirth || '',
       status: user.status,
     });
     setSelectedUser(user);
@@ -120,35 +127,23 @@ export function UsersPage() {
     setSelectedUser(null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.firstName.trim() || !formData.lastName.trim() || !formData.email.trim()) {
       toast.error('Please fill in all required fields');
       return;
     }
 
     if (modalMode === 'create') {
-      const newUser: User = {
-        id: `user-${Date.now()}`,
-        ...formData,
-        points: 0,
-        articlesViewed: 0,
-        webinarsAttended: 0,
-        storiesSubmitted: 0,
-        webinarsRegistered: 0,
-        quizzesTaken: 0,
-        rank: users.length + 1,
-        createdAt: new Date().toISOString(),
-        lastActive: new Date().toISOString(),
-      };
-      setUsers([...users, newUser]);
-      toast.success('User created successfully');
+      // Backend create API not yet fully mapped in store
+      toast.error('Create user not implemented via store yet');
     } else if (modalMode === 'edit' && selectedUser) {
-      setUsers(
-        users.map((user) =>
-          user.id === selectedUser.id ? { ...user, ...formData } : user
-        )
-      );
-      toast.success('User updated successfully');
+      try {
+        await updateUserStatus(selectedUser.id, formData.status);
+        await fetchUsers(); // Refresh
+        toast.success('User updated successfully');
+      } catch (e) {
+        toast.error('Update failed');
+      }
     }
     handleCloseModal();
   };
@@ -163,48 +158,31 @@ export function UsersPage() {
     setSelectedUser(null);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (selectedUser) {
-      setUsers(users.filter((user) => user.id !== selectedUser.id));
-      toast.success('User deleted successfully');
+      try {
+        await deleteUser(selectedUser.id);
+        toast.success('User deleted successfully');
+      } catch (e) {
+        toast.error('Failed to delete user');
+      }
     }
     handleCloseDeleteDialog();
   };
 
   // Filter, search, and sort users
-  const filteredUsers = useMemo(() => {
-    let filtered = [...users];
+  useEffect(() => {
+    setFilters({ search, country: countryFilter, organization: organizationFilter, status: statusFilter as any });
+  }, [search, countryFilter, organizationFilter, statusFilter, setFilters]);
 
-    // Filter by search (name or email)
-    if (search) {
-      filtered = filtered.filter(
-        (user) =>
-          user.firstName.toLowerCase().includes(search.toLowerCase()) ||
-          user.lastName.toLowerCase().includes(search.toLowerCase()) ||
-          user.email.toLowerCase().includes(search.toLowerCase())
-      );
-    }
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchUsers();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [filters, fetchUsers]);
 
-    // Filter by country
-    if (countryFilter) {
-      filtered = filtered.filter((user) => user.country === countryFilter);
-    }
-
-    // Filter by organization
-    if (organizationFilter) {
-      filtered = filtered.filter((user) => user.organization === organizationFilter);
-    }
-
-    // Filter by status
-    if (statusFilter) {
-      filtered = filtered.filter((user) => user.status === statusFilter);
-    }
-
-    // Sort by reward points descending
-    filtered.sort((a, b) => b.points - a.points);
-
-    return filtered;
-  }, [users, search, countryFilter, organizationFilter, statusFilter]);
+  const filteredUsers = users;
 
   // Table columns
   const columns = useMemo<ColumnDef<User>[]>(
@@ -446,6 +424,7 @@ export function UsersPage() {
           data={filteredUsers}
           columns={columns}
           enableSearch={false}
+          isLoading={isLoading}
           emptyMessage="No users found."
         />
       </Card>

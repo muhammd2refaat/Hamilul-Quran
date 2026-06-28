@@ -2,14 +2,18 @@
  * User management module types
  */
 
+// User type lives in usersStore to stay co-located with the API mapping logic
+import type { User } from '../store/usersStore';
+export type { User };
+
 import type { PaginatedResponse } from '@/shared/types';
-import type { User } from '@/mock-data/users';
 
-export type UserStatus = 'active' | 'inactive' | 'suspended' | 'pending';
-export type UserRole = 'user' | 'moderator' | 'organization_admin';
+/** User status — must match backend UserStatus enum (lowercase) */
+export type UserStatus = 'active' | 'inactive' | 'pending' | 'suspended' | 'ACTIVE' | 'INACTIVE' | 'PENDING' | 'SUSPENDED';
 
-// Re-export User type from mock-data for consistency
-export type { User } from '@/mock-data/users';
+/** User role — maps to backend UserRole enum values */
+export type UserRole = 'ADMIN' | 'TEACHER' | 'STUDENT';
+
 
 export interface UserPreferences {
   language: 'en' | 'ar';

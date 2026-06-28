@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
-import type { User } from '@/mock-data/users';
+import type { User } from '../store/usersStore';
 
 interface UserFormModalProps {
   user?: User | null;

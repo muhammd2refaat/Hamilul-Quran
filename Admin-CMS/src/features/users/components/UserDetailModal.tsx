@@ -15,8 +15,7 @@ import {
 } from 'lucide-react';
 import { Modal, Avatar, StatusBadge, Card } from '@/shared/components';
 import { formatDate, formatNumber, formatRelativeTime } from '@/shared/utils';
-import type { User } from '@/mock-data/users';
-import type { UserStatus } from '@/shared/types';
+import type { User } from '../store/usersStore';
 
 interface UserDetailModalProps {
   user: User | null;
@@ -24,10 +23,11 @@ interface UserDetailModalProps {
   onClose: () => void;
 }
 
-const statusColorMap: Record<UserStatus, 'success' | 'warning' | 'danger' | 'default'> = {
-  active: 'success',
-  inactive: 'default',
-  pending: 'warning',
+const statusColorMap: Record<string, 'success' | 'warning' | 'danger' | 'default'> = {
+  active: 'success',   ACTIVE: 'success',
+  inactive: 'default', INACTIVE: 'default',
+  pending: 'warning',  PENDING: 'warning',
+  suspended: 'danger', SUSPENDED: 'danger',
 };
 
 const countryNames: Record<string, string> = {

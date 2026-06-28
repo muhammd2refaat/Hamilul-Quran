@@ -6,7 +6,7 @@ import { type ColumnDef } from '@tanstack/react-table';
 import { Eye, Edit, Trash2 } from 'lucide-react';
 import { DataTable, Avatar, StatusBadge, Button } from '@/shared/components';
 import { formatDate, formatNumber } from '@/shared/utils';
-import type { User } from '@/mock-data/users';
+import type { User } from '../store/usersStore';
 
 interface UsersTableProps {
   users: User[];

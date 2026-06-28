@@ -1,12 +1,36 @@
-/**
- * Users Zustand store
- */
-
 import { create } from 'zustand';
-import type { User } from '@/mock-data/users';
 import type { UserFilterParams } from '../types';
-import { mockUsers } from '@/mock-data/users';
 import type { UserStatus } from '@/shared/types';
+import { get, put, del } from '@/services/api/client';
+
+export interface User {
+  id: string;
+  username: string;          // backend: username
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  country: string;
+  city: string;
+  organization?: string;
+  organizationId?: string;
+  gender: string;
+  dateOfBirth?: string;
+  status: UserStatus;
+  points: number;
+  articlesViewed: number;
+  webinarsAttended: number;
+  storiesSubmitted: number;
+  webinarsRegistered: number;
+  quizzesTaken: number;
+  rank: number;
+  createdAt: string;
+  joinedDate: string;        // backend: joined_date (differs from created_at)
+  updatedAt: string;         // backend: updated_at
+  lastActive?: string;
+  role: string;
+  teacherId?: string;        // backend: teacher_id — student's assigned teacher UUID
+}
 
 interface UsersState {
   users: User[];
@@ -31,12 +55,12 @@ interface UsersState {
 
 const defaultFilters: UserFilterParams = {
   page: 1,
-  limit: 20,
-  sortBy: 'createdAt',
+  limit: 100,
+  sortBy: 'created_at',
   sortOrder: 'desc',
 };
 
-export const useUsersStore = create<UsersState>((set, get) => ({
+export const useUsersStore = create<UsersState>((set, getStore) => ({
   users: [],
   selectedUsers: [],
   filters: defaultFilters,
@@ -80,57 +104,51 @@ export const useUsersStore = create<UsersState>((set, get) => ({
   fetchUsers: async () => {
     set({ isLoading: true });
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      const { filters } = getStore();
+      const offset = ((filters.page || 1) - 1) * (filters.limit || 20);
       
-      const { filters } = get();
-      let filteredUsers = [...mockUsers];
-
-      // Apply filters
-      if (filters.search) {
-        const search = filters.search.toLowerCase();
-        filteredUsers = filteredUsers.filter(
-          (u) =>
-            `${u.firstName} ${u.lastName}`.toLowerCase().includes(search) ||
-            u.email.toLowerCase().includes(search)
-        );
-      }
-      if (filters.status) {
-        filteredUsers = filteredUsers.filter((u) => u.status === filters.status);
-      }
-      if (filters.country) {
-        filteredUsers = filteredUsers.filter((u) => u.country === filters.country);
-      }
-      if (filters.organization) {
-        filteredUsers = filteredUsers.filter((u) => u.organizationId === filters.organization);
-      }
-
-      // Apply sorting
-      const sortBy = filters.sortBy || 'createdAt';
-      const sortOrder = filters.sortOrder || 'desc';
-      filteredUsers.sort((a, b) => {
-        const aVal = a[sortBy as keyof User];
-        const bVal = b[sortBy as keyof User];
-        if (typeof aVal === 'string' && typeof bVal === 'string') {
-          return sortOrder === 'asc' 
-            ? aVal.localeCompare(bVal) 
-            : bVal.localeCompare(aVal);
-        }
-        if (typeof aVal === 'number' && typeof bVal === 'number') {
-          return sortOrder === 'asc' ? aVal - bVal : bVal - aVal;
-        }
-        return 0;
+      const queryParams = new URLSearchParams({
+        limit: (filters.limit || 20).toString(),
+        offset: offset.toString(),
       });
-
-      // Apply pagination
-      const page = filters.page || 1;
-      const limit = filters.limit || 20;
-      const startIndex = (page - 1) * limit;
-      const paginatedUsers = filteredUsers.slice(startIndex, startIndex + limit);
+      
+      if (filters.search) queryParams.append('search', filters.search);
+      if (filters.status) queryParams.append('status', filters.status);
+      if (filters.country) queryParams.append('country', filters.country);
+      
+      const response = await get<any>(`/users?${queryParams.toString()}`);
+      
+      // Map backend response
+      const mappedUsers: User[] = response.items.map((u: any) => ({
+        id: u.id,
+        username: u.username || '',
+        firstName: u.first_name,
+        lastName: u.last_name,
+        email: u.email,
+        phone: u.phone_number || '',
+        country: u.country || '',
+        city: u.city || '',
+        gender: u.gender || '',
+        dateOfBirth: u.date_of_birth,
+        status: u.status,
+        points: u.points,
+        articlesViewed: u.articles_viewed,
+        webinarsAttended: u.webinars_attended,
+        storiesSubmitted: u.stories_submitted,
+        webinarsRegistered: u.webinars_registered,
+        quizzesTaken: u.quizzes_taken,
+        rank: u.rank,
+        createdAt: u.created_at,
+        joinedDate: u.joined_date || u.created_at,
+        updatedAt: u.updated_at || u.created_at,
+        lastActive: u.last_active,
+        role: u.role,
+        teacherId: u.teacher_id ?? undefined,
+      }));
 
       set({
-        users: paginatedUsers,
-        totalCount: filteredUsers.length,
+        users: mappedUsers,
+        totalCount: response.total,
         isLoading: false,
       });
     } catch (error) {
@@ -142,7 +160,7 @@ export const useUsersStore = create<UsersState>((set, get) => ({
   updateUserStatus: async (userId, status) => {
     set({ isLoading: true });
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await put(`/users/${userId}`, { status });
       set((state) => ({
         users: state.users.map((u) =>
           u.id === userId ? { ...u, status } : u
@@ -158,7 +176,7 @@ export const useUsersStore = create<UsersState>((set, get) => ({
   deleteUser: async (userId) => {
     set({ isLoading: true });
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await del(`/users/${userId}`);
       set((state) => ({
         users: state.users.filter((u) => u.id !== userId),
         selectedUsers: state.selectedUsers.filter((id) => id !== userId),
@@ -174,7 +192,8 @@ export const useUsersStore = create<UsersState>((set, get) => ({
   bulkUpdateStatus: async (userIds, status) => {
     set({ isLoading: true });
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Assuming backend supports a bulk update or we loop
+      await Promise.all(userIds.map(id => put(`/users/${id}`, { status })));
       set((state) => ({
         users: state.users.map((u) =>
           userIds.includes(u.id) ? { ...u, status } : u
@@ -190,7 +209,7 @@ export const useUsersStore = create<UsersState>((set, get) => ({
   bulkDelete: async (userIds) => {
     set({ isLoading: true });
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await Promise.all(userIds.map(id => del(`/users/${id}`)));
       set((state) => ({
         users: state.users.filter((u) => !userIds.includes(u.id)),
         selectedUsers: state.selectedUsers.filter((id) => !userIds.includes(id)),
