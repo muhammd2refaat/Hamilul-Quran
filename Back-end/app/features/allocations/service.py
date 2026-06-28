@@ -13,6 +13,17 @@ class AllocationService:
         result = await self.session.exec(query)
         return result.all()
 
+    async def get_user_allocations(self, user_id: uuid.UUID, role: str) -> list[Allocation]:
+        from app.features.users.models import UserRole
+        if role == UserRole.STUDENT:
+            query = select(Allocation).where(Allocation.student_id == user_id).order_by(Allocation.created_at.desc())
+        elif role == UserRole.TEACHER:
+            query = select(Allocation).where(Allocation.teacher_id == user_id).order_by(Allocation.created_at.desc())
+        else:
+            return []
+        result = await self.session.exec(query)
+        return result.all()
+
     async def create(self, body: AllocationCreate) -> Allocation:
         # Convert schema to DB model
         allocation = Allocation(

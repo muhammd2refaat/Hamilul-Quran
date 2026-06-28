@@ -11,7 +11,13 @@ router = APIRouter(prefix="/allocations")
 def _get_svc(session=Depends(get_session)) -> AllocationService:
     return AllocationService(session=session)
 
+from app.core.dependencies import AdminDep, CurrentUserDep
+
 SvcDep = Annotated[AllocationService, Depends(_get_svc)]
+
+@router.get("/me", response_model=list[AllocationResponse], summary="Get my allocations")
+async def get_my_allocations(current_user: CurrentUserDep, svc: SvcDep):
+    return await svc.get_user_allocations(current_user.id, current_user.role)
 
 @router.get("", response_model=list[AllocationResponse], summary="List all allocations (ADMIN)")
 async def list_allocations(_: AdminDep, svc: SvcDep):

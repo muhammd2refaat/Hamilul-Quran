@@ -70,6 +70,18 @@ def _get_session_svc(session=Depends(get_session)) -> SessionService:
 ComplaintSvcDep = Annotated[ComplaintService, Depends(_get_complaint_svc)]
 SessionSvcDep = Annotated[SessionService, Depends(_get_session_svc)]
 
+@router.get("/me/complaints", response_model=list[ComplaintResponse], summary="Get my complaints")
+async def get_my_complaints(current_user: CurrentUserDep, svc: ComplaintSvcDep):
+    return await svc.get_user_complaints(current_user.id)
+
+@router.get("/me/teacher-history", response_model=list[TeacherHistoryResponse], summary="Get my teacher history")
+async def get_my_teacher_history(current_user: CurrentUserDep, svc: SessionSvcDep):
+    return await svc.get_student_teacher_history(current_user.id)
+
+@router.get("/me/session-scores", response_model=list[SessionScoreResponse], summary="Get my session scores")
+async def get_my_session_scores(current_user: CurrentUserDep, svc: SessionSvcDep):
+    return await svc.get_student_session_scores(current_user.id)
+
 @router.get("/{user_id}/complaints", response_model=list[ComplaintResponse], summary="Get user complaints (ADMIN)")
 async def get_user_complaints(user_id: uuid.UUID, _: AdminDep, svc: ComplaintSvcDep):
     return await svc.get_user_complaints(user_id)
