@@ -2,6 +2,37 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+@keyframes eeRise {
+  from { opacity: 0; transform: translateY(26px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes eeFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes eePop {
+  from { opacity: 0; transform: translateY(14px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.ee-rise { animation: eeRise .8s both; }
+.ee-rise-1 { animation: eeRise .8s .05s both; }
+.ee-rise-2 { animation: eeRise .8s .12s both; }
+.ee-rise-3 { animation: eeRise .8s .2s both; }
+.ee-rise-4 { animation: eeRise .8s .28s both; }
+.ee-fade   { animation: eeFade .8s both; }
+.ee-fade-d { animation: eeFade 1.1s .3s both; }
+.ee-pop    { animation: eePop .35s both; }
+
+.ee-card:hover  { transform: translateY(-6px); }
+.ee-cta:hover   { transform: translateY(-3px); }
+.ee-cta2:hover  { background: rgba(255,255,255,.06); }
+.ee-btn:hover   { transform: translateY(-2px); }
+.ee-lang:hover  { border-color: #D9B45F; color: #D9B45F; }
+.ee-login:hover { color: #D9B45F; }
+.ee-google:hover { border-color: #B08A2E; transform: translateY(-1px); }
+.ee-role:hover  { border-color: #D9B45F; }
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

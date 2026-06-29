@@ -1,31 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | Hamilul-Quran",
-    default: "Hamilul-Quran | Online Quran Memorization Academy",
+    template: "%s | Elhafazah Academy",
+    default: "Elhafazah Academy | Online Quran Memorization",
   },
-  description: "Hamilul-Quran provides one-on-one sessions, structured memorization tracking, and a community of certified teachers dedicated to your success in memorizing the Holy Quran.",
-  keywords: ["Quran", "Memorization", "Tahfiz", "Online Quran Academy", "Tajweed", "Hamilul-Quran"],
-  openGraph: {
-    title: "Hamilul-Quran | Online Quran Memorization Academy",
-    description: "Empowering your Quranic journey with expert teachers and structured memorization tracking.",
-    siteName: "Hamilul-Quran",
-    locale: "en_US",
-    type: "website",
-  },
+  description: "One-on-one live classes in Hifz, Tajweed, and Noorani Qaida. Personalised plans for children and adults — guided by certified instructors.",
 };
 
 export default function RootLayout({
@@ -34,11 +15,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@400;500;600;700&family=Tajawal:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body style={{ margin: 0, padding: 0, background: '#0C3326' }}>{children}</body>
     </html>
   );
 }
