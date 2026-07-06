@@ -26,6 +26,11 @@ class Gender(str, Enum):
     FEMALE = "FEMALE"
 
 
+class AuthProvider(str, Enum):
+    LOCAL = "LOCAL"
+    GOOGLE = "GOOGLE"
+
+
 class User(SQLModel, table=True):
     __tablename__ = "users"
 
@@ -40,13 +45,22 @@ class User(SQLModel, table=True):
     first_name: str = Field(max_length=100, default="")
     last_name: str = Field(max_length=100, default="")
     phone_number: Optional[str] = Field(default=None, max_length=50)
-    password_hash: str = Field(max_length=255)
+    # Nullable: OAuth-only accounts (auth_provider=GOOGLE) have no local password.
+    password_hash: Optional[str] = Field(default=None, max_length=255)
     role: UserRole = Field(default=UserRole.STUDENT)
     status: UserStatus = Field(default=UserStatus.PENDING)
-    
+
+    # Auth provider & Google identity (Google `sub`).
+    auth_provider: AuthProvider = Field(default=AuthProvider.LOCAL)
+    google_id: Optional[str] = Field(
+        default=None, unique=True, index=True, max_length=255, nullable=True
+    )
+
     country: Optional[str] = Field(default=None, max_length=100)
     city: Optional[str] = Field(default=None, max_length=100)
     gender: Optional[Gender] = Field(default=None)
+    # The signup wizard collects age as a number; date_of_birth is kept for future use.
+    age: Optional[int] = Field(default=None)
     date_of_birth: Optional[date] = Field(default=None)
     
     teacher_id: Optional[UUID] = Field(

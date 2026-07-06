@@ -36,16 +36,24 @@ this as work lands or plans change — newest entries at the top of each section
 - [ ] **Redis running locally** — required for refresh-token revocation and
   the Google signup handoff. Not running as of 2026-07-03 during dev testing —
   confirm it's up before relying on the signup handoff in a fresh environment.
-- [ ] Google OAuth consent screen is likely still in **Testing** mode (only
-  allows pre-added test users). Needs verification/publishing in Google Cloud
-  Console before arbitrary users outside the test list can sign in.
+- [ ] **Google OAuth verification/publishing** — the consent screen is in
+  Testing mode (app name currently shows as "N8N-Calander", suggesting the
+  wrong/reused Google Cloud project — see checklist). Any Google account not
+  manually added as a test user gets a hard `403 access_denied` from Google
+  itself before our app is ever reached; this can't be fixed in code. Full
+  checklist: `docs/GOOGLE_OAUTH_VERIFICATION_CHECKLIST.md`. Blocking
+  dependency: needs the frontend deployed to a real HTTPS domain (privacy
+  policy/homepage links can't be `localhost`).
 
 ## Next up / not started
 
 - [ ] Actual Google Calendar event creation for scheduled lessons (the
   refresh token is captured and stored encrypted, but nothing reads it yet).
   Entry point: `refresh_google_access_token()` in
-  `app/features/auth/google.py`.
+  `app/features/auth/google.py`. **Note:** Google's verification reviewers
+  check that a requested sensitive scope (calendar.events) is actually used —
+  this may need at least a minimal version built before verification is
+  approved, see the checklist.
 - [ ] Reconcile the drifted Alembic baseline (`0af01f5224fd`) so a fresh
   `alembic upgrade head` works against an empty database — right now it only
   works because the dev DB was `create_all`'d first and then stamped.

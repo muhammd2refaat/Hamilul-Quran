@@ -192,6 +192,15 @@ export default function EelhafazahPage() {
   function nextStep() { if (regStep === 1 && !role) return; setRegStep(Math.min(3, regStep + 1)); }
   function prevStep() { setRegStep(Math.max(1, regStep - 1)); }
 
+  // Kick off Google OAuth via the backend redirect flow. For signup we pass the
+  // chosen role so the callback routes new users to profile completion.
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+  function startGoogle(intent: 'login' | 'signup', chosenRole?: 'student' | 'teacher') {
+    const params = new URLSearchParams({ intent });
+    if (chosenRole) params.set('role', chosenRole);
+    window.location.href = `${API_BASE}/auth/google/login?${params.toString()}`;
+  }
+
   // ── Input style ──────────────────────────────────────────────────────────
   const inputDark: React.CSSProperties = {
     width: '100%', padding: '13px 14px',
@@ -415,7 +424,11 @@ export default function EelhafazahPage() {
               <div style={{ fontSize: 13 }}>{t.footerTag}</div>
             </div>
           </div>
-          <div style={{ fontSize: 12.5, color: '#6E8472' }}>{t.copyright}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18, fontSize: 12.5, color: '#6E8472' }}>
+            <span>{t.copyright}</span>
+            <a href="/privacy" style={{ color: 'inherit', textDecoration: 'underline' }}>{lang === 'ar' ? 'سياسة الخصوصية' : 'Privacy Policy'}</a>
+            <a href="/terms" style={{ color: 'inherit', textDecoration: 'underline' }}>{lang === 'ar' ? 'شروط الخدمة' : 'Terms of Service'}</a>
+          </div>
         </div>
       </footer>
 
@@ -449,7 +462,7 @@ export default function EelhafazahPage() {
             {/* Login tab */}
             {isLogin && (
               <div>
-                <button onClick={closeAuth} className="ee-google" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 11, background: '#fff', color: '#10241C', border: '1px solid rgba(12,51,38,.2)', padding: 14, borderRadius: 10, fontSize: 15, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', transition: 'all .2s', boxShadow: '0 2px 6px rgba(12,51,38,.06)' }}>
+                <button onClick={() => startGoogle('login')} className="ee-google" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 11, background: '#fff', color: '#10241C', border: '1px solid rgba(12,51,38,.2)', padding: 14, borderRadius: 10, fontSize: 15, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', transition: 'all .2s', boxShadow: '0 2px 6px rgba(12,51,38,.06)' }}>
                   <GoogleIcon />{t.googleContinue}
                 </button>
                 <p style={{ textAlign: 'center', fontSize: 12.5, color: '#7A857C', marginTop: 16, lineHeight: 1.5 }}>{t.loginNote}</p>
@@ -496,7 +509,7 @@ export default function EelhafazahPage() {
                 {regStep === 2 && (
                   <div>
                     <p style={{ fontSize: 13.5, color: '#5C6B5F', lineHeight: 1.6, marginBottom: 18 }}>{t.step2Note}</p>
-                    <button onClick={nextStep} className="ee-google" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 11, background: '#fff', color: '#10241C', border: '1px solid rgba(12,51,38,.2)', padding: 14, borderRadius: 10, fontSize: 15, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', transition: 'all .2s', boxShadow: '0 2px 6px rgba(12,51,38,.06)' }}>
+                    <button onClick={() => role && startGoogle('signup', role)} className="ee-google" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 11, background: '#fff', color: '#10241C', border: '1px solid rgba(12,51,38,.2)', padding: 14, borderRadius: 10, fontSize: 15, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', transition: 'all .2s', boxShadow: '0 2px 6px rgba(12,51,38,.06)' }}>
                       <GoogleIcon />{t.googleSignup}
                     </button>
                     <button onClick={prevStep} style={{ width: '100%', marginTop: 12, background: 'transparent', color: '#5C6B5F', border: 'none', padding: 10, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>{t.backBtn}</button>

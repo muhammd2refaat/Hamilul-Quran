@@ -18,7 +18,7 @@ from app.features.users.models import User, UserStatus
 from app.features.auth.schemas import TokenResponse
 
 # Redis key prefix for valid refresh tokens
-_REFRESH_TOKEN_PREFIX = "solar_erp:refresh_token:"
+_REFRESH_TOKEN_PREFIX = "hamilul_quran:refresh_token:"
 
 # In-memory fallback for revoked tokens when Redis is unavailable
 _fallback_revoked_jtis = set()
@@ -29,25 +29,13 @@ class AuthService:
         self.session = session
         self.redis = redis
 
-    async def login(self, email: str, password: str) -> TokenResponse:
+    async def issue_tokens_for_user(self, user: User) -> TokenResponse:
         """
-        Authenticate user by email/password.
-        Returns JWT access + refresh tokens.
-        Refresh token JTI is stored in Redis for revocation support.
+        Mint a JWT access + refresh token pair for an already-authenticated user
+        and store the refresh JTI in Redis for revocation support.
+
+        Shared by password login and Google OAuth login/registration.
         """
-        result = await self.session.exec(
-            select(User).where(User.email == email, User.status == UserStatus.ACTIVE)
-        )
-        user = result.first()
-
-        if not user or not verify_password(password, user.password_hash):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid email or password",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        # Create tokens
         access_token = create_access_token(
             subject=user.id,
             extra_claims={"role": user.role.value, "email": user.email},
@@ -72,6 +60,34 @@ class AuthService:
             refresh_token=refresh_token,
             expires_in=settings.access_token_expire_minutes * 60,
         )
+
+    async def login(self, email: str, password: str) -> TokenResponse:
+        """
+        Authenticate user by email/password.
+        Returns JWT access + refresh tokens.
+        Refresh token JTI is stored in Redis for revocation support.
+        """
+        result = await self.session.exec(
+            select(User).where(User.email == email, User.status == UserStatus.ACTIVE)
+        )
+        user = result.first()
+
+        # OAuth-only accounts have no local password — steer them to Google.
+        if user and not user.password_hash:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="This account uses Google sign-in. Please continue with Google.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if not user or not verify_password(password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        return await self.issue_tokens_for_user(user)
 
     async def refresh(self, refresh_token: str) -> TokenResponse:
         """

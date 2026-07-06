@@ -5,6 +5,13 @@ this as work lands or plans change — newest entries at the top of each section
 
 ## Done
 
+- **2026-07-03** — Added `app/privacy/page.tsx` and `app/terms/page.tsx`
+  (draft Privacy Policy / Terms of Service) plus footer links to them from
+  the landing page — required by Google before it will verify/publish the
+  OAuth consent screen for public sign-in. **Both pages have a
+  `[SUPPORT_EMAIL]` placeholder that must be replaced before going live**,
+  and should get a legal review — see
+  `Back-end/docs/GOOGLE_OAUTH_VERIFICATION_CHECKLIST.md`.
 - **2026-07-03** — Rebuilt `app/login/page.tsx`: added a "Continue with
   Google" button (previously only the landing-page modal had one — `/login`
   had none, which meant the backend's login-rejection redirect landed users
@@ -26,6 +33,15 @@ this as work lands or plans change — newest entries at the top of each section
   Grammarly browser extension injecting attributes before hydration.
 - (pre-existing) Email/password login (`app/login/page.tsx`), student/teacher
   dashboards, allocations/session-score/teacher-history API calls.
+
+## In progress / needs user action
+
+- [ ] **Deploy to a real HTTPS domain.** Google's OAuth verification requires
+  the app homepage and privacy/terms links to be publicly reachable —
+  `localhost` won't be accepted. This blocks Google verification entirely
+  until done. See `Back-end/docs/GOOGLE_OAUTH_VERIFICATION_CHECKLIST.md`.
+- [ ] Replace `[SUPPORT_EMAIL]` in `app/privacy/page.tsx` and
+  `app/terms/page.tsx` with a real, monitored support address.
 
 ## Next up / not started
 

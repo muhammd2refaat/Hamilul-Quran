@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.config.settings import settings
 from app.infrastructure.redis.client import get_redis_pool, close_redis_pool
@@ -29,6 +30,14 @@ def create_app() -> FastAPI:
         redoc_url=f"{settings.api_prefix}/redoc",
         openapi_url=f"{settings.api_prefix}/openapi.json",
         lifespan=lifespan,
+    )
+
+    # ─── Session (Authlib OAuth state/nonce) ───────────────────────────────────
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.session_secret,
+        same_site="lax",
+        https_only=settings.app_env == "production",
     )
 
     # ─── CORS ──────────────────────────────────────────────────────────────────

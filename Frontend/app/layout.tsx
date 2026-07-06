@@ -24,7 +24,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body style={{ margin: 0, padding: 0, background: '#0C3326' }}>{children}</body>
+      <body suppressHydrationWarning style={{ margin: 0, padding: 0, background: '#0C3326' }}>{children}</body>
     </html>
   );
 }
