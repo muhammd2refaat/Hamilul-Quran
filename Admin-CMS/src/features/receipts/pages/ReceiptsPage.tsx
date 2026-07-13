@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Receipt as ReceiptIcon, Eye, X } from 'lucide-react';
+import { Receipt as ReceiptIcon, Eye, Download, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { Card, Modal } from '@/shared/components';
@@ -18,6 +18,7 @@ export function ReceiptsPage() {
   const [viewing, setViewing] = useState<Receipt | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [isLoadingBlob, setIsLoadingBlob] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchReceipts();
@@ -49,6 +50,29 @@ export function ReceiptsPage() {
     if (blobUrl) {
       URL.revokeObjectURL(blobUrl);
       setBlobUrl(null);
+    }
+  };
+
+  // Saves the file to disk under its original filename. Not just "open the
+  // blob URL" — the file endpoint needs a bearer token, and a bare <a href>
+  // to it would 401; this fetches the authenticated blob first, then drives
+  // a real download via a temporary anchor with the `download` attribute.
+  const downloadReceipt = async (receipt: Receipt) => {
+    setDownloadingId(receipt.id);
+    try {
+      const blob = await fetchReceiptBlob(receipt.id);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = receipt.originalFilename || 'receipt';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail || 'Failed to download receipt');
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -90,12 +114,21 @@ export function ReceiptsPage() {
                 {t('receipts.expires')}: {format(new Date(r.expiresAt), 'MMM d, yyyy')}
               </div>
 
-              <button
-                onClick={() => openViewer(r)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold bg-primary-50 text-primary-700 border border-primary-200 rounded-lg hover:bg-primary-100 transition-colors"
-              >
-                <Eye className="h-4 w-4" /> {t('receipts.view')}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => openViewer(r)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold bg-primary-50 text-primary-700 border border-primary-200 rounded-lg hover:bg-primary-100 transition-colors"
+                >
+                  <Eye className="h-4 w-4" /> {t('receipts.view')}
+                </button>
+                <button
+                  onClick={() => downloadReceipt(r)}
+                  disabled={downloadingId === r.id}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold bg-gray-50 text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+                >
+                  <Download className="h-4 w-4" /> {t('receipts.download')}
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -115,12 +148,21 @@ export function ReceiptsPage() {
           {viewing?.note && (
             <p className="text-sm text-gray-600 italic self-start">"{viewing.note}"</p>
           )}
-          <button
-            onClick={closeViewer}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="h-4 w-4" /> {t('common.close')}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => viewing && downloadReceipt(viewing)}
+              disabled={!viewing || downloadingId === viewing.id}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold bg-primary-50 text-primary-700 border border-primary-200 rounded-lg hover:bg-primary-100 transition-colors disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" /> {t('receipts.download')}
+            </button>
+            <button
+              onClick={closeViewer}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="h-4 w-4" /> {t('common.close')}
+            </button>
+          </div>
         </div>
       </Modal>
     </div>

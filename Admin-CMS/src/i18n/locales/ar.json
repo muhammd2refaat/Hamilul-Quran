@@ -197,7 +197,8 @@
     "noneFound": "لا توجد إيصالات.",
     "uploaded": "تاريخ الرفع",
     "expires": "تنتهي في",
-    "view": "عرض"
+    "view": "عرض",
+    "download": "تنزيل"
   },
   "admins": {
     "title": "المشرفون",

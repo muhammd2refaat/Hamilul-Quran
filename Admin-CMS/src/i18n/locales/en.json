@@ -197,7 +197,8 @@
     "noneFound": "No receipts found.",
     "uploaded": "Uploaded",
     "expires": "Expires",
-    "view": "View"
+    "view": "View",
+    "download": "Download"
   },
   "admins": {
     "title": "Admins",

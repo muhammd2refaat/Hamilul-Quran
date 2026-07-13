@@ -63,8 +63,17 @@ export default function StudentReceiptsPage() {
     if (note.trim()) form.set('note', note.trim());
 
     try {
+      // apiClient defaults to Content-Type: application/json, which makes
+      // axios JSON.stringify the FormData instead of sending it as a file
+      // unless overridden. But a literal 'multipart/form-data' string (no
+      // boundary) isn't auto-corrected by the browser either — it becomes
+      // an "author header" that blocks the browser's own boundary, and the
+      // backend then rejects it with "Missing boundary in multipart". The
+      // only override that works is explicit `undefined`: axios's header
+      // merge deletes it entirely, so the browser sets the correct
+      // multipart Content-Type (with boundary) itself.
       await apiClient.post('/receipts', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: { 'Content-Type': undefined },
       });
       setFile(null);
       setAmount('');
