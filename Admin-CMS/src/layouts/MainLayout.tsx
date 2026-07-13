@@ -26,6 +26,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useComplaintsStore } from '@/features/complaints/store/complaintsStore';
 import { useRequestsStore } from '@/features/requests/store/requestsStore';
+import { useReceiptsStore } from '@/features/receipts/store/receiptsStore';
 import { useAuthStore } from '@/features/auth';
 import { LanguageSwitcher } from '@/shared/components/LanguageSwitcher';
 
@@ -55,14 +56,17 @@ export function MainLayout() {
   // Build navigation items based on user role
   const openComplaints  = useComplaintsStore((s) => s.unreadCount);
   const pendingRequests = useRequestsStore((s) => s.unreadCount);
+  const newReceipts     = useReceiptsStore((s) => s.unreadCount);
   const fetchComplaints = useComplaintsStore((s) => s.fetchComplaints);
   const fetchRequests   = useRequestsStore((s) => s.fetchRequests);
+  const fetchReceipts   = useReceiptsStore((s) => s.fetchReceipts);
 
   // Warm the sidebar badge counts once on mount.
   useEffect(() => {
     fetchComplaints();
     fetchRequests();
-  }, [fetchComplaints, fetchRequests]);
+    fetchReceipts();
+  }, [fetchComplaints, fetchRequests, fetchReceipts]);
 
   const navigationItems: NavItem[] = [
     { name: 'Dashboard & Statistics', labelKey: 'nav.dashboard', path: '/', icon: LayoutDashboard },
@@ -74,7 +78,7 @@ export function MainLayout() {
     { name: 'Teachers', labelKey: 'nav.teachers', path: '/teachers', icon: BookOpen },
     { name: 'Complaints', labelKey: 'nav.complaints', path: '/complaints', icon: AlertCircle, badge: openComplaints },
     { name: 'Requests', labelKey: 'nav.requests', path: '/requests', icon: Inbox, badge: pendingRequests },
-    { name: 'Receipts', labelKey: 'nav.receipts', path: '/receipts', icon: Receipt },
+    { name: 'Receipts', labelKey: 'nav.receipts', path: '/receipts', icon: Receipt, badge: newReceipts },
     ...(isSuperAdmin ? [{ name: 'Admins', labelKey: 'nav.admins', path: '/admins', icon: Shield }] : []),
   ];
 

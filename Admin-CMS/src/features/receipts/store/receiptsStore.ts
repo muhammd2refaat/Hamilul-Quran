@@ -16,12 +16,16 @@ export interface Receipt {
   expiresAt: string;
 }
 
+const LAST_SEEN_KEY = 'qv_receipts_last_seen';
+
 interface ReceiptsState {
   receipts: Receipt[];
+  unreadCount: number;
   isLoading: boolean;
   error: string | null;
   fetchReceipts: () => Promise<void>;
   fetchReceiptBlob: (id: string) => Promise<Blob>;
+  markAllRead: () => void;
 }
 
 const mapReceipt = (item: any): Receipt => ({
@@ -36,8 +40,16 @@ const mapReceipt = (item: any): Receipt => ({
   expiresAt: item.expires_at,
 });
 
+const countNew = (list: Receipt[]): number => {
+  const lastSeen = localStorage.getItem(LAST_SEEN_KEY);
+  if (!lastSeen) return list.length; // never visited → everything is new
+  const threshold = new Date(lastSeen).getTime();
+  return list.filter((r) => new Date(r.createdAt).getTime() > threshold).length;
+};
+
 export const useReceiptsStore = create<ReceiptsState>((set) => ({
   receipts: [],
+  unreadCount: 0,
   isLoading: false,
   error: null,
 
@@ -45,7 +57,8 @@ export const useReceiptsStore = create<ReceiptsState>((set) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await get<any[]>('/receipts');
-      set({ receipts: response.map(mapReceipt), isLoading: false });
+      const receipts = response.map(mapReceipt);
+      set({ receipts, unreadCount: countNew(receipts), isLoading: false });
     } catch (error: any) {
       set({
         error: error.response?.data?.detail || 'Failed to fetch receipts',
@@ -56,5 +69,10 @@ export const useReceiptsStore = create<ReceiptsState>((set) => ({
 
   fetchReceiptBlob: async (id: string) => {
     return get<Blob>(`/receipts/${id}/file`, { responseType: 'blob' });
+  },
+
+  markAllRead: () => {
+    localStorage.setItem(LAST_SEEN_KEY, new Date().toISOString());
+    set({ unreadCount: 0 });
   },
 }));

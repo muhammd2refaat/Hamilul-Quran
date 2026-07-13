@@ -14,15 +14,16 @@ import { format } from 'date-fns';
 
 export function ReceiptsPage() {
   const { t } = useTranslation();
-  const { receipts, isLoading, fetchReceipts, fetchReceiptBlob } = useReceiptsStore();
+  const { receipts, isLoading, fetchReceipts, fetchReceiptBlob, markAllRead } = useReceiptsStore();
   const [viewing, setViewing] = useState<Receipt | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [isLoadingBlob, setIsLoadingBlob] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
+    markAllRead();
     fetchReceipts();
-  }, [fetchReceipts]);
+  }, [fetchReceipts, markAllRead]);
 
   // Revoke the previous object URL whenever it changes or the component unmounts.
   useEffect(() => {

@@ -170,7 +170,9 @@
     "sessionDuration": "Session Duration",
     "sessionDurationDesc": "How long is each session?",
     "selectSchedule": "Select Schedule",
-    "selectedSlots": "Selected {{selected}} of {{total}} slots"
+    "selectedSlots": "Selected {{selected}} of {{total}} slots",
+    "enrolledStudents": "Enrolled Students ({{count}})",
+    "noEnrolledStudents": "No students enrolled yet."
   },
   "subscriptions": {
     "title": "Subscriptions",
