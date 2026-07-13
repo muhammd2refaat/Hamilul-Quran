@@ -1,9 +1,14 @@
 from typing import Annotated
+import uuid
 from fastapi import APIRouter, Depends
 
 from app.core.database import get_session
 from app.core.dependencies import AdminDep
-from app.features.allocations.schemas import AllocationCreate, AllocationResponse
+from app.features.allocations.schemas import (
+    AllocationCreate,
+    AllocationResponse,
+    AllocationUpdate,
+)
 from app.features.allocations.service import AllocationService
 
 router = APIRouter(prefix="/allocations")
@@ -26,3 +31,13 @@ async def list_allocations(_: AdminDep, svc: SvcDep):
 @router.post("", response_model=AllocationResponse, status_code=201, summary="Create allocation (ADMIN)")
 async def create_allocation(_: AdminDep, svc: SvcDep, body: AllocationCreate):
     return await svc.create(body)
+
+@router.patch("/{allocation_id}", response_model=AllocationResponse, summary="Update allocation (ADMIN)")
+async def update_allocation(
+    allocation_id: uuid.UUID, body: AllocationUpdate, _: AdminDep, svc: SvcDep
+):
+    return await svc.update(allocation_id, body)
+
+@router.delete("/{allocation_id}", status_code=204, summary="Delete allocation (ADMIN)")
+async def delete_allocation(allocation_id: uuid.UUID, _: AdminDep, svc: SvcDep):
+    await svc.delete(allocation_id)

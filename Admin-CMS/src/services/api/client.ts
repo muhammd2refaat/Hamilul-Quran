@@ -9,9 +9,11 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from 'axios';
 
-// Backend base URL — uses Vite proxy (/api → http://127.0.0.1:8000) to avoid IPv6/localhost issues
-const API_BASE_URL = '/api/v1';
-const API_TIMEOUT = 30000;
+// Backend base URL — reads VITE_API_BASE_URL (e.g. http://localhost:8000/api/v1
+// in dev, the real API domain in production). Falls back to the relative
+// /api/v1 path (routed by the Vite dev proxy to 127.0.0.1:8000) when unset.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+const API_TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT) || 30000;
 
 // Storage keys
 const TOKEN_KEY = 'qv_auth_token';

@@ -18,8 +18,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'yarn dev -p 3000',
+    // Port is pinned in package.json's dev script itself.
+    command: 'yarn dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
+    timeout: 60_000,
   },
 });

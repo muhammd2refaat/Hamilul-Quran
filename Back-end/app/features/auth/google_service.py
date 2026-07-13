@@ -1,6 +1,8 @@
 import json
+import logging
 import re
 import secrets
+import time
 import uuid
 from typing import Any, Optional, Sequence
 from urllib.parse import urlencode
@@ -31,8 +33,17 @@ from app.features.users.models import (
     UserStatus,
 )
 
+logger = logging.getLogger(__name__)
+
 # Redis key prefix for short-lived pending-registration handoffs.
 _PENDING_PREFIX = "hamilul_quran:pending_registration:"
+
+# In-memory fallback for the pending-registration blob when Redis is
+# unavailable (mirrors the refresh-token fallback in AuthService). Keeps
+# Google signup working in single-process dev without a running Redis;
+# production runs Redis so this path is effectively never used there.
+# {token: (blob_json, expires_at_epoch_seconds)}
+_pending_fallback: dict[str, tuple[str, float]] = {}
 
 
 class GoogleAuthService:
@@ -79,7 +90,7 @@ class GoogleAuthService:
         # No user yet. Logging in (not signing up) with a Google account that
         # was never registered is explicitly rejected — no auto-signup here.
         if intent != "signup" or role not in ("student", "teacher"):
-            return self._frontend_error("not_registered", path="/login", email=email)
+            return self._frontend_error("not_registered", path="/register/required", email=email)
 
         return await self._start_pending_registration(role, google_sub, email, userinfo, token)
 
@@ -98,7 +109,7 @@ class GoogleAuthService:
         ijazas: Sequence[IjazaType],
         certificate: Optional[UploadFile],
     ) -> TokenResponse:
-        raw = await self.redis.get(f"{_PENDING_PREFIX}{registration_token}")
+        raw = await self._read_pending(registration_token)
         if not raw:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -112,7 +123,7 @@ class GoogleAuthService:
         # Idempotency: if the account was already created, just log them in.
         existing = await self._find_user(google_sub, email)
         if existing:
-            await self.redis.delete(f"{_PENDING_PREFIX}{registration_token}")
+            await self._delete_pending(registration_token)
             return await self.auth.issue_tokens_for_user(existing)
 
         first_name, last_name = _split_name(full_name)
@@ -149,7 +160,7 @@ class GoogleAuthService:
         await self.session.commit()
         await self.session.refresh(user)
 
-        await self.redis.delete(f"{_PENDING_PREFIX}{registration_token}")
+        await self._delete_pending(registration_token)
         return await self.auth.issue_tokens_for_user(user)
 
     # ─── Helpers ─────────────────────────────────────────────────────────────
@@ -160,6 +171,34 @@ class GoogleAuthService:
             )
         )
         return result.first()
+
+    # ─── Pending-registration storage (Redis, in-memory fallback) ────────────
+    async def _store_pending(self, token: str, blob_str: str, ttl: int) -> None:
+        try:
+            await self.redis.setex(f"{_PENDING_PREFIX}{token}", ttl, blob_str)
+        except Exception:
+            logger.warning("Redis unavailable — storing pending registration in memory", exc_info=True)
+            _pending_fallback[token] = (blob_str, time.time() + ttl)
+
+    async def _read_pending(self, token: str) -> Optional[str]:
+        try:
+            return await self.redis.get(f"{_PENDING_PREFIX}{token}")
+        except Exception:
+            logger.warning("Redis unavailable — reading pending registration from memory", exc_info=True)
+            entry = _pending_fallback.get(token)
+            if not entry:
+                return None
+            blob_str, expires_at = entry
+            if time.time() > expires_at:
+                _pending_fallback.pop(token, None)
+                return None
+            return blob_str
+
+    async def _delete_pending(self, token: str) -> None:
+        try:
+            await self.redis.delete(f"{_PENDING_PREFIX}{token}")
+        except Exception:
+            _pending_fallback.pop(token, None)
 
     async def _start_pending_registration(
         self,
@@ -183,10 +222,10 @@ class GoogleAuthService:
             "token_expiry": expiry.isoformat() if expiry else None,
             "scopes": token.get("scope") or settings.google_oauth_scopes,
         }
-        await self.redis.setex(
-            f"{_PENDING_PREFIX}{registration_token}",
-            settings.registration_token_ttl_seconds,
+        await self._store_pending(
+            registration_token,
             json.dumps(blob),
+            settings.registration_token_ttl_seconds,
         )
         query = urlencode({"registration_token": registration_token, "role": role})
         return RedirectResponse(

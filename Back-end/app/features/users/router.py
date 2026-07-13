@@ -1,11 +1,11 @@
-from typing import Annotated, Optional
+from typing import Annotated, Literal, Optional
 import uuid
 
 from fastapi import APIRouter, Depends, Query
 
 from app.core.database import get_session
 from app.core.dependencies import AdminDep, CurrentUserDep
-from app.features.users.models import UserRole
+from app.features.users.models import UserRole, UserStatus
 from app.features.users.schemas import UserCreate, UserUpdate, UserResponse, PaginatedUsers
 from app.features.users.service import UserService
 
@@ -25,9 +25,23 @@ async def list_users(
     svc: SvcDep,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    search: Optional[str] = Query(None, description="Filter by email"),
+    search: Optional[str] = Query(None, description="Filter by name or email"),
+    role: Optional[UserRole] = Query(None),
+    status_filter: Optional[UserStatus] = Query(None, alias="status"),
+    country: Optional[str] = Query(None),
+    sort_by: str = Query("created_at"),
+    sort_order: Literal["asc", "desc"] = Query("desc"),
 ):
-    items, total = await svc.get_all(limit=limit, offset=offset, search=search)
+    items, total = await svc.get_all(
+        limit=limit,
+        offset=offset,
+        search=search,
+        role=role,
+        status_filter=status_filter,
+        country=country,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
     return PaginatedUsers(items=items, total=total, limit=limit, offset=offset)
 
 
@@ -51,7 +65,7 @@ async def update_user(user_id: uuid.UUID, body: UserUpdate, _: AdminDep, svc: Sv
     return await svc.update(user_id, body)
 
 
-@router.delete("/{user_id}", status_code=204, summary="Deactivate user (ADMIN)")
+@router.delete("/{user_id}", status_code=204, summary="Permanently delete user and all their data (ADMIN)")
 async def delete_user(user_id: uuid.UUID, _: AdminDep, svc: SvcDep):
     await svc.delete(user_id)
 

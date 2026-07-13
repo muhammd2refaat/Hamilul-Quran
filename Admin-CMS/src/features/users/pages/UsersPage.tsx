@@ -11,6 +11,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import type { Country, Gender, UserStatus } from '@/shared/types';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 // Country-city mapping
 const COUNTRY_CITIES: Record<string, string[]> = {
@@ -34,6 +35,7 @@ type UserFormData = {
 };
 
 export function UsersPage() {
+  const { t } = useTranslation();
   const users = useUsersStore(selectUsers);
   const isLoading = useUsersStore(selectIsLoading);
   const { fetchUsers, setFilters, filters, deleteUser, updateUserStatus } = useUsersStore();
@@ -77,7 +79,7 @@ export function UsersPage() {
   }, [users]);
 
   const organizations = useMemo(() => {
-    const set = new Set(users.map((user) => user.organization));
+    const set = new Set(users.map((user) => (user as unknown as { organization?: string }).organization));
     return Array.from(set).sort();
   }, [users]);
 
@@ -112,8 +114,8 @@ export function UsersPage() {
       title: '', // Not in backend schema anymore
       country: user.country as Country,
       city: user.city,
-      organization: user.organization || '',
-      organizationId: user.organizationId || '',
+      organization: '',
+      organizationId: '',
       gender: user.gender as Gender,
       dateOfBirth: user.dateOfBirth || '',
       status: user.status,
@@ -351,13 +353,13 @@ export function UsersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('users.usersTitle')}</h1>
           <p className="text-gray-600 mt-1">
-            Manage platform users and assigning access permissions.
+            {t('users.usersSubtitle')}
           </p>
         </div>
         <Button leftIcon={<Plus className="h-4 w-4" />} onClick={handleOpenCreateModal}>
-          Add User
+          {t('users.addUser')}
         </Button>
       </div>
 
@@ -367,7 +369,7 @@ export function UsersPage() {
           <div className="flex flex-col md:flex-row gap-4 w-full justify-between">
             <input
               type="text"
-              placeholder="Search by name or email..."
+              placeholder={t('users.searchNameEmail')}
               value={search}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
               className="border border-gray-300 rounded-lg px-4 py-2 text-sm w-full md:w-80 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
@@ -382,7 +384,7 @@ export function UsersPage() {
                 className="min-w-[155px] border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-primary-500 focus:border-primary-500"
                 style={{ maxWidth: '155px' }}
               >
-                <option value="">All Countries</option>
+                <option value="">{t('users.allCountries')}</option>
                 {countries.map((country) => (
                   <option key={country} value={country}>
                     {country}
@@ -397,7 +399,7 @@ export function UsersPage() {
                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-primary-500 focus:border-primary-500"
                 style={{ maxWidth: '155px' }}
               >
-                <option value="">All Organizations</option>
+                <option value="">{t('users.allOrganizations')}</option>
                 {organizations.map((org) => (
                   <option key={org} value={org}>
                     {org}
@@ -412,10 +414,10 @@ export function UsersPage() {
                 className="min-w-[155px] border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-primary-500 focus:border-primary-500"
                 style={{ maxWidth: '155px' }}
               >
-                <option value="">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="pending">Pending</option>
+                <option value="">{t('common.allStatuses')}</option>
+                <option value="active">{t('status.active')}</option>
+                <option value="inactive">{t('status.inactive')}</option>
+                <option value="pending">{t('status.pending')}</option>
               </select>
             </div>
           </div>

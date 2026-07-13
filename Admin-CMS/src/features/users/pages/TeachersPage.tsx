@@ -19,14 +19,17 @@ import {
   Users,
   GraduationCap,
   RefreshCw,
-  Trophy,
   Award,
   CalendarDays,
   User,
+  Plus,
 } from 'lucide-react';
 import { useUsersStore, selectUsers, selectIsLoading } from '../store/usersStore';
+import { AddUserModal } from '../components/AddUserModal';
+import { UserActions } from '../components/UserActions';
 import type { User as UserType } from '../store/usersStore';
 import { format, differenceInYears, parseISO } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
@@ -118,11 +121,7 @@ function TeacherCard({ teacher, assignedStudents }: { teacher: UserType; assigne
             <span className="text-sm font-semibold">{assignedStudents.length}</span>
             <span className="text-xs text-primary-300 hidden sm:inline">Students</span>
           </div>
-          <div className="flex items-center gap-1.5 bg-white/10 rounded-xl px-3 py-2 text-white">
-            <Trophy className="h-4 w-4 text-primary-200" />
-            <span className="text-sm font-semibold">{teacher.points}</span>
-            <span className="text-xs text-primary-300 hidden sm:inline">Points</span>
-          </div>
+          <UserActions user={teacher} />
         </div>
       </div>
 
@@ -205,11 +204,13 @@ function TeacherCard({ teacher, assignedStudents }: { teacher: UserType; assigne
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function TeachersPage() {
+  const { t: tr } = useTranslation();
   const allUsers = useUsersStore(selectUsers);
   const isLoading = useUsersStore(selectIsLoading);
   const { fetchUsers, setFilters, filters } = useUsersStore();
 
   const [search, setSearch] = useState('');
+  const [isAddOpen, setIsAddOpen] = useState(false);
 
   useEffect(() => {
     setFilters({ search } as any);
@@ -242,26 +243,35 @@ export function TeachersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Teachers</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{tr('users.teachersTitle')}</h1>
           <p className="text-gray-500 mt-1 text-sm">
-            {teachers.length} teachers · {students.length} students · live data from backend
+            {tr('users.teachersSubtitle', { teachers: teachers.length, students: students.length })}
           </p>
         </div>
-        <button
-          onClick={() => fetchUsers()}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-        >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => fetchUsers()}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            {tr('common.refresh')}
+          </button>
+          <button
+            onClick={() => setIsAddOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            {tr('users.addTeacher')}
+          </button>
+        </div>
       </div>
 
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: 'Teachers',       value: teachers.length, icon: BookOpen,      bg: 'bg-primary-50',  text: 'text-primary-700',  iconBg: 'bg-primary-100' },
-          { label: 'Total Students', value: students.length, icon: Users,         bg: 'bg-emerald-50', text: 'text-emerald-700', iconBg: 'bg-emerald-100' },
-          { label: 'Active',         value: teachers.filter(t => t.status === 'ACTIVE' || t.status === 'active').length, icon: CheckCircle, bg: 'bg-amber-50', text: 'text-amber-700', iconBg: 'bg-amber-100' },
+          { label: tr('users.teachersTitle'),  value: teachers.length, icon: BookOpen,      bg: 'bg-primary-50',  text: 'text-primary-700',  iconBg: 'bg-primary-100' },
+          { label: tr('users.totalStudents'),  value: students.length, icon: Users,         bg: 'bg-emerald-50', text: 'text-emerald-700', iconBg: 'bg-emerald-100' },
+          { label: tr('status.active'),        value: teachers.filter(t => t.status === 'ACTIVE' || t.status === 'active').length, icon: CheckCircle, bg: 'bg-amber-50', text: 'text-amber-700', iconBg: 'bg-amber-100' },
         ].map(({ label, value, icon: Icon, bg, text, iconBg }) => (
           <div key={label} className={`${bg} ${text} rounded-xl border border-gray-200 p-4 flex items-center gap-3`}>
             <div className={`${iconBg} rounded-xl p-2.5`}><Icon className="h-6 w-6" /></div>
@@ -275,20 +285,20 @@ export function TeachersPage() {
 
       {/* Search */}
       <div className="relative w-full sm:w-80">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
         <input
           type="text"
-          placeholder="Search by name, email or username…"
+          placeholder={tr('users.searchNameEmailUsername')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm w-full focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
+          className="ps-9 pe-4 py-2 border border-gray-300 rounded-lg text-sm w-full focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
         />
       </div>
 
       {/* Teacher list */}
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-gray-400">
-          <RefreshCw className="h-6 w-6 animate-spin mr-2" /> Loading teachers…
+          <RefreshCw className="h-6 w-6 animate-spin me-2" /> {tr('users.loadingTeachers')}
         </div>
       ) : filtered.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center text-gray-400">
@@ -305,6 +315,8 @@ export function TeachersPage() {
           ))}
         </div>
       )}
+
+      <AddUserModal role="TEACHER" isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} />
     </div>
   );
 }

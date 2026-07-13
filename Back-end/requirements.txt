@@ -14,6 +14,8 @@ bcrypt==4.2.1
 python-multipart==0.0.12
 authlib==1.3.2
 itsdangerous==2.2.0  # required by Starlette SessionMiddleware (Authlib state/nonce)
+pyotp==2.9.0  # TOTP 2FA
+qrcode[pil]==8.0  # 2FA setup QR code generation
 
 # Redis
 redis[asyncio]==5.2.1
@@ -27,6 +29,7 @@ httpx==0.27.2
 pytest==8.3.4
 pytest-asyncio==0.24.0
 anyio==4.6.2
+fakeredis==2.36.2  # in-memory Redis for tests — no real Redis instance required
 
 # Utilities
 email-validator==2.2.0

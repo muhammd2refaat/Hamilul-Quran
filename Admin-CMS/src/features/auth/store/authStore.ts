@@ -49,6 +49,15 @@ export const useAuthStore = create<AuthStore>()(
             '/auth/me'
           );
 
+          // This is the admin CMS — only ADMIN-role accounts may use it.
+          if (me.role !== 'ADMIN') {
+            const msg = 'This account does not have admin access.';
+            toast.error(msg);
+            const guardError: any = new Error(msg);
+            guardError.isAdminGuard = true;
+            throw guardError;
+          }
+
           // Map backend role → CMS AdminRole display name
           const roleMap: Record<string, AdminRole> = {
             ADMIN: 'Super Admin',
@@ -82,6 +91,11 @@ export const useAuthStore = create<AuthStore>()(
           localStorage.removeItem('qv_auth_token');
           localStorage.removeItem('qv_refresh_token');
           set({ isLoading: false });
+
+          // Already toasted with the correct message above — just propagate.
+          if (error?.isAdminGuard) {
+            throw error;
+          }
 
           const status = error?.response?.status;
           const detail = error?.response?.data?.detail || error?.response?.data?.message;

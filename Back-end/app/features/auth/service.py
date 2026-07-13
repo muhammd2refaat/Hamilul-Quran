@@ -110,14 +110,25 @@ class AuthService:
         except (JWTError, ValueError):
             raise credentials_exception
 
-        # Verify JTI exists in Redis
+        # Verify JTI exists in Redis. The Redis call itself is wrapped so a
+        # connectivity failure degrades to the in-memory fallback instead of
+        # rejecting every refresh — but a *successful* lookup that comes back
+        # empty (revoked/expired JTI) must always reject, so that raise is
+        # kept outside this try block (HTTPException is an Exception subclass
+        # and would otherwise be swallowed by the except below).
         try:
             stored = await self.redis.get(f"{_REFRESH_TOKEN_PREFIX}{jti}")
+            redis_reachable = True
+        except Exception:
+            stored = None
+            redis_reachable = False
+
+        if redis_reachable:
             if not stored:
                 raise credentials_exception
-        except Exception:
-            # If Redis is skipped, we bypass JTI verification
-            # BUT check if the JTI was revoked in the in-memory fallback
+        else:
+            # Redis is down — bypass JTI verification, but still honor the
+            # in-memory fallback of tokens revoked while Redis was down.
             if jti in _fallback_revoked_jtis:
                 raise credentials_exception
 

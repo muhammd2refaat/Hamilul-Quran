@@ -1,78 +1,54 @@
 /**
- * Dashboard Zustand store
+ * Dashboard Zustand store — real data from GET /dashboard/metrics
  */
 
 import { create } from 'zustand';
-import type { DashboardFilters, DashboardMetrics } from '../types';
-import { 
-  mockDashboardMetrics, 
-  mockTopUsers, 
-  mockCountryLeaderboard, 
-  mockEngagementOverTime
-} from '@/mock-data/dashboard';
-
-// Convert mock data to our types
-const convertedMetrics: DashboardMetrics = {
-  totalUsers: mockDashboardMetrics.totalUsers,
-  pendingUsers: mockDashboardMetrics.pendingUsers,
-  activeUsers: mockDashboardMetrics.activeUsers,
-  inactiveUsers: mockDashboardMetrics.inactiveUsers,
-  totalCountries: mockDashboardMetrics.totalCountries,
-  totalOrganizations: mockDashboardMetrics.totalOrganizations,
-  totalQuizzes: mockDashboardMetrics.totalQuizzes,
-  totalArticlesPublished: mockDashboardMetrics.totalArticles,
-  totalWebinars: mockDashboardMetrics.totalWebinars,
-  totalStories: mockDashboardMetrics.totalStories,
-  totalProducts: mockDashboardMetrics.totalProducts,
-  totalCategories: mockDashboardMetrics.totalCategories,
-};
+import { get } from '@/services/api/client';
+import type { PlatformMetrics } from '../types';
 
 interface DashboardState {
-  filters: DashboardFilters;
+  metrics: PlatformMetrics | null;
   isLoading: boolean;
-  metrics: DashboardMetrics | null;
-  setFilters: (filters: Partial<DashboardFilters>) => void;
-  resetFilters: () => void;
+  error: string | null;
   fetchDashboardData: () => Promise<void>;
 }
 
-const defaultFilters: DashboardFilters = {
-  dateRange: 'month',
-};
+function mapMetrics(raw: any): PlatformMetrics {
+  return {
+    totalUsers: raw.total_users,
+    totalStudents: raw.total_students,
+    totalTeachers: raw.total_teachers,
+    totalAdmins: raw.total_admins,
+    usersByStatus: raw.users_by_status,
+    complaintsByStatus: raw.complaints_by_status,
+    totalAllocations: raw.total_allocations,
+    totalCountries: raw.total_countries,
+    signupsByMonth: raw.signups_by_month.map((p: any) => ({ month: p.month, count: p.count })),
+    recentSignups: raw.recent_signups.map((s: any) => ({
+      id: s.id,
+      fullName: s.full_name,
+      email: s.email,
+      role: s.role,
+      createdAt: s.created_at,
+    })),
+  };
+}
 
 export const useDashboardStore = create<DashboardState>((set) => ({
-  filters: defaultFilters,
-  isLoading: false,
   metrics: null,
-
-  setFilters: (newFilters) => {
-    set((state) => ({
-      filters: { ...state.filters, ...newFilters },
-    }));
-  },
-
-  resetFilters: () => {
-    set({ filters: defaultFilters });
-  },
+  isLoading: false,
+  error: null,
 
   fetchDashboardData: async () => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      set({ 
-        metrics: convertedMetrics,
-        isLoading: false 
+      const raw = await get<any>('/dashboard/metrics');
+      set({ metrics: mapMetrics(raw), isLoading: false });
+    } catch (error: any) {
+      set({
+        error: error?.response?.data?.detail || 'Failed to load dashboard metrics',
+        isLoading: false,
       });
-    } catch (error) {
-      set({ isLoading: false });
-      throw error;
     }
   },
 }));
-
-// Export mock data getters for components
-export const getDashboardMetrics = () => convertedMetrics;
-export const getLeaderboard = () => mockTopUsers;
-export const getCountryLeaderboard = () => mockCountryLeaderboard;
-export const getEngagementTrends = () => mockEngagementOverTime;

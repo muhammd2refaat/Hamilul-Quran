@@ -54,3 +54,26 @@ class Ijaza(SQLModel, table=True):
     ijaza_type: IjazaType = Field(default=IjazaType.OTHER)
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class TeacherReview(SQLModel, table=True):
+    __tablename__ = "teacher_reviews"
+
+    id: Optional[uuid.UUID] = Field(
+        default_factory=uuid.uuid4,
+        primary_key=True,
+        index=True,
+        nullable=False,
+    )
+    teacher_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    # Nullable: a review may come from an admin acting on behalf of the
+    # platform rather than a specific reviewing user account.
+    reviewer_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="users.id", nullable=True, index=True
+    )
+    reviewer_name: str = Field(max_length=200)
+    rating: int = Field(ge=1, le=5)
+    comment: Optional[str] = Field(default=None)
+    is_admin: bool = Field(default=False)
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)

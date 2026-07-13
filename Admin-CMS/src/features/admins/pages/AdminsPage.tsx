@@ -10,8 +10,10 @@ import type { Admin, AdminFormData } from '../types';
 import type { ColumnDef } from '@tanstack/react-table';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 export const AdminsPage: React.FC = () => {
+  const { t } = useTranslation();
   const { admins, isLoading, fetchAdmins, addAdmin, updateAdmin, deleteAdmin } =
     useAdminsStore();
 
@@ -70,11 +72,6 @@ export const AdminsPage: React.FC = () => {
       return;
     }
 
-    if (modalMode === 'create' && !formData.password) {
-      toast.error('Password is required');
-      return;
-    }
-
     try {
       if (modalMode === 'create') {
         await addAdmin({
@@ -82,20 +79,20 @@ export const AdminsPage: React.FC = () => {
           email: formData.email,
           role: formData.role,
           status: formData.status,
+          password: formData.password || undefined,
         });
         toast.success('Admin created successfully');
       } else if (modalMode === 'edit' && selectedAdmin) {
         await updateAdmin(selectedAdmin.id, {
           name: formData.name,
-          email: formData.email,
           role: formData.role,
           status: formData.status,
         });
         toast.success('Admin updated successfully');
       }
       handleCloseModal();
-    } catch (error) {
-      toast.error('Failed to save admin');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail || 'Failed to save admin');
     }
   };
 
@@ -126,21 +123,21 @@ export const AdminsPage: React.FC = () => {
     () => [
       {
         accessorKey: 'name',
-        header: 'Name',
+        header: t('common.name'),
         cell: (info) => (
           <div className="font-medium text-gray-900">{info.getValue() as string}</div>
         ),
       },
       {
         accessorKey: 'email',
-        header: 'Email',
+        header: t('common.email'),
         cell: (info) => (
           <div className="text-sm text-gray-700">{info.getValue() as string}</div>
         ),
       },
       {
         accessorKey: 'role',
-        header: () => <div className="text-center">Role</div>,
+        header: () => <div className="text-center">{t('common.role')}</div>,
         cell: (info) => (
           <div className="text-center text-sm text-gray-700">{info.getValue() as string}</div>
         ),
@@ -148,12 +145,12 @@ export const AdminsPage: React.FC = () => {
       },
       {
         accessorKey: 'status',
-        header: () => <div className="text-center">Status</div>,
+        header: () => <div className="text-center">{t('common.status')}</div>,
         cell: (info) => {
           const status = info.getValue() as string;
           const statusConfig = {
-            active: { label: 'Active', color: 'bg-green-100 text-green-800' },
-            inactive: { label: 'Inactive', color: 'bg-red-50 text-red-600' },
+            active: { label: t('status.active'), color: 'bg-green-100 text-green-800' },
+            inactive: { label: t('status.inactive'), color: 'bg-red-50 text-red-600' },
           };
           const config = statusConfig[status as 'active' | 'inactive'];
           return (
@@ -168,7 +165,7 @@ export const AdminsPage: React.FC = () => {
       },
       {
         accessorKey: 'createdAt',
-        header: () => <div className="text-center">Created At</div>,
+        header: () => <div className="text-center">{t('common.createdAt')}</div>,
         cell: (info) => (
           <div className="text-center text-sm text-gray-600">
             {format(new Date(info.getValue() as string), 'MMM d, yyyy')}
@@ -178,7 +175,7 @@ export const AdminsPage: React.FC = () => {
       },
       {
         id: 'actions',
-        header: () => <div className="text-center">Actions</div>,
+        header: () => <div className="text-center">{t('common.actions')}</div>,
         cell: ({ row }) => (
           <div className="flex justify-center gap-2">
             <button
@@ -186,21 +183,21 @@ export const AdminsPage: React.FC = () => {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
             >
               <Edit2 className="h-4 w-4" />
-              Edit
+              {t('common.edit')}
             </button>
             <button
               onClick={() => handleOpenDeleteDialog(row.original)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
             >
               <Trash2 className="h-4 w-4" />
-              Delete
+              {t('common.delete')}
             </button>
           </div>
         ),
         meta: { className: 'text-right' },
       },
     ],
-    []
+    [t]
   );
 
   // Sort admins by created at (newest first)
@@ -214,13 +211,13 @@ export const AdminsPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Admins</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('admins.title')}</h1>
           <p className="text-gray-600 mt-1">
-            Manage admin users and their permissions
+            {t('admins.subtitle')}
           </p>
         </div>
         <Button leftIcon={<Plus className="h-4 w-4" />} onClick={handleOpenCreateModal}>
-          Add Admin
+          {t('admins.addAdmin')}
         </Button>
       </div>
 
@@ -230,7 +227,7 @@ export const AdminsPage: React.FC = () => {
           columns={columns}
           isLoading={isLoading}
           enableSearch={false}
-          emptyMessage="No admins found."
+          emptyMessage={t('admins.noneFound')}
         />
       </Card>
 
@@ -238,48 +235,54 @@ export const AdminsPage: React.FC = () => {
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        title={modalMode === 'create' ? 'Add Admin' : 'Edit Admin'}
+        title={modalMode === 'create' ? t('admins.addAdmin') : t('admins.editAdmin')}
         size="md"
         footer={
           <div className="flex gap-3 justify-end">
             <Button variant="outline" onClick={handleCloseModal}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSave} disabled={!formData.name.trim() || !formData.email.trim()}>
-              {modalMode === 'create' ? 'Create' : 'Save'}
+              {modalMode === 'create' ? t('common.create') : t('common.save')}
             </Button>
           </div>
         }
       >
         <div className="space-y-4">
           <Input
-            label="Name"
+            label={t('common.name')}
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Enter admin name"
+            placeholder={t('admins.namePlaceholder')}
             required
           />
           <Input
-            label="Email"
+            label={t('common.email')}
             type="email"
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            placeholder="Enter email address"
+            placeholder={t('admins.emailPlaceholder')}
             required
+            disabled={modalMode === 'edit'}
           />
           {modalMode === 'create' && (
             <Input
-              label="Password"
+              label={t('admins.password')}
               type="password"
               value={formData.password || ''}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              placeholder="Enter password"
-              required
+              placeholder={t('admins.passwordPlaceholder')}
+              helperText={t('admins.passwordHelper')}
             />
+          )}
+          {modalMode === 'edit' && (
+            <p className="text-xs text-gray-500 -mt-2">
+              {t('admins.emailImmutable')}
+            </p>
           )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Role
+              {t('common.role')}
             </label>
             <select
               value={formData.role}
@@ -288,13 +291,13 @@ export const AdminsPage: React.FC = () => {
               }
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-primary-500 focus:border-primary-500"
             >
-              <option value="Super Admin">Super Admin</option>
-              <option value="Admin">Admin</option>
+              <option value="Super Admin">{t('admins.superAdmin')}</option>
+              <option value="Admin">{t('admins.admin')}</option>
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
+              {t('common.status')}
             </label>
             <select
               value={formData.status}
@@ -303,8 +306,8 @@ export const AdminsPage: React.FC = () => {
               }
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-primary-500 focus:border-primary-500"
             >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
+              <option value="active">{t('status.active')}</option>
+              <option value="inactive">{t('status.inactive')}</option>
             </select>
           </div>
         </div>
@@ -316,10 +319,10 @@ export const AdminsPage: React.FC = () => {
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDelete}
         onCancel={handleCloseDeleteDialog}
-        title="Delete Admin"
-        message={`Are you sure you want to delete "${selectedAdmin?.name}"? This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
+        title={t('admins.deleteTitle')}
+        message={t('admins.deleteMessage', { name: selectedAdmin?.name })}
+        confirmText={t('common.delete')}
+        cancelText={t('common.cancel')}
         variant="danger"
       />
     </div>

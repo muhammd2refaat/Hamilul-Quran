@@ -20,10 +20,13 @@ from sqlmodel import SQLModel  # noqa: F401  — re-export for env.py
 
 from app.features.users.models import User                      # noqa: F401
 from app.features.auth.models import GoogleCredential           # noqa: F401
-from app.features.teachers.models import TeacherProfile, Ijaza  # noqa: F401
+from app.features.teachers.models import TeacherProfile, Ijaza, TeacherReview  # noqa: F401
 from app.features.sessions.models import (                      # noqa: F401
     TeacherHistory,
     SessionScore,
 )
 from app.features.allocations.models import Allocation          # noqa: F401
 from app.features.complaints.models import Complaint            # noqa: F401
+from app.features.requests.models import PlatformRequest        # noqa: F401
+from app.features.subscriptions.models import Subscription      # noqa: F401
+from app.features.receipts.models import Receipt                # noqa: F401

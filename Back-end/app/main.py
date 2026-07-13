@@ -75,6 +75,38 @@ def _register_routers(app: FastAPI) -> None:
     from app.features.complaints.router import router as complaints_router
     app.include_router(complaints_router, prefix=prefix, tags=["Complaints"])
 
+    # Dashboard
+    from app.features.dashboard.router import router as dashboard_router
+    app.include_router(dashboard_router, prefix=prefix, tags=["Dashboard"])
+
+    # Admins
+    from app.features.admins.router import router as admins_router
+    app.include_router(admins_router, prefix=prefix, tags=["Admins"])
+
+    # Session scores (write path)
+    from app.features.sessions.router import router as sessions_router
+    app.include_router(sessions_router, prefix=prefix, tags=["Sessions"])
+
+    # Teachers (profile + reviews)
+    from app.features.teachers.router import router as teachers_router
+    app.include_router(teachers_router, prefix=prefix, tags=["Teachers"])
+
+    # Requests (reschedule / enrollment / teacher-change / pause)
+    from app.features.requests.router import router as requests_router
+    app.include_router(requests_router, prefix=prefix, tags=["Requests"])
+
+    # Calendar (Google Calendar-backed upcoming sessions)
+    from app.features.calendar.router import router as calendar_router
+    app.include_router(calendar_router, prefix=prefix, tags=["Calendar"])
+
+    # Subscriptions (per-student plan/status)
+    from app.features.subscriptions.router import router as subscriptions_router
+    app.include_router(subscriptions_router, prefix=prefix, tags=["Subscriptions"])
+
+    # Receipts (student payment-screenshot uploads, 30-day retention)
+    from app.features.receipts.router import router as receipts_router
+    app.include_router(receipts_router, prefix=prefix, tags=["Receipts"])
+
 
 from fastapi.responses import RedirectResponse
 

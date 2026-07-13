@@ -5,6 +5,77 @@ this as work lands or plans change — newest entries at the top of each section
 
 ## Done
 
+- **2026-07-13** — Real subscription data on `/dashboard/student/plan` and a
+  new `/dashboard/student/receipts` page, backed by the new
+  `subscriptions`/`receipts` backend features (see `Back-end/PROGRESS.md`,
+  "Admin controls" entry).
+  - **Plan page**: replaces the "coming soon" placeholder with real data
+    from `GET /subscriptions/me` — plan name, status badge
+    (active/paused/withdrawn, new `planStatusWithdrawn` string), start
+    date, notes. Falls back to the previous "pending admin activation"
+    placeholder when the student has no subscription row yet (404). The
+    existing "request plan change" → `POST /requests` flow is untouched.
+    New `Subscription`/`Receipt` types in `types/dashboard.ts`.
+  - **Receipts page** (new, `app/dashboard/student/receipts/page.tsx`):
+    upload a payment-screenshot image (amount/note optional) via
+    multipart `POST /receipts`, list the student's own uploads
+    (`GET /receipts/me`) with upload/expiry dates. Added to the student
+    nav (`StudentShellClient.tsx`, both the "new student" and "active
+    student" nav arrays) with a new `Receipt` icon and `navReceipts`
+    string. All strings added to `lib/dashboard/i18n.tsx` DICT for both
+    `en`/`ar`.
+  - Verified: `npx tsc --noEmit` and `yarn build` both pass clean; the new
+    `/dashboard/student/receipts` route appears in the production build
+    output.
+- **2026-07-13** — Added a "Calendar" nav item to both
+  `app/dashboard/{teacher,student}/calendar/page.tsx`, additive alongside
+  the existing `/schedule` and `/webinar` pages. Fetches
+  `GET /calendar/me?weeks=4` (real backend Google Calendar integration,
+  see `Back-end/PROGRESS.md`) and renders an agenda list grouped by real
+  date — with a genuine clickable Google Meet "Join" link once one exists
+  for that recurring slot (falls back to the same disabled-button styling
+  as `/schedule`/`/webinar` otherwise). New shared helpers:
+  `lib/dashboard/calendarUtils.ts` (date grouping/formatting, no date
+  library needed) and a `CalendarEvent` type in `types/dashboard.ts`.
+- **2026-07-13** — Redesigned the student and teacher dashboards
+  (`app/dashboard/{student,teacher}/…`) in the "Emerald Editorial" design
+  system (same palette/fonts/motifs as the landing page), replacing the bare
+  shadcn/slate scaffolds. Bilingual EN/AR + RTL, reusing the landing page's
+  `elhafazah_lang` localStorage key (`lib/dashboard/i18n.tsx`). Shared
+  building blocks added under `lib/dashboard/` (theme, i18n, user/status
+  contexts) and `components/dashboard/` (DashboardShell, StatCard,
+  SectionHeader, ArchPanel, Placeholder, RequestModal, EmptyState) — reuse
+  these for any further dashboard pages rather than duplicating styles.
+  - **Teacher**: overview, weekly `/schedule` (built from allocation
+    `schedule[]`), `/students` roster, and a student detail page with a
+    **record-session form** (score, max_score, surah, recitation_type,
+    teacher_comment, notes) that posts to `POST /session-scores` — the
+    "comment + score per session" feature. Backed by two new endpoints,
+    `GET /teachers/me/students` and
+    `GET /teachers/me/students/{id}/session-scores`
+    (`Back-end/app/features/teachers/{router,schemas,service}.py`; no
+    migration — joins existing tables). Verified directly against the
+    service layer (roster shape, cross-teacher 404 guard, record→refetch
+    round trip) since both dev teacher accounts are currently `SUSPENDED`
+    and couldn't be driven through a real login for an HTTP-level check.
+  - **Student**: "New" vs "Current" state is derived from whether
+    `GET /allocations/me` is empty (no new backend field) — New shows a
+    free-trial request CTA, Current shows the full nav. Views: `/progress`
+    (session scores + teacher history — fixed a pre-existing type bug where
+    the frontend read `TeacherHistory.ended_at`, which the backend has never
+    returned; the real field is `unassigned_at`), `/plan`, `/webinar`,
+    `/teacher-change`, `/about`, `/contact`. All verified live against the
+    API with a real (ACTIVE) student account: `/users/me`, `/allocations/me`,
+    `/users/me/session-scores`, `/users/me/teacher-history`, `/requests/me`,
+    and a full `POST /requests` → `GET /requests/me` round trip (test rows
+    cleaned up after).
+  - **Explicit placeholders (no backend yet)**: plan/subscription data,
+    active/pause status, and the webinar "Join session" Google Meet link all
+    render as clearly-labeled "coming soon" cards
+    (`components/dashboard/Placeholder.tsx`) rather than fake data. The
+    backend already stores a Google refresh token with Calendar scope
+    (`google_credentials`), so a future endpoint could mint a real Meet link
+    per scheduled session — not built in this pass.
 - **2026-07-03** — Added `app/privacy/page.tsx` and `app/terms/page.tsx`
   (draft Privacy Policy / Terms of Service) plus footer links to them from
   the landing page — required by Google before it will verify/publish the
@@ -42,6 +113,12 @@ this as work lands or plans change — newest entries at the top of each section
   until done. See `Back-end/docs/GOOGLE_OAUTH_VERIFICATION_CHECKLIST.md`.
 - [ ] Replace `[SUPPORT_EMAIL]` in `app/privacy/page.tsx` and
   `app/terms/page.tsx` with a real, monitored support address.
+- [ ] Both dev teacher accounts (`teacher@example.com`,
+  `mr3118430@gmail.com`) are currently `status=SUSPENDED` in the DB — the
+  new teacher dashboard (`/dashboard/teacher/...`) couldn't be driven
+  through a real browser login for that reason. Activate one to do a full
+  click-through check; the backend logic itself is verified (see the
+  2026-07-13 entry above).
 
 ## Next up / not started
 
@@ -56,6 +133,14 @@ this as work lands or plans change — newest entries at the top of each section
   shows the backend's error message).
 - [ ] Decide on a "forgot password" or "set a password" flow for
   Google-only accounts if the backend adds that later.
+- [ ] Build a Plans/Subscriptions backend (model + admin active/pause
+  toggle) — `/dashboard/student/plan` currently shows a labeled placeholder
+  card (`components/dashboard/Placeholder.tsx`) since there's no plan data
+  to read yet; "change plan" already submits a real `POST /requests`
+  (`type: other`) for an admin to action manually in the meantime.
+- [ ] Wire a real Google Meet link into `/dashboard/{student,teacher}/…`
+  session/schedule views once a backend endpoint exists to mint one from the
+  stored Calendar refresh token — see the Calendar-status item above.
 
 ## Notes for future me
 

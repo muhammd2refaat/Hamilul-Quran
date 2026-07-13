@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { get, post } from '@/services/api/client';
+import { get, post, patch, del } from '@/services/api/client';
 
 export interface AllocationSchedule {
   day: string;
@@ -24,12 +24,22 @@ export interface AllocationCreate {
   schedule: AllocationSchedule[];
 }
 
+export interface AllocationUpdate {
+  teacher_id?: string;
+  student_id?: string;
+  sessions_per_week?: number;
+  duration?: number;
+  schedule?: AllocationSchedule[];
+}
+
 interface AllocationsState {
   allocations: Allocation[];
   isLoading: boolean;
   error: string | null;
   fetchAllocations: () => Promise<void>;
   createAllocation: (data: AllocationCreate) => Promise<void>;
+  updateAllocation: (id: string, data: AllocationUpdate) => Promise<void>;
+  deleteAllocation: (id: string) => Promise<void>;
 }
 
 export const useAllocationsStore = create<AllocationsState>((set) => ({
@@ -59,11 +69,45 @@ export const useAllocationsStore = create<AllocationsState>((set) => ({
         isLoading: false 
       }));
     } catch (error: any) {
-      set({ 
-        error: error.response?.data?.message || 'Failed to create allocation', 
-        isLoading: false 
+      set({
+        error: error.response?.data?.message || 'Failed to create allocation',
+        isLoading: false
       });
       throw error;
     }
-  }
+  },
+
+  updateAllocation: async (id: string, data: AllocationUpdate) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await patch<Allocation>(`/allocations/${id}`, data);
+      set((state) => ({
+        allocations: state.allocations.map((a) => (a.id === id ? response : a)),
+        isLoading: false,
+      }));
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.message || 'Failed to update allocation',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  deleteAllocation: async (id: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      await del(`/allocations/${id}`);
+      set((state) => ({
+        allocations: state.allocations.filter((a) => a.id !== id),
+        isLoading: false,
+      }));
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.message || 'Failed to delete allocation',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
 }));

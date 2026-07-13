@@ -1,21 +1,51 @@
 /**
- * Admins store using Zustand
+ * Admins store using Zustand — real backend data (role=ADMIN users via /admins).
  */
 
 import { create } from 'zustand';
-import type { Admin } from '../types';
-import { mockAdminUsers } from '@/mock-data/admins';
+import { get, post, patch, del } from '@/services/api/client';
+import type { Admin, AdminRole, AdminStatus } from '../types';
 
 interface AdminsState {
   admins: Admin[];
   isLoading: boolean;
   error: string | null;
-  
+
   // Actions
   fetchAdmins: () => Promise<void>;
-  addAdmin: (admin: Omit<Admin, 'id' | 'createdAt'>) => Promise<void>;
-  updateAdmin: (id: string, admin: Partial<Admin>) => Promise<void>;
+  addAdmin: (admin: {
+    name: string;
+    email: string;
+    role: AdminRole;
+    status: AdminStatus;
+    password?: string;
+  }) => Promise<void>;
+  updateAdmin: (
+    id: string,
+    admin: Partial<{ name: string; role: AdminRole; status: AdminStatus }>
+  ) => Promise<void>;
   deleteAdmin: (id: string) => Promise<void>;
+}
+
+function splitName(name: string): [string, string] {
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0] || 'Admin';
+  const last = parts.slice(1).join(' ');
+  return [first, last];
+}
+
+// Backend has a single ADMIN role — the CMS's Super Admin/Admin distinction
+// is display-only for now (not persisted). See Admin-CMS/PROGRESS.md.
+function mapAdmin(u: any): Admin {
+  return {
+    id: u.id,
+    name: `${u.first_name} ${u.last_name}`.trim(),
+    email: u.email,
+    role: 'Admin',
+    status: u.status === 'ACTIVE' ? 'active' : 'inactive',
+    createdAt: u.created_at,
+    updatedAt: u.updated_at,
+  };
 }
 
 export const useAdminsStore = create<AdminsState>((set) => ({
@@ -26,32 +56,33 @@ export const useAdminsStore = create<AdminsState>((set) => ({
   fetchAdmins: async () => {
     set({ isLoading: true, error: null });
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      set({ admins: mockAdminUsers, isLoading: false });
-    } catch (error) {
-      set({ error: 'Failed to fetch admins', isLoading: false });
+      const response = await get<any>('/admins?limit=100');
+      set({ admins: response.items.map(mapAdmin), isLoading: false });
+    } catch (error: any) {
+      set({
+        error: error?.response?.data?.detail || 'Failed to fetch admins',
+        isLoading: false,
+      });
     }
   },
 
   addAdmin: async (admin) => {
     set({ isLoading: true, error: null });
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      
-      const newAdmin: Admin = {
-        ...admin,
-        id: `admin-${Date.now()}`,
-        createdAt: new Date().toISOString(),
-      };
-      
-      set((state) => ({ 
-        admins: [newAdmin, ...state.admins], 
-        isLoading: false 
+      const [firstName, lastName] = splitName(admin.name);
+      const created = await post<any>('/admins', {
+        email: admin.email,
+        username: admin.email.split('@')[0],
+        first_name: firstName,
+        last_name: lastName,
+        password: admin.password || undefined,
+      });
+      set((state) => ({
+        admins: [mapAdmin(created), ...state.admins],
+        isLoading: false,
       }));
     } catch (error) {
-      set({ error: 'Failed to add admin', isLoading: false });
+      set({ isLoading: false });
       throw error;
     }
   },
@@ -59,19 +90,22 @@ export const useAdminsStore = create<AdminsState>((set) => ({
   updateAdmin: async (id, updates) => {
     set({ isLoading: true, error: null });
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      
+      const payload: Record<string, unknown> = {};
+      if (updates.name) {
+        const [firstName, lastName] = splitName(updates.name);
+        payload.first_name = firstName;
+        payload.last_name = lastName;
+      }
+      if (updates.status) {
+        payload.status = updates.status === 'active' ? 'ACTIVE' : 'INACTIVE';
+      }
+      const updated = await patch<any>(`/admins/${id}`, payload);
       set((state) => ({
-        admins: state.admins.map((admin) =>
-          admin.id === id
-            ? { ...admin, ...updates, updatedAt: new Date().toISOString() }
-            : admin
-        ),
+        admins: state.admins.map((a) => (a.id === id ? mapAdmin(updated) : a)),
         isLoading: false,
       }));
     } catch (error) {
-      set({ error: 'Failed to update admin', isLoading: false });
+      set({ isLoading: false });
       throw error;
     }
   },
@@ -79,15 +113,13 @@ export const useAdminsStore = create<AdminsState>((set) => ({
   deleteAdmin: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      
+      await del(`/admins/${id}`);
       set((state) => ({
-        admins: state.admins.filter((admin) => admin.id !== id),
+        admins: state.admins.filter((a) => a.id !== id),
         isLoading: false,
       }));
     } catch (error) {
-      set({ error: 'Failed to delete admin', isLoading: false });
+      set({ isLoading: false });
       throw error;
     }
   },
