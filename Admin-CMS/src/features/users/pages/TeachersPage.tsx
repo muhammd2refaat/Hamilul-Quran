@@ -25,6 +25,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { useUsersStore, selectUsers, selectIsLoading } from '../store/usersStore';
+import { useAllocationsStore } from '@/features/allocations/store/allocationsStore';
 import { AddUserModal } from '../components/AddUserModal';
 import { UserActions } from '../components/UserActions';
 import type { User as UserType } from '../store/usersStore';
@@ -209,6 +210,8 @@ export function TeachersPage() {
   const isLoading = useUsersStore(selectIsLoading);
   const { fetchUsers, setFilters, filters } = useUsersStore();
 
+  const { allocations, fetchAllocations } = useAllocationsStore();
+
   const [search, setSearch] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
 
@@ -221,15 +224,27 @@ export function TeachersPage() {
     return () => clearTimeout(t);
   }, [filters]);
 
+  useEffect(() => {
+    fetchAllocations();
+  }, [fetchAllocations]);
+
   const teachers = allUsers.filter(u => u.role === 'TEACHER');
   const students = allUsers.filter(u => u.role === 'STUDENT');
 
-  // Group students by their assigned teacher (uses backend teacher_id field)
+  // Build a lookup from user id to UserType for fast resolution
+  const userById: Record<string, UserType> = {};
+  allUsers.forEach(u => { userById[u.id] = u; });
+
+  // Group students by their teacher using allocations (authoritative source)
   const studentsByTeacherId: Record<string, UserType[]> = {};
-  students.forEach(s => {
-    if (s.teacherId) {
-      if (!studentsByTeacherId[s.teacherId]) studentsByTeacherId[s.teacherId] = [];
-      studentsByTeacherId[s.teacherId].push(s);
+  allocations.forEach(a => {
+    const student = userById[a.student_id];
+    if (student) {
+      if (!studentsByTeacherId[a.teacher_id]) studentsByTeacherId[a.teacher_id] = [];
+      // Avoid duplicates (same student may have multiple allocations with same teacher)
+      if (!studentsByTeacherId[a.teacher_id].some(s => s.id === student.id)) {
+        studentsByTeacherId[a.teacher_id].push(student);
+      }
     }
   });
 
