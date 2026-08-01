@@ -8,6 +8,7 @@ import axios, {
   type AxiosError,
   type InternalAxiosRequestConfig,
 } from 'axios';
+import toast from 'react-hot-toast';
 
 // Backend base URL — reads VITE_API_BASE_URL (e.g. http://localhost:8000/api/v1
 // in dev, the real API domain in production). Falls back to the relative
@@ -65,18 +66,14 @@ apiClient.interceptors.response.use(
 
     if (!status) {
       // Network error
-      import('react-hot-toast').then(({ default: toast }) => {
-        toast.error('Cannot connect to server. Please check your connection.');
-      });
+      toast.error('Cannot connect to server. Please check your connection.');
     } else if (status === 401) {
       // Clear stale tokens and let the page refresh handle redirect
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(REFRESH_TOKEN_KEY);
       window.location.href = '/auth/login';
     } else if (status >= 400) {
-      import('react-hot-toast').then(({ default: toast }) => {
-        toast.error(data?.message || `Error ${status}`);
-      });
+      toast.error(data?.message || `Error ${status}`);
     }
 
     return Promise.reject(error);

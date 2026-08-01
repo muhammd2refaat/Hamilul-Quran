@@ -21,6 +21,8 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy.exc import IntegrityError, DataError, SQLAlchemyError
 
+from app.config.settings import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -60,7 +62,6 @@ def register_exception_handlers(app: FastAPI) -> None:
         orig = getattr(exc, "orig", exc)
         error_code = "DATABASE_INTEGRITY_ERROR"
         message = "A database integrity constraint was violated."
-        details = str(orig)
 
         if hasattr(orig, "pgcode"):
             if orig.pgcode == "23505":  # unique_violation
@@ -70,35 +71,30 @@ def register_exception_handlers(app: FastAPI) -> None:
                 error_code = "FOREIGN_KEY_VIOLATION"
                 message = "A referenced record (e.g., Site, User, or Supplier) does not exist."
 
-        return JSONResponse(
-            status_code=400,
-            content={
-                "error_code": error_code,
-                "message": message,
-                "details": details,
-            },
-        )
+        content: dict = {"error_code": error_code, "message": message}
+        if settings.debug:
+            content["details"] = str(orig)
+
+        return JSONResponse(status_code=400, content=content)
 
     @app.exception_handler(SQLAlchemyError)
     async def sqlalchemy_error_handler(request: Request, exc: SQLAlchemyError):
         logger.error(f"SQLAlchemy Error: {exc}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "error_code": "DATABASE_ERROR",
-                "message": "An unexpected database error occurred.",
-                "details": str(exc),
-            },
-        )
+        content: dict = {
+            "error_code": "DATABASE_ERROR",
+            "message": "An unexpected database error occurred.",
+        }
+        if settings.debug:
+            content["details"] = str(exc)
+        return JSONResponse(status_code=500, content=content)
 
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         logger.exception(f"Unhandled Exception: {exc}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "error_code": "INTERNAL_SERVER_ERROR",
-                "message": "An unexpected error occurred on the server.",
-                "details": str(exc),
-            },
-        )
+        content: dict = {
+            "error_code": "INTERNAL_SERVER_ERROR",
+            "message": "An unexpected error occurred on the server.",
+        }
+        if settings.debug:
+            content["details"] = str(exc)
+        return JSONResponse(status_code=500, content=content)

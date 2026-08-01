@@ -31,8 +31,3 @@ async def get_redis() -> AsyncGenerator[aioredis.Redis, None]:
     pool = await get_redis_pool()
     yield pool
 
-
-# ─── Pub/Sub Channel Names ────────────────────────────────────────────────────
-class RedisChannels:
-    LOW_STOCK_ALERT = "solar_erp:low_stock_alert"
-    TRANSFER_STATUS_CHANGED = "solar_erp:transfer_status_changed"

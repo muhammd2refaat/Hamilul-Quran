@@ -9,7 +9,9 @@
     <!-- connect-src includes %VITE_API_ORIGIN% (set in .env, e.g. http://localhost:8000
          in dev, the real API origin in production) so the browser doesn't block
          cross-origin XHR/fetch calls made by src/services/api/client.ts. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' %VITE_API_ORIGIN%;" />
+    <!-- CSP: In production, set a stricter Content-Security-Policy via HTTP headers (nginx/CDN).
+         This permissive policy is for local development only. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:8000 http://127.0.0.1:8000;" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

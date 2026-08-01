@@ -45,7 +45,11 @@ async def list_my_receipts(current_user: CurrentUserDep, svc: SvcDep):
 @router.get("/{receipt_id}/file", summary="Download a receipt file (ADMIN or owner)")
 async def download_receipt_file(receipt_id: uuid.UUID, current_user: CurrentUserDep, svc: SvcDep):
     receipt = await svc.get_for_download(receipt_id, current_user)
-    file_path = Path(settings.upload_dir) / receipt.file_path
+    upload_root = Path(settings.upload_dir).resolve()
+    file_path = (upload_root / receipt.file_path).resolve()
+    # Guard against path traversal (e.g. file_path containing "../")
+    if not str(file_path).startswith(str(upload_root)):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid file path")
     if not file_path.is_file():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Receipt file not found")
     return FileResponse(

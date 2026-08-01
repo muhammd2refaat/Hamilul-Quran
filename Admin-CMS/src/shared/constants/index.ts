@@ -90,9 +90,8 @@ export const COUNTRY_OPTIONS = [
 
 /** Gender options */
 export const GENDER_OPTIONS = [
-  { value: 'Male', label: 'Male' },
-  { value: 'Female', label: 'Female' },
-  { value: 'Other', label: 'Other' },
+  { value: 'MALE', label: 'Male' },
+  { value: 'FEMALE', label: 'Female' },
 ] as const;
 
 /** Admin role options */
