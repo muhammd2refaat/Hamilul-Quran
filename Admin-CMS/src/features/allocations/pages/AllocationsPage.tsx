@@ -16,6 +16,7 @@ import {
   Calendar as CalendarIcon,
   Pencil,
   Trash2,
+  Users,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -314,6 +315,44 @@ export function AllocationsPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* Enrolled students for the selected teacher */}
+                {state.teacherId && (() => {
+                  const enrolled = allocations
+                    .filter((a) => a.teacher_id === state.teacherId)
+                    .map((a) => {
+                      const stu = users.find((u) => u.id === a.student_id);
+                      return stu ? { id: a.id, name: `${stu.firstName} ${stu.lastName}`, sessions: a.sessions_per_week, duration: a.duration } : null;
+                    })
+                    .filter(Boolean) as { id: string; name: string; sessions: number; duration: number }[];
+
+                  return (
+                    <div className="mt-3 border border-primary-200 bg-primary-50/50 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="h-4 w-4 text-primary-600" />
+                        <span className="text-sm font-semibold text-primary-800">
+                          {t('allocations.enrolledStudents', { count: enrolled.length })}
+                        </span>
+                      </div>
+                      {enrolled.length === 0 ? (
+                        <p className="text-xs text-gray-500 italic">{t('allocations.noEnrolledStudents')}</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {enrolled.map((e) => (
+                            <span
+                              key={e.id}
+                              className="inline-flex items-center gap-1.5 bg-white border border-primary-200 text-gray-800 text-xs font-medium px-2.5 py-1.5 rounded-lg shadow-sm"
+                            >
+                              <GraduationCap className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
+                              {e.name}
+                              <span className="text-[10px] text-gray-400 ms-1">{e.sessions}×/{e.duration}m</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               <div>

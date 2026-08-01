@@ -170,7 +170,9 @@
     "sessionDuration": "مدة الجلسة",
     "sessionDurationDesc": "كم تستغرق كل جلسة؟",
     "selectSchedule": "اختر الجدول",
-    "selectedSlots": "تم اختيار {{selected}} من {{total}} مواعيد"
+    "selectedSlots": "تم اختيار {{selected}} من {{total}} مواعيد",
+    "enrolledStudents": "الطلاب المسجلون ({{count}})",
+    "noEnrolledStudents": "لا يوجد طلاب مسجلون بعد."
   },
   "subscriptions": {
     "title": "الاشتراكات",

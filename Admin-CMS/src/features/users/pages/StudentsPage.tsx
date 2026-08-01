@@ -25,6 +25,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { useUsersStore, selectUsers, selectIsLoading } from '../store/usersStore';
+import { useAllocationsStore } from '@/features/allocations/store/allocationsStore';
 import { ComplaintsTable, TeacherHistoryTable, SessionScoresTable } from '../components/UserSubTables';
 import { AddUserModal } from '../components/AddUserModal';
 import { UserActions } from '../components/UserActions';
@@ -57,7 +58,7 @@ function StatusBadge({ status }: { status: string }) {
 
 // ─── Student Card ─────────────────────────────────────────────────────────────
 
-function StudentCard({ student, teacherName }: { student: UserType; teacherName?: string }) {
+function StudentCard({ student, teacherNames }: { student: UserType; teacherNames: string[] }) {
   const { t } = useTranslation();
   const allUsers = useUsersStore(selectUsers);
   const resolveTeacherName = (id: string) => {
@@ -103,11 +104,13 @@ function StudentCard({ student, teacherName }: { student: UserType; teacherName?
         </div>
       </div>
 
-      {/* ── Subscription info strip (current teacher from backend) ── */}
+      {/* ── Subscription info strip (current teacher(s) from allocations) ── */}
       <div className="mx-4 mb-3 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
         <span className="font-semibold text-gray-700">{t('users.currentTeacher')}</span>
-        {teacherName ? (
-          <span className="flex items-center gap-1"><BookOpen className="h-3 w-3 text-gray-400" /> {teacherName}</span>
+        {teacherNames.length > 0 ? (
+          teacherNames.map((name, idx) => (
+            <span key={idx} className="flex items-center gap-1"><BookOpen className="h-3 w-3 text-gray-400" /> {name}</span>
+          ))
         ) : (
           <span className="text-gray-400 italic">{t('users.notAssigned')}</span>
         )}
@@ -157,6 +160,8 @@ export function StudentsPage() {
   const isLoading = useUsersStore(selectIsLoading);
   const { fetchUsers, setFilters, filters } = useUsersStore();
 
+  const { allocations, fetchAllocations } = useAllocationsStore();
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -170,12 +175,29 @@ export function StudentsPage() {
     return () => clearTimeout(t);
   }, [filters]);
 
+  useEffect(() => {
+    fetchAllocations();
+  }, [fetchAllocations]);
+
   const teachers = allUsers.filter(u => u.role === 'TEACHER');
   const students = allUsers.filter(u => u.role === 'STUDENT');
 
   // Build teacher lookup map by id for resolving teacher names
   const teacherById: Record<string, UserType> = {};
   teachers.forEach(t => { teacherById[t.id] = t; });
+
+  // Build a map of student_id → teacher names from allocations
+  const teacherNamesByStudentId: Record<string, string[]> = {};
+  allocations.forEach(a => {
+    const teacher = teacherById[a.teacher_id];
+    if (teacher) {
+      const name = `${teacher.firstName} ${teacher.lastName}`;
+      if (!teacherNamesByStudentId[a.student_id]) teacherNamesByStudentId[a.student_id] = [];
+      if (!teacherNamesByStudentId[a.student_id].includes(name)) {
+        teacherNamesByStudentId[a.student_id].push(name);
+      }
+    }
+  });
 
   const active    = students.filter(s => s.status === 'ACTIVE' || s.status === 'active').length;
   const inactive  = students.filter(s => s.status === 'INACTIVE' || s.status === 'inactive').length;
@@ -271,9 +293,8 @@ export function StudentsPage() {
       ) : (
         <div className="grid gap-4">
           {filtered.map(s => {
-            const teacher = s.teacherId ? teacherById[s.teacherId] : undefined;
-            const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : undefined;
-            return <StudentCard key={s.id} student={s} teacherName={teacherName} />;
+            const names = teacherNamesByStudentId[s.id] ?? [];
+            return <StudentCard key={s.id} student={s} teacherNames={names} />;
           })}
         </div>
       )}
