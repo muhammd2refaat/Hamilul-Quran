@@ -13,12 +13,14 @@ from app.features.users.models import UserRole, UserStatus, Gender
 class UserCreate(BaseModel):
     email: EmailStr
     username: str
-    password: str
+    # Optional: admin-created users (e.g. via the CMS) can omit a password —
+    # UserService.create() generates a random temporary one in that case.
+    password: Optional[str] = None
     first_name: str
     last_name: str
     phone_number: Optional[str] = None
     role: UserRole = UserRole.STUDENT
-    
+
     country: Optional[str] = None
     city: Optional[str] = None
     gender: Optional[Gender] = None
@@ -27,8 +29,8 @@ class UserCreate(BaseModel):
 
     @field_validator("password")
     @classmethod
-    def password_strength(cls, v: str) -> str:
-        if len(v) < 8:
+    def password_strength(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and len(v) < 8:
             raise ValueError("Password must be at least 8 characters")
         return v
 

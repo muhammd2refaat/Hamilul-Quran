@@ -12,6 +12,12 @@
     @apply antialiased text-gray-800 bg-white;
   }
 
+  /* Arabic: use a UI-friendly Arabic font stack and slightly larger line-height. */
+  html[lang="ar"] body {
+    font-family: 'Cairo', 'Tajawal', 'Noto Sans Arabic', 'Segoe UI', system-ui, sans-serif;
+    line-height: 1.7;
+  }
+
   /* Custom scrollbar */
   ::-webkit-scrollbar {
     @apply w-2 h-2;

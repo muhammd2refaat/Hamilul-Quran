@@ -15,7 +15,6 @@ import {
   Mail,
   Phone,
   MapPin,
-  Trophy,
   Users,
   RefreshCw,
   BookOpen,
@@ -23,11 +22,15 @@ import {
   User,
   AlertCircle,
   Star,
+  Plus,
 } from 'lucide-react';
 import { useUsersStore, selectUsers, selectIsLoading } from '../store/usersStore';
 import { ComplaintsTable, TeacherHistoryTable, SessionScoresTable } from '../components/UserSubTables';
+import { AddUserModal } from '../components/AddUserModal';
+import { UserActions } from '../components/UserActions';
 import type { User as UserType } from '../store/usersStore';
 import { format, differenceInYears, parseISO } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
@@ -55,10 +58,11 @@ function StatusBadge({ status }: { status: string }) {
 // ─── Student Card ─────────────────────────────────────────────────────────────
 
 function StudentCard({ student, teacherName }: { student: UserType; teacherName?: string }) {
+  const { t } = useTranslation();
   const allUsers = useUsersStore(selectUsers);
   const resolveTeacherName = (id: string) => {
-    const t = allUsers.find((u) => u.id === id);
-    return t ? `${t.firstName} ${t.lastName}` : id;
+    const u = allUsers.find((usr) => usr.id === id);
+    return u ? `${u.firstName} ${u.lastName}` : id;
   };
 
   const fullName = `${student.firstName} ${student.lastName}`;
@@ -90,38 +94,27 @@ function StudentCard({ student, teacherName }: { student: UserType; teacherName?
               </span>
             )}
           </div>
-          {student.username && (
+  {student.username && (
             <p className="text-xs text-gray-400 mt-0.5">@{student.username}</p>
           )}
         </div>
-        {/* Points pill */}
-        <div className="flex-shrink-0 flex flex-col items-center bg-amber-50 border border-amber-100 rounded-xl px-3 py-1.5">
-          <Trophy className="h-3.5 w-3.5 text-amber-500 mb-0.5" />
-          <span className="text-sm font-bold text-gray-800">{student.points}</span>
-          <span className="text-xs text-gray-400">pts</span>
+        <div className="flex-shrink-0">
+          <UserActions user={student} />
         </div>
       </div>
 
       {/* ── Subscription info strip (current teacher from backend) ── */}
       <div className="mx-4 mb-3 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
-        <span className="font-semibold text-gray-700">Current teacher:</span>
+        <span className="font-semibold text-gray-700">{t('users.currentTeacher')}</span>
         {teacherName ? (
           <span className="flex items-center gap-1"><BookOpen className="h-3 w-3 text-gray-400" /> {teacherName}</span>
         ) : (
-          <span className="text-gray-400 italic">Not assigned</span>
+          <span className="text-gray-400 italic">{t('users.notAssigned')}</span>
         )}
         <span className="flex items-center gap-1">
           <CalendarDays className="h-3 w-3 text-gray-400" />
-          Joined {format(new Date(student.joinedDate || student.createdAt), 'MMM yyyy')}
+          {t('users.joined', { date: format(new Date(student.joinedDate || student.createdAt), 'MMM yyyy') })}
         </span>
-      </div>
-
-      {/* ── Gamification stats strip ── */}
-      <div className="mx-4 mb-3 border border-gray-100 rounded-xl px-3 py-2 grid grid-cols-4 gap-2 text-center text-xs text-gray-600">
-        <div><p className="font-bold text-gray-800 text-sm">{student.quizzesTaken}</p><p>Quizzes</p></div>
-        <div><p className="font-bold text-gray-800 text-sm">{student.webinarsAttended}</p><p>Webinars</p></div>
-        <div><p className="font-bold text-gray-800 text-sm">{student.articlesViewed}</p><p>Articles</p></div>
-        <div><p className="font-bold text-gray-800 text-sm">{student.storiesSubmitted}</p><p>Stories</p></div>
       </div>
 
       {/* ── Complaints ── */}
@@ -151,9 +144,6 @@ function StudentCard({ student, teacherName }: { student: UserType; teacherName?
       {/* ── Footer ── */}
       <div className="px-4 pb-3 flex items-center justify-between text-xs text-gray-400 border-t border-gray-100 pt-2">
         <span>Created {format(new Date(student.createdAt), 'MMM d, yyyy')}</span>
-        {student.lastActive && (
-          <span>Last active {format(new Date(student.lastActive), 'MMM d, yyyy')}</span>
-        )}
       </div>
     </div>
   );
@@ -162,12 +152,14 @@ function StudentCard({ student, teacherName }: { student: UserType; teacherName?
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function StudentsPage() {
+  const { t } = useTranslation();
   const allUsers = useUsersStore(selectUsers);
   const isLoading = useUsersStore(selectIsLoading);
   const { fetchUsers, setFilters, filters } = useUsersStore();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [isAddOpen, setIsAddOpen] = useState(false);
 
   useEffect(() => {
     setFilters({ search, status: statusFilter as any } as any);
@@ -201,27 +193,36 @@ export function StudentsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Students</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('users.studentsTitle')}</h1>
           <p className="text-gray-500 mt-1 text-sm">
-            {students.length} students · live data from backend
+            {t('users.studentsLiveData', { count: students.length })}
           </p>
         </div>
-        <button
-          onClick={() => fetchUsers()}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-        >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => fetchUsers()}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            {t('common.refresh')}
+          </button>
+          <button
+            onClick={() => setIsAddOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            {t('users.addStudent')}
+          </button>
+        </div>
       </div>
 
       {/* Summary stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Total',     value: students.length, icon: GraduationCap, bg: 'bg-primary-50',  text: 'text-primary-700',  iconBg: 'bg-primary-100' },
-          { label: 'Active',    value: active,          icon: CheckCircle,   bg: 'bg-emerald-50', text: 'text-emerald-700', iconBg: 'bg-emerald-100' },
-          { label: 'Inactive',  value: inactive,        icon: XCircle,       bg: 'bg-gray-50',    text: 'text-gray-600',   iconBg: 'bg-gray-100' },
-          { label: 'Suspended', value: suspended,       icon: Users,         bg: 'bg-red-50',     text: 'text-red-700',    iconBg: 'bg-red-100' },
+          { label: t('common.total'),     value: students.length, icon: GraduationCap, bg: 'bg-primary-50',  text: 'text-primary-700',  iconBg: 'bg-primary-100' },
+          { label: t('status.active'),    value: active,          icon: CheckCircle,   bg: 'bg-emerald-50', text: 'text-emerald-700', iconBg: 'bg-emerald-100' },
+          { label: t('status.inactive'),  value: inactive,        icon: XCircle,       bg: 'bg-gray-50',    text: 'text-gray-600',   iconBg: 'bg-gray-100' },
+          { label: t('status.suspended'), value: suspended,       icon: Users,         bg: 'bg-red-50',     text: 'text-red-700',    iconBg: 'bg-red-100' },
         ].map(({ label, value, icon: Icon, bg, text, iconBg }) => (
           <div key={label} className={`${bg} ${text} rounded-xl border border-gray-200 p-4 flex items-center gap-3`}>
             <div className={`${iconBg} rounded-xl p-2.5`}><Icon className="h-6 w-6" /></div>
@@ -236,13 +237,13 @@ export function StudentsPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by name, email or username…"
+            placeholder={t('users.searchNameEmailUsername')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm w-full focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
+            className="ps-9 pe-4 py-2 border border-gray-300 rounded-lg text-sm w-full focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
           />
         </div>
         <select
@@ -250,11 +251,11 @@ export function StudentsPage() {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-primary-400 focus:border-primary-400"
         >
-          <option value="">All Statuses</option>
-          <option value="ACTIVE">Active</option>
-          <option value="INACTIVE">Inactive</option>
-          <option value="SUSPENDED">Suspended</option>
-          <option value="PENDING">Pending</option>
+          <option value="">{t('common.allStatuses')}</option>
+          <option value="ACTIVE">{t('status.active')}</option>
+          <option value="INACTIVE">{t('status.inactive')}</option>
+          <option value="SUSPENDED">{t('status.suspended')}</option>
+          <option value="PENDING">{t('status.pending')}</option>
         </select>
       </div>
 
@@ -276,6 +277,8 @@ export function StudentsPage() {
           })}
         </div>
       )}
+
+      <AddUserModal role="STUDENT" isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} />
     </div>
   );
 }

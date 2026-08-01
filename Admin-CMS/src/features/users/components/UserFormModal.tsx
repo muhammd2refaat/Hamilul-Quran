@@ -26,7 +26,6 @@ export function UserFormModal({
     email: user?.email || '',
     phone: user?.phone || '',
     country: user?.country || 'KSA',
-    organization: user?.organization || '',
     status: user?.status || 'active',
   });
 

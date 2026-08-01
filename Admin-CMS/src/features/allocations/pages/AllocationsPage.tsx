@@ -3,20 +3,24 @@
  */
 
 import { useState } from 'react';
-import { 
-  PieChart, 
-  Plus, 
-  ChevronRight, 
+import {
+  PieChart,
+  Plus,
+  ChevronRight,
   ChevronLeft,
   User,
   GraduationCap,
   Clock,
   CalendarDays,
   CheckCircle2,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
-import { Button, Modal } from '@/shared/components';
-import { useAllocationsStore } from '../store/allocationsStore';
+import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
+import { Button, Modal, ConfirmDialog } from '@/shared/components';
+import { useAllocationsStore, type Allocation } from '../store/allocationsStore';
 import { useUsersStore } from '@/features/users/store/usersStore';
 import { useEffect } from 'react';
 
@@ -45,9 +49,14 @@ interface AllocationState {
 }
 
 export function AllocationsPage() {
+  const { t } = useTranslation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const { allocations, fetchAllocations, createAllocation } = useAllocationsStore();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deletingAlloc, setDeletingAlloc] = useState<Allocation | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { allocations, fetchAllocations, createAllocation, updateAllocation, deleteAllocation } =
+    useAllocationsStore();
   const { users, fetchUsers } = useUsersStore();
 
   useEffect(() => {
@@ -66,21 +75,70 @@ export function AllocationsPage() {
     schedule: []
   });
 
+  const resetModal = () => {
+    setIsModalOpen(false);
+    setStep(1);
+    setEditingId(null);
+    setState({ teacherId: '', studentId: '', sessionsPerWeek: 2, duration: 30, schedule: [] });
+  };
+
   const handleNext = () => {
-    if (step < 3) setStep((s) => (s + 1) as 1 | 2 | 3);
-    else {
-      // Final submit
-      createAllocation({ teacher_id: state.teacherId, student_id: state.studentId, sessions_per_week: state.sessionsPerWeek, duration: state.duration, schedule: state.schedule }).then(() => {
-        setIsModalOpen(false);
-        setStep(1);
-        setState({ teacherId: '', studentId: '', sessionsPerWeek: 2, duration: 30, schedule: [] });
-      });
+    if (step < 3) {
+      setStep((s) => (s + 1) as 1 | 2 | 3);
+      return;
     }
+    const payload = {
+      teacher_id: state.teacherId,
+      student_id: state.studentId,
+      sessions_per_week: state.sessionsPerWeek,
+      duration: state.duration,
+      schedule: state.schedule,
+    };
+    const submit = editingId
+      ? updateAllocation(editingId, payload)
+      : createAllocation(payload);
+    submit
+      .then(() => {
+        toast.success(editingId ? 'Allocation updated' : 'Allocation created');
+        resetModal();
+      })
+      .catch((error: any) => {
+        toast.error(error?.response?.data?.detail || 'Failed to save allocation');
+      });
   };
 
   const handleBack = () => {
     if (step > 1) setStep((s) => (s - 1) as 1 | 2 | 3);
   };
+
+  const openEditModal = (alloc: Allocation) => {
+    setEditingId(alloc.id);
+    setState({
+      teacherId: alloc.teacher_id,
+      studentId: alloc.student_id,
+      sessionsPerWeek: alloc.sessions_per_week,
+      duration: alloc.duration as 30 | 45 | 60,
+      schedule: alloc.schedule.map((s) => ({ day: s.day, time: s.time })),
+    });
+    setStep(1);
+    setIsModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingAlloc) return;
+    setIsDeleting(true);
+    try {
+      await deleteAllocation(deletingAlloc.id);
+      toast.success('Allocation deleted');
+      setDeletingAlloc(null);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail || 'Failed to delete allocation');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const step3ButtonLabel = editingId ? t('common.save') : t('allocations.confirm');
 
   const isStep1Valid = state.teacherId && state.studentId;
   const isStep2Valid = state.sessionsPerWeek > 0;
@@ -111,13 +169,13 @@ export function AllocationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Allocations</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('allocations.title')}</h1>
           <p className="text-gray-600 mt-1">
-            Manage teacher and student session allocations
+            {t('allocations.subtitle')}
           </p>
         </div>
         <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" /> Add Allocation
+          <Plus className="h-4 w-4 me-2" /> {t('allocations.addAllocation')}
         </Button>
       </div>
       
@@ -126,12 +184,12 @@ export function AllocationsPage() {
         <div className="w-16 h-16 bg-primary-50 rounded-full flex items-center justify-center mb-4">
           <PieChart className="w-8 h-8 text-primary-600" />
         </div>
-        <h3 className="text-lg font-medium text-gray-900">No Allocations Found</h3>
+        <h3 className="text-lg font-medium text-gray-900">{t('allocations.noneTitle')}</h3>
         <p className="text-gray-500 mt-2 max-w-sm">
-          There are currently no allocations to display in this view.
+          {t('allocations.noneDesc')}
         </p>
         <Button className="mt-6" onClick={() => setIsModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" /> Add Allocation
+          <Plus className="h-4 w-4 me-2" /> {t('allocations.addAllocation')}
         </Button>
       </div>
 ) : (
@@ -147,11 +205,11 @@ export function AllocationsPage() {
                    <p className="text-sm text-gray-500 flex items-center gap-2 mt-1"><User className="h-4 w-4" /> {teacher?.firstName} {teacher?.lastName}</p>
                  </div>
                  <span className="bg-primary-50 text-primary-700 text-xs font-bold px-2 py-1 rounded-full">
-                   {alloc.sessions_per_week}x / week
+                   {t('allocations.perWeek', { count: alloc.sessions_per_week })}
                  </span>
                </div>
                <div className="border-t border-gray-100 pt-4 mt-4 space-y-2">
-                 <p className="text-sm text-gray-600 flex items-center gap-2"><Clock className="h-4 w-4" /> {alloc.duration} minutes</p>
+                 <p className="text-sm text-gray-600 flex items-center gap-2"><Clock className="h-4 w-4" /> {t('allocations.minutes', { count: alloc.duration })}</p>
                  <div className="flex flex-wrap gap-2 mt-2">
                    {alloc.schedule.map((s, idx) => (
                      <span key={idx} className="bg-gray-100 text-gray-700 text-[10px] font-semibold px-2 py-1 rounded border border-gray-200">
@@ -159,6 +217,20 @@ export function AllocationsPage() {
                      </span>
                    ))}
                  </div>
+               </div>
+               <div className="border-t border-gray-100 pt-3 mt-3 flex items-center gap-2">
+                 <button
+                   onClick={() => openEditModal(alloc)}
+                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 transition-colors"
+                 >
+                   <Pencil className="h-3.5 w-3.5" /> {t('common.edit')}
+                 </button>
+                 <button
+                   onClick={() => setDeletingAlloc(alloc)}
+                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 transition-colors"
+                 >
+                   <Trash2 className="h-3.5 w-3.5" /> {t('common.delete')}
+                 </button>
                </div>
              </div>
            );
@@ -168,30 +240,30 @@ export function AllocationsPage() {
 
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Create New Allocation"
+        onClose={resetModal}
+        title={editingId ? t('allocations.editTitle') : t('allocations.createTitle')}
         size="xl"
         footer={
           <div className="flex items-center justify-between w-full">
             <div className="text-sm font-medium text-gray-500">
-              Step {step} of 3
+              {t('allocations.stepOf', { step })}
             </div>
             <div className="flex gap-3">
               {step > 1 && (
                 <Button variant="outline" onClick={handleBack}>
-                  <ChevronLeft className="h-4 w-4 mr-2" /> Back
+                  <ChevronLeft className="h-4 w-4 me-2" /> {t('common.back')}
                 </Button>
               )}
-              <Button 
-                onClick={handleNext} 
+              <Button
+                onClick={handleNext}
                 disabled={
                   (step === 1 && !isStep1Valid) ||
                   (step === 2 && !isStep2Valid) ||
                   (step === 3 && !isStep3Valid)
                 }
               >
-                {step === 3 ? 'Confirm Allocation' : 'Next Step'}
-                {step < 3 && <ChevronRight className="h-4 w-4 ml-2" />}
+                {step === 3 ? step3ButtonLabel : t('allocations.nextStep')}
+                {step < 3 && <ChevronRight className="h-4 w-4 ms-2" />}
               </Button>
             </div>
           </div>
@@ -224,7 +296,7 @@ export function AllocationsPage() {
             <div className="space-y-6 animate-fade-in">
               <div>
                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <User className="h-5 w-5 text-primary-600" /> Select Teacher
+                  <User className="h-5 w-5 text-primary-600" /> {t('allocations.selectTeacher')}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[180px] overflow-y-auto pr-2">
                   {teachers.map((t) => (
@@ -246,7 +318,7 @@ export function AllocationsPage() {
 
               <div>
                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <GraduationCap className="h-5 w-5 text-emerald-600" /> Select Student
+                  <GraduationCap className="h-5 w-5 text-emerald-600" /> {t('allocations.selectStudent')}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[180px] overflow-y-auto pr-2">
                   {students.map((s) => (
@@ -278,9 +350,9 @@ export function AllocationsPage() {
             <div className="space-y-8 animate-fade-in max-w-xl mx-auto pt-4">
               <div>
                 <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
-                  <CalendarDays className="h-5 w-5 text-indigo-600" /> Sessions Per Week
+                  <CalendarDays className="h-5 w-5 text-indigo-600" /> {t('allocations.sessionsPerWeek')}
                 </h3>
-                <p className="text-sm text-gray-500 mb-4">How many times per week will they meet?</p>
+                <p className="text-sm text-gray-500 mb-4">{t('allocations.sessionsPerWeekDesc')}</p>
                 <div className="flex items-center gap-4">
                   {[1, 2, 3, 4, 5, 6, 7].map((num) => (
                     <button
@@ -300,9 +372,9 @@ export function AllocationsPage() {
 
               <div>
                 <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-amber-500" /> Session Duration
+                  <Clock className="h-5 w-5 text-amber-500" /> {t('allocations.sessionDuration')}
                 </h3>
-                <p className="text-sm text-gray-500 mb-4">How long is each session?</p>
+                <p className="text-sm text-gray-500 mb-4">{t('allocations.sessionDurationDesc')}</p>
                 <div className="flex items-center gap-4">
                   {[30, 45, 60].map((mins) => (
                     <button
@@ -327,10 +399,10 @@ export function AllocationsPage() {
             <div className="space-y-6 animate-fade-in">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <CalendarIcon className="h-5 w-5 text-primary-600" /> Select Schedule
+                  <CalendarIcon className="h-5 w-5 text-primary-600" /> {t('allocations.selectSchedule')}
                 </h3>
                 <div className="text-sm font-medium">
-                  Selected <span className="text-primary-600 font-bold">{state.schedule.length}</span> of <span className="font-bold">{state.sessionsPerWeek}</span> slots
+                  {t('allocations.selectedSlots', { selected: state.schedule.length, total: state.sessionsPerWeek })}
                 </div>
               </div>
 
@@ -387,6 +459,18 @@ export function AllocationsPage() {
           )}
         </div>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={!!deletingAlloc}
+        onClose={() => setDeletingAlloc(null)}
+        onCancel={() => setDeletingAlloc(null)}
+        onConfirm={confirmDelete}
+        title={t('allocations.deleteTitle')}
+        message={t('allocations.deleteMessage')}
+        confirmText={t('common.delete')}
+        variant="danger"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

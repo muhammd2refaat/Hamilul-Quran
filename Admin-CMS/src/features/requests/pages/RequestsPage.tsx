@@ -2,7 +2,7 @@
  * Requests page — reads from Zustand store, actions update live count
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   ClipboardList,
   CheckCircle,
@@ -25,24 +25,25 @@ import {
   type RequestStatus,
   type RequestType,
 } from '@/mock-data/complaints-requests';
+import { useTranslation } from 'react-i18next';
 import { useRequestsStore } from '../store/requestsStore';
 import { format } from 'date-fns';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const STATUS_CFG: Record<RequestStatus, { label: string; cls: string; icon: React.ElementType }> = {
-  pending:   { label: 'Pending',   cls: 'bg-amber-100 text-amber-700 border-amber-200',       icon: Clock },
-  in_review: { label: 'In Review', cls: 'bg-blue-100 text-blue-700 border-blue-200',           icon: AlertCircle },
-  approved:  { label: 'Approved',  cls: 'bg-emerald-100 text-emerald-700 border-emerald-200',  icon: CheckCircle },
-  rejected:  { label: 'Rejected',  cls: 'bg-red-100 text-red-700 border-red-200',             icon: XCircle },
+const STATUS_CFG: Record<RequestStatus, { cls: string; icon: React.ElementType }> = {
+  pending:   { cls: 'bg-amber-100 text-amber-700 border-amber-200',       icon: Clock },
+  in_review: { cls: 'bg-blue-100 text-blue-700 border-blue-200',           icon: AlertCircle },
+  approved:  { cls: 'bg-emerald-100 text-emerald-700 border-emerald-200',  icon: CheckCircle },
+  rejected:  { cls: 'bg-red-100 text-red-700 border-red-200',             icon: XCircle },
 };
 
-const TYPE_CFG: Record<RequestType, { label: string; icon: React.ElementType; color: string }> = {
-  reschedule:     { label: 'Reschedule',     icon: Calendar,       color: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
-  new_enrollment: { label: 'New Enrollment', icon: UserPlus,       color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  change_teacher: { label: 'Change Teacher', icon: ArrowRightLeft, color: 'bg-violet-100 text-violet-700 border-violet-200' },
-  pause:          { label: 'Pause',          icon: PauseCircle,    color: 'bg-amber-100 text-amber-700 border-amber-200' },
-  other:          { label: 'Other',          icon: ClipboardList,  color: 'bg-gray-100 text-gray-600 border-gray-200' },
+const TYPE_CFG: Record<RequestType, { icon: React.ElementType; color: string }> = {
+  reschedule:     { icon: Calendar,       color: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
+  new_enrollment: { icon: UserPlus,       color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  change_teacher: { icon: ArrowRightLeft, color: 'bg-violet-100 text-violet-700 border-violet-200' },
+  pause:          { icon: PauseCircle,    color: 'bg-amber-100 text-amber-700 border-amber-200' },
+  other:          { icon: ClipboardList,  color: 'bg-gray-100 text-gray-600 border-gray-200' },
 };
 
 const LEFT_BORDER: Record<RequestStatus, string> = {
@@ -59,19 +60,21 @@ const ROLE_ICON: Record<string, React.ElementType> = {
 };
 
 function StatusBadge({ status }: { status: RequestStatus }) {
-  const { label, cls, icon: Icon } = STATUS_CFG[status];
+  const { t } = useTranslation();
+  const { cls, icon: Icon } = STATUS_CFG[status];
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${cls}`}>
-      <Icon className="h-3.5 w-3.5" /> {label}
+      <Icon className="h-3.5 w-3.5" /> {t(`requests.status.${status}`)}
     </span>
   );
 }
 
 function TypeBadge({ type }: { type: RequestType }) {
-  const { label, icon: Icon, color } = TYPE_CFG[type];
+  const { t } = useTranslation();
+  const { icon: Icon, color } = TYPE_CFG[type];
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${color}`}>
-      <Icon className="h-3 w-3" /> {label}
+      <Icon className="h-3 w-3" /> {t(`requests.type.${type}`)}
     </span>
   );
 }
@@ -79,6 +82,7 @@ function TypeBadge({ type }: { type: RequestType }) {
 // ─── Request Card ─────────────────────────────────────────────────────────────
 
 function RequestCard({ request }: { request: PlatformRequest }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const updateStatus = useRequestsStore((s) => s.updateStatus);
   const RoleIcon = ROLE_ICON[request.fromRole] ?? User;
@@ -92,8 +96,8 @@ function RequestCard({ request }: { request: PlatformRequest }) {
         <div className="flex-1 min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <TypeBadge type={request.type} />
-            <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full capitalize">
-              <RoleIcon className="h-3 w-3" /> {request.fromRole}
+            <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">
+              <RoleIcon className="h-3 w-3" /> {t(`requests.role.${request.fromRole}`)}
             </span>
             <span className="text-sm font-bold text-gray-900">{request.fromName}</span>
             <span className="text-xs text-gray-400">{format(new Date(request.date), 'MMM d, yyyy')}</span>
@@ -113,18 +117,18 @@ function RequestCard({ request }: { request: PlatformRequest }) {
           {request.type === 'new_enrollment' && (
             <div className="flex flex-wrap gap-2 text-xs">
               <span className="bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-lg text-gray-700">
-                Plan: <strong>{request.requestedPlan}</strong>
+                {t('requests.plan')}: <strong>{request.requestedPlan}</strong>
               </span>
               {request.requestedTeacher && (
                 <span className="bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-lg text-gray-700">
-                  Teacher: <strong>{request.requestedTeacher}</strong>
+                  {t('requests.teacher')}: <strong>{request.requestedTeacher}</strong>
                 </span>
               )}
             </div>
           )}
           {request.type === 'change_teacher' && request.requestedTeacher && (
             <div className="text-xs text-gray-600">
-              Requesting: <span className="font-semibold text-primary-700">{request.requestedTeacher}</span>
+              {t('requests.requesting')}: <span className="font-semibold text-primary-700">{request.requestedTeacher}</span>
             </div>
           )}
 
@@ -146,14 +150,14 @@ function RequestCard({ request }: { request: PlatformRequest }) {
       {expanded && (
         <div className="border-t border-gray-100 px-4 pb-4 pt-3 space-y-3">
           <div className="bg-gray-50 border border-gray-100 rounded-xl p-3">
-            <p className="text-xs font-semibold text-gray-500 mb-1">Full Details</p>
+            <p className="text-xs font-semibold text-gray-500 mb-1">{t('requests.fullDetails')}</p>
             <p className="text-sm text-gray-800">{request.details}</p>
           </div>
 
           {request.adminNote && (
             <div className="bg-primary-50 border border-primary-100 rounded-xl p-3">
               <p className="text-xs font-semibold text-primary-700 mb-1 flex items-center gap-1">
-                <CheckCircle className="h-3.5 w-3.5" /> Admin Response
+                <CheckCircle className="h-3.5 w-3.5" /> {t('requests.adminResponse')}
               </p>
               <p className="text-sm text-gray-700 italic">"{request.adminNote}"</p>
             </div>
@@ -166,20 +170,20 @@ function RequestCard({ request }: { request: PlatformRequest }) {
                 onClick={() => updateStatus(request.id, 'approved', 'Approved by admin.')}
                 className="flex-1 px-3 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors"
               >
-                Approve
+                {t('requests.approve')}
               </button>
               <button
                 onClick={() => updateStatus(request.id, 'in_review')}
                 disabled={request.status === 'in_review'}
                 className="flex-1 px-3 py-2 text-sm font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                In Review
+                {t('requests.inReviewAction')}
               </button>
               <button
                 onClick={() => updateStatus(request.id, 'rejected', 'Rejected by admin.')}
                 className="flex-1 px-3 py-2 text-sm font-semibold bg-red-50 text-red-700 border border-red-200 rounded-xl hover:bg-red-100 transition-colors"
               >
-                Reject
+                {t('requests.reject')}
               </button>
             </div>
           )}
@@ -192,10 +196,15 @@ function RequestCard({ request }: { request: PlatformRequest }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function RequestsPage() {
-  const { requests } = useRequestsStore();
+  const { t } = useTranslation();
+  const { requests, fetchRequests, isLoading } = useRequestsStore();
   const [search, setSearch]       = useState('');
   const [statusFilter, setStatus] = useState<RequestStatus | ''>('');
   const [typeFilter, setType]     = useState<RequestType | ''>('');
+
+  useEffect(() => {
+    fetchRequests();
+  }, [fetchRequests]);
 
   const stats = {
     total:    requests.length,
@@ -225,20 +234,20 @@ export function RequestsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Requests</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('requests.title')}</h1>
         <p className="text-gray-500 mt-1 text-sm">
-          Student, guardian and teacher requests — reschedule, enrollment, teacher changes and pauses.
+          {t('requests.subtitle')}
         </p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
-          { label: 'Total',     value: stats.total,    cls: 'bg-gray-50 text-gray-700',       iconBg: 'bg-gray-200',    icon: ClipboardList },
-          { label: 'Pending',   value: stats.pending,  cls: 'bg-amber-50 text-amber-700',     iconBg: 'bg-amber-100',   icon: Clock },
-          { label: 'In Review', value: stats.inReview, cls: 'bg-blue-50 text-blue-700',       iconBg: 'bg-blue-100',    icon: AlertCircle },
-          { label: 'Approved',  value: stats.approved, cls: 'bg-emerald-50 text-emerald-700', iconBg: 'bg-emerald-100', icon: CheckCircle },
-          { label: 'Rejected',  value: stats.rejected, cls: 'bg-red-50 text-red-700',         iconBg: 'bg-red-100',     icon: XCircle },
+          { label: t('requests.total'),             value: stats.total,    cls: 'bg-gray-50 text-gray-700',       iconBg: 'bg-gray-200',    icon: ClipboardList },
+          { label: t('requests.status.pending'),    value: stats.pending,  cls: 'bg-amber-50 text-amber-700',     iconBg: 'bg-amber-100',   icon: Clock },
+          { label: t('requests.status.in_review'),  value: stats.inReview, cls: 'bg-blue-50 text-blue-700',       iconBg: 'bg-blue-100',    icon: AlertCircle },
+          { label: t('requests.status.approved'),   value: stats.approved, cls: 'bg-emerald-50 text-emerald-700', iconBg: 'bg-emerald-100', icon: CheckCircle },
+          { label: t('requests.status.rejected'),   value: stats.rejected, cls: 'bg-red-50 text-red-700',         iconBg: 'bg-red-100',     icon: XCircle },
         ].map(({ label, value, cls, iconBg, icon: Icon }) => (
           <div key={label} className={`${cls} rounded-xl border border-gray-200 p-3 flex items-center gap-3`}>
             <div className={`${iconBg} rounded-xl p-2`}><Icon className="h-5 w-5" /></div>
@@ -253,37 +262,41 @@ export function RequestsPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
         <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search requests…"
+            placeholder={t('requests.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm w-full focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
+            className="ps-9 pe-4 py-2 border border-gray-300 rounded-lg text-sm w-full focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
           />
         </div>
         <select value={typeFilter} onChange={(e) => setType(e.target.value as RequestType | '')} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-          <option value="">All Types</option>
-          <option value="reschedule">Reschedule</option>
-          <option value="new_enrollment">New Enrollment</option>
-          <option value="change_teacher">Change Teacher</option>
-          <option value="pause">Pause</option>
-          <option value="other">Other</option>
+          <option value="">{t('requests.allTypes')}</option>
+          <option value="reschedule">{t('requests.type.reschedule')}</option>
+          <option value="new_enrollment">{t('requests.type.new_enrollment')}</option>
+          <option value="change_teacher">{t('requests.type.change_teacher')}</option>
+          <option value="pause">{t('requests.type.pause')}</option>
+          <option value="other">{t('requests.type.other')}</option>
         </select>
         <select value={statusFilter} onChange={(e) => setStatus(e.target.value as RequestStatus | '')} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-          <option value="">All Statuses</option>
-          <option value="pending">Pending</option>
-          <option value="in_review">In Review</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
+          <option value="">{t('common.allStatuses')}</option>
+          <option value="pending">{t('requests.status.pending')}</option>
+          <option value="in_review">{t('requests.status.in_review')}</option>
+          <option value="approved">{t('requests.status.approved')}</option>
+          <option value="rejected">{t('requests.status.rejected')}</option>
         </select>
       </div>
 
       {/* List */}
-      {filtered.length === 0 ? (
+      {isLoading ? (
+        <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center text-gray-400">
+          {t('requests.loading')}
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center text-gray-400">
           <Filter className="h-10 w-10 mx-auto mb-3 opacity-40" />
-          No requests match the selected filters.
+          {t('requests.noMatch')}
         </div>
       ) : (
         <div className="space-y-3">

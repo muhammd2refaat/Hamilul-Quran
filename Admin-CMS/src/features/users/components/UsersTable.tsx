@@ -5,7 +5,7 @@
 import { type ColumnDef } from '@tanstack/react-table';
 import { Eye, Edit, Trash2 } from 'lucide-react';
 import { DataTable, Avatar, StatusBadge, Button } from '@/shared/components';
-import { formatDate, formatNumber } from '@/shared/utils';
+import { formatDate } from '@/shared/utils';
 import type { User } from '../store/usersStore';
 
 interface UsersTableProps {
@@ -61,22 +61,6 @@ export function UsersTable({
       cell: ({ row }) => (
         <span className="text-gray-600">
           {countryNames[row.original.country] || row.original.country}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'organization',
-      header: 'Organization',
-      cell: ({ row }) => (
-        <span className="text-gray-600">{row.original.organization}</span>
-      ),
-    },
-    {
-      accessorKey: 'points',
-      header: 'Points',
-      cell: ({ row }) => (
-        <span className="font-medium text-gray-900">
-          {formatNumber(row.original.points)}
         </span>
       ),
     },

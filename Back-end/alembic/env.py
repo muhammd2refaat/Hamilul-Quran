@@ -15,10 +15,9 @@ if config.config_file_name is not None:
 # ─── Import ALL models so Alembic can detect them ─────────────────────────────
 # This import triggers all SQLModel table registrations
 from app.core.config import settings  # noqa: E402
-from sqlmodel import SQLModel  # noqa: E402
 
-# Import every model module to ensure tables are registered with SQLModel.metadata
-import app.features.users.models  # noqa: F401
+# Importing base registers every feature model with SQLModel.metadata.
+from app.database.base import SQLModel  # noqa: E402, F401
 
 target_metadata = SQLModel.metadata
 

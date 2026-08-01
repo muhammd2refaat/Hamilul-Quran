@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { StudentShellClient } from './StudentShellClient';
 
 export const metadata: Metadata = {
   title: 'Student Dashboard',
@@ -10,5 +11,5 @@ export default function StudentLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return <StudentShellClient>{children}</StudentShellClient>;
 }

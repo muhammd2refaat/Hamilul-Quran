@@ -32,8 +32,12 @@ class SessionScore(SQLModel, table=True):
     )
     student_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     teacher_id: uuid.UUID = Field(foreign_key="users.id", index=True)
-    
+
     date: datetime = Field(default_factory=datetime.utcnow)
-    score: int = Field(ge=0, le=100)
+    # score is relative to max_score (e.g. 17/20), not a fixed 0-100 scale.
+    score: int = Field(ge=0)
+    max_score: int = Field(default=20, ge=1)
+    surah: Optional[str] = Field(default=None, max_length=200)
+    teacher_comment: Optional[str] = Field(default=None)
     notes: Optional[str] = Field(default=None)
     recitation_type: Optional[str] = Field(default=None, max_length=100)

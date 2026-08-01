@@ -2,7 +2,7 @@
  * Main application layout with sidebar navigation
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -20,13 +20,19 @@ import {
   CreditCard,
   AlertCircle,
   Inbox,
+  CalendarDays,
+  Receipt,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useComplaintsStore } from '@/features/complaints/store/complaintsStore';
 import { useRequestsStore } from '@/features/requests/store/requestsStore';
+import { useReceiptsStore } from '@/features/receipts/store/receiptsStore';
 import { useAuthStore } from '@/features/auth';
+import { LanguageSwitcher } from '@/shared/components/LanguageSwitcher';
 
 type NavItem = {
   name: string;
+  labelKey: string;
   path: string;
   icon: React.ElementType;
   badge?: number;
@@ -36,6 +42,7 @@ type NavItem = {
 export function MainLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { user, logout } = useAuthStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({
@@ -49,17 +56,30 @@ export function MainLayout() {
   // Build navigation items based on user role
   const openComplaints  = useComplaintsStore((s) => s.unreadCount);
   const pendingRequests = useRequestsStore((s) => s.unreadCount);
+  const newReceipts     = useReceiptsStore((s) => s.unreadCount);
+  const fetchComplaints = useComplaintsStore((s) => s.fetchComplaints);
+  const fetchRequests   = useRequestsStore((s) => s.fetchRequests);
+  const fetchReceipts   = useReceiptsStore((s) => s.fetchReceipts);
+
+  // Warm the sidebar badge counts once on mount.
+  useEffect(() => {
+    fetchComplaints();
+    fetchRequests();
+    fetchReceipts();
+  }, [fetchComplaints, fetchRequests, fetchReceipts]);
 
   const navigationItems: NavItem[] = [
-    { name: 'Dashboard & Statistics', path: '/', icon: LayoutDashboard },
-    { name: 'Plans', path: '/plans', icon: ClipboardList },
-    { name: 'Allocations', path: '/allocations', icon: PieChart },
-    { name: 'Subscriptions', path: '/subscriptions', icon: CreditCard },
-    { name: 'Students', path: '/students', icon: GraduationCap },
-    { name: 'Teachers', path: '/teachers', icon: BookOpen },
-    { name: 'Complaints', path: '/complaints', icon: AlertCircle, badge: openComplaints },
-    { name: 'Requests', path: '/requests', icon: Inbox, badge: pendingRequests },
-    ...(isSuperAdmin ? [{ name: 'Admins', path: '/admins', icon: Shield }] : []),
+    { name: 'Dashboard & Statistics', labelKey: 'nav.dashboard', path: '/', icon: LayoutDashboard },
+    { name: 'Plans', labelKey: 'nav.plans', path: '/plans', icon: ClipboardList },
+    { name: 'Allocations', labelKey: 'nav.allocations', path: '/allocations', icon: PieChart },
+    { name: 'Calendar', labelKey: 'nav.calendar', path: '/calendar', icon: CalendarDays },
+    { name: 'Subscriptions', labelKey: 'nav.subscriptions', path: '/subscriptions', icon: CreditCard },
+    { name: 'Students', labelKey: 'nav.students', path: '/students', icon: GraduationCap },
+    { name: 'Teachers', labelKey: 'nav.teachers', path: '/teachers', icon: BookOpen },
+    { name: 'Complaints', labelKey: 'nav.complaints', path: '/complaints', icon: AlertCircle, badge: openComplaints },
+    { name: 'Requests', labelKey: 'nav.requests', path: '/requests', icon: Inbox, badge: pendingRequests },
+    { name: 'Receipts', labelKey: 'nav.receipts', path: '/receipts', icon: Receipt, badge: newReceipts },
+    ...(isSuperAdmin ? [{ name: 'Admins', labelKey: 'nav.admins', path: '/admins', icon: Shield }] : []),
   ];
 
 
@@ -111,13 +131,14 @@ export function MainLayout() {
                   <span className="text-white font-bold text-sm">QR</span>
                 </div>
                 <span className="text-xl font-bold text-gray-900 hidden sm:block">
-                  Quran Kareem Admin
+                  {t('nav.brand')}
                 </span>
               </div>
             </div>
 
             {/* User Menu */}
-            <div className="flex items-center gap-4 ml-auto">
+            <div className="flex items-center gap-4 ms-auto">
+              <LanguageSwitcher />
               <div className="relative">
                 <div
                   className="flex items-center gap-3 px-3 py-2 transition-colors"
@@ -163,7 +184,7 @@ export function MainLayout() {
                         >
                           <div className="flex items-center gap-3">
                             <Icon className="h-5 w-5" />
-                            <span>{item.name}</span>
+                            <span>{t(item.labelKey)}</span>
                           </div>
                           {isExpanded ? (
                             <ChevronDown className="h-4 w-4" />
@@ -199,7 +220,7 @@ export function MainLayout() {
                           }`}
                       >
                         <Icon className="h-5 w-5" />
-                        <span className="flex-1">{item.name}</span>
+                        <span className="flex-1">{t(item.labelKey)}</span>
                         {item.badge != null && item.badge > 0 && (
                           <span className="ml-auto text-xs font-bold bg-red-500 text-white rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
                             {item.badge}
@@ -218,7 +239,7 @@ export function MainLayout() {
                 className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:bg-danger-50 hover:text-danger-700 transition-colors w-full"
               >
                 <LogOut className="h-5 w-5" />
-                <span>Logout</span>
+                <span>{t('nav.logout')}</span>
               </button>
             </div>
           </nav>

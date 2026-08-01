@@ -20,27 +20,18 @@ import {
   type PlatformComplaint,
   type ComplaintStatus,
   type ComplaintFrom,
-  type ComplaintCategory,
 } from '@/mock-data/complaints-requests';
+import { useTranslation } from 'react-i18next';
 import { useComplaintsStore } from '../store/complaintsStore';
 import { format } from 'date-fns';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const STATUS_CFG: Record<ComplaintStatus, { label: string; cls: string; icon: React.ElementType }> = {
-  open:      { label: 'Open',      cls: 'bg-red-100 text-red-700 border-red-200',             icon: AlertCircle },
-  in_review: { label: 'In Review', cls: 'bg-amber-100 text-amber-700 border-amber-200',       icon: Clock },
-  resolved:  { label: 'Resolved',  cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: CheckCircle },
-  dismissed: { label: 'Dismissed', cls: 'bg-gray-100 text-gray-600 border-gray-200',          icon: XCircle },
-};
-
-const CATEGORY_LABELS: Record<ComplaintCategory, string> = {
-  late_session: 'Late Session',
-  no_feedback:  'No Feedback',
-  curriculum:   'Curriculum',
-  behaviour:    'Behaviour',
-  technical:    'Technical',
-  other:        'Other',
+const STATUS_CFG: Record<ComplaintStatus, { cls: string; icon: React.ElementType }> = {
+  open:      { cls: 'bg-red-100 text-red-700 border-red-200',             icon: AlertCircle },
+  in_review: { cls: 'bg-amber-100 text-amber-700 border-amber-200',       icon: Clock },
+  resolved:  { cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: CheckCircle },
+  dismissed: { cls: 'bg-gray-100 text-gray-600 border-gray-200',          icon: XCircle },
 };
 
 const LEFT_BORDER: Record<ComplaintStatus, string> = {
@@ -51,22 +42,24 @@ const LEFT_BORDER: Record<ComplaintStatus, string> = {
 };
 
 function StatusBadge({ status }: { status: ComplaintStatus }) {
-  const { label, cls, icon: Icon } = STATUS_CFG[status];
+  const { t } = useTranslation();
+  const { cls, icon: Icon } = STATUS_CFG[status];
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${cls}`}>
-      <Icon className="h-3.5 w-3.5" /> {label}
+      <Icon className="h-3.5 w-3.5" /> {t(`complaints.status.${status}`)}
     </span>
   );
 }
 
 function FromBadge({ from }: { from: ComplaintFrom }) {
+  const { t } = useTranslation();
   return from === 'student' ? (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
-      <User className="h-3 w-3" /> Student
+      <User className="h-3 w-3" /> {t('complaints.student')}
     </span>
   ) : (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-primary-100 text-primary-700 border border-primary-200">
-      <BookOpen className="h-3 w-3" /> Teacher
+      <BookOpen className="h-3 w-3" /> {t('complaints.teacher')}
     </span>
   );
 }
@@ -74,6 +67,7 @@ function FromBadge({ from }: { from: ComplaintFrom }) {
 // ─── Complaint Card ───────────────────────────────────────────────────────────
 
 function ComplaintCard({ complaint }: { complaint: PlatformComplaint }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const updateStatus = useComplaintsStore((s) => s.updateStatus);
 
@@ -87,12 +81,12 @@ function ComplaintCard({ complaint }: { complaint: PlatformComplaint }) {
           <div className="flex flex-wrap items-center gap-2">
             <FromBadge from={complaint.from} />
             <span className="text-sm font-bold text-gray-900">{complaint.filedByName}</span>
-            <span className="text-xs text-gray-400">→ about →</span>
+            <span className="text-xs text-gray-400">{t('complaints.aboutArrow')}</span>
             <span className="text-sm font-semibold text-gray-700">{complaint.aboutName}</span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-              {CATEGORY_LABELS[complaint.category]}
+              {t(`complaints.category.${complaint.category}`)}
             </span>
             <span className="text-xs text-gray-400">{format(new Date(complaint.date), 'MMM d, yyyy')}</span>
           </div>
@@ -115,7 +109,7 @@ function ComplaintCard({ complaint }: { complaint: PlatformComplaint }) {
         <div className="border-t border-gray-100 px-4 pb-4 pt-3 space-y-3">
           <div className="bg-gray-50 rounded-xl border border-gray-100 p-3">
             <p className="text-xs font-semibold text-gray-500 mb-1 flex items-center gap-1.5">
-              <MessageSquare className="h-3.5 w-3.5" /> Full Description
+              <MessageSquare className="h-3.5 w-3.5" /> {t('complaints.fullDescription')}
             </p>
             <p className="text-sm text-gray-800">{complaint.description}</p>
           </div>
@@ -123,7 +117,7 @@ function ComplaintCard({ complaint }: { complaint: PlatformComplaint }) {
           {complaint.adminNote && (
             <div className="bg-primary-50 rounded-xl border border-primary-100 p-3">
               <p className="text-xs font-semibold text-primary-700 mb-1 flex items-center gap-1.5">
-                <CheckCircle className="h-3.5 w-3.5" /> Admin Note
+                <CheckCircle className="h-3.5 w-3.5" /> {t('complaints.adminNote')}
               </p>
               <p className="text-sm text-gray-700 italic">"{complaint.adminNote}"</p>
             </div>
@@ -137,19 +131,19 @@ function ComplaintCard({ complaint }: { complaint: PlatformComplaint }) {
                 disabled={complaint.status === 'in_review'}
                 className="flex-1 px-3 py-2 text-sm font-semibold bg-amber-50 text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Mark In Review
+                {t('complaints.markInReview')}
               </button>
               <button
                 onClick={() => updateStatus(complaint.id, 'resolved', 'Resolved by admin.')}
                 className="flex-1 px-3 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors"
               >
-                Resolve
+                {t('complaints.resolve')}
               </button>
               <button
                 onClick={() => updateStatus(complaint.id, 'dismissed', 'Dismissed by admin.')}
                 className="flex-1 px-3 py-2 text-sm font-semibold bg-red-50 text-red-700 border border-red-200 rounded-xl hover:bg-red-100 transition-colors"
               >
-                Dismiss
+                {t('complaints.dismiss')}
               </button>
             </div>
           )}
@@ -162,6 +156,7 @@ function ComplaintCard({ complaint }: { complaint: PlatformComplaint }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function ComplaintsPage() {
+  const { t } = useTranslation();
   const { complaints, fetchComplaints } = useComplaintsStore();
   
   useEffect(() => {
@@ -198,20 +193,20 @@ export function ComplaintsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Complaints</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('complaints.title')}</h1>
         <p className="text-gray-500 mt-1 text-sm">
-          All platform complaints — from students and teachers.
+          {t('complaints.subtitle')}
         </p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
-          { label: 'Total',     value: stats.total,     cls: 'bg-gray-50 text-gray-700',       iconBg: 'bg-gray-200',    icon: AlertCircle },
-          { label: 'Open',      value: stats.open,      cls: 'bg-red-50 text-red-700',         iconBg: 'bg-red-100',     icon: AlertCircle },
-          { label: 'In Review', value: stats.inReview,  cls: 'bg-amber-50 text-amber-700',     iconBg: 'bg-amber-100',   icon: Clock },
-          { label: 'Resolved',  value: stats.resolved,  cls: 'bg-emerald-50 text-emerald-700', iconBg: 'bg-emerald-100', icon: CheckCircle },
-          { label: 'Dismissed', value: stats.dismissed, cls: 'bg-gray-50 text-gray-500',       iconBg: 'bg-gray-100',    icon: XCircle },
+          { label: t('complaints.total'),             value: stats.total,     cls: 'bg-gray-50 text-gray-700',       iconBg: 'bg-gray-200',    icon: AlertCircle },
+          { label: t('complaints.status.open'),       value: stats.open,      cls: 'bg-red-50 text-red-700',         iconBg: 'bg-red-100',     icon: AlertCircle },
+          { label: t('complaints.status.in_review'),  value: stats.inReview,  cls: 'bg-amber-50 text-amber-700',     iconBg: 'bg-amber-100',   icon: Clock },
+          { label: t('complaints.status.resolved'),   value: stats.resolved,  cls: 'bg-emerald-50 text-emerald-700', iconBg: 'bg-emerald-100', icon: CheckCircle },
+          { label: t('complaints.status.dismissed'),  value: stats.dismissed, cls: 'bg-gray-50 text-gray-500',       iconBg: 'bg-gray-100',    icon: XCircle },
         ].map(({ label, value, cls, iconBg, icon: Icon }) => (
           <div key={label} className={`${cls} rounded-xl border border-gray-200 p-3 flex items-center gap-3`}>
             <div className={`${iconBg} rounded-xl p-2`}><Icon className="h-5 w-5" /></div>
@@ -226,26 +221,26 @@ export function ComplaintsPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
         <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search complaints…"
+            placeholder={t('complaints.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm w-full focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
+            className="ps-9 pe-4 py-2 border border-gray-300 rounded-lg text-sm w-full focus:ring-2 focus:ring-primary-400 focus:border-primary-400"
           />
         </div>
         <select value={fromFilter} onChange={(e) => setFrom(e.target.value as ComplaintFrom | '')} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-          <option value="">All Sources</option>
-          <option value="student">Students</option>
-          <option value="teacher">Teachers</option>
+          <option value="">{t('complaints.allSources')}</option>
+          <option value="student">{t('complaints.students')}</option>
+          <option value="teacher">{t('complaints.teachers')}</option>
         </select>
         <select value={statusFilter} onChange={(e) => setStatus(e.target.value as ComplaintStatus | '')} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-          <option value="">All Statuses</option>
-          <option value="open">Open</option>
-          <option value="in_review">In Review</option>
-          <option value="resolved">Resolved</option>
-          <option value="dismissed">Dismissed</option>
+          <option value="">{t('common.allStatuses')}</option>
+          <option value="open">{t('complaints.status.open')}</option>
+          <option value="in_review">{t('complaints.status.in_review')}</option>
+          <option value="resolved">{t('complaints.status.resolved')}</option>
+          <option value="dismissed">{t('complaints.status.dismissed')}</option>
         </select>
       </div>
 
@@ -253,7 +248,7 @@ export function ComplaintsPage() {
       {filtered.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center text-gray-400">
           <Filter className="h-10 w-10 mx-auto mb-3 opacity-40" />
-          No complaints match the selected filters.
+          {t('complaints.noMatch')}
         </div>
       ) : (
         <div className="space-y-3">

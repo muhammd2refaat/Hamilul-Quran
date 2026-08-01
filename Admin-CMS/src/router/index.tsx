@@ -18,6 +18,8 @@ import { AllocationsPage } from '@/features/allocations/pages/AllocationsPage';
 import { SubscriptionsPage } from '@/features/subscriptions/pages/SubscriptionsPage';
 import { ComplaintsPage } from '@/features/complaints/pages/ComplaintsPage';
 import { RequestsPage } from '@/features/requests/pages/RequestsPage';
+import { CalendarPage } from '@/features/calendar/pages/CalendarPage';
+import { ReceiptsPage } from '@/features/receipts/pages/ReceiptsPage';
 
 
 
@@ -79,6 +81,10 @@ export const router = createBrowserRouter([
         element: <AllocationsPage />,
       },
       {
+        path: 'calendar',
+        element: <CalendarPage />,
+      },
+      {
         path: 'subscriptions',
         element: <SubscriptionsPage />,
       },
@@ -97,6 +103,10 @@ export const router = createBrowserRouter([
       {
         path: 'requests',
         element: <RequestsPage />,
+      },
+      {
+        path: 'receipts',
+        element: <ReceiptsPage />,
       },
       {
         path: 'admins',

@@ -6,15 +6,10 @@ import {
   Mail,
   Phone,
   MapPin,
-  Building2,
   Calendar,
-  Trophy,
-  BookOpen,
-  Video,
-  MessageSquare,
 } from 'lucide-react';
 import { Modal, Avatar, StatusBadge, Card } from '@/shared/components';
-import { formatDate, formatNumber, formatRelativeTime } from '@/shared/utils';
+import { formatDate } from '@/shared/utils';
 import type { User } from '../store/usersStore';
 
 interface UserDetailModalProps {
@@ -37,14 +32,6 @@ const countryNames: Record<string, string> = {
 
 export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps) {
   if (!user) return null;
-
-  const stats = [
-    { label: 'Points', value: user.points, icon: Trophy, color: 'text-yellow-600 bg-yellow-100' },
-    { label: 'Quizzes', value: user.quizzesTaken, icon: BookOpen, color: 'text-primary-600 bg-primary-100' },
-    { label: 'Articles', value: user.articlesViewed, icon: BookOpen, color: 'text-purple-600 bg-purple-100' },
-    { label: 'Webinars', value: user.webinarsAttended, icon: Video, color: 'text-orange-600 bg-orange-100' },
-    { label: 'Stories', value: user.storiesSubmitted, icon: MessageSquare, color: 'text-success-600 bg-success-100' },
-  ];
 
   return (
     <Modal
@@ -91,33 +78,6 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
                 {user.city}, {countryNames[user.country]}
               </span>
             </div>
-            <div className="flex items-center gap-2 text-sm">
-              <Building2 className="h-4 w-4 text-gray-400" />
-              <span className="text-gray-600">{user.organization}</span>
-            </div>
-          </div>
-        </Card>
-
-        {/* Stats */}
-        <Card className="p-4">
-          <h3 className="text-sm font-medium text-gray-900 mb-3">
-            Activity Stats
-          </h3>
-          <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
-            {stats.map((stat) => (
-              <div
-                key={stat.label}
-                className="text-center p-3 bg-gray-50 rounded-lg"
-              >
-                <div className={`inline-flex p-2 rounded-lg ${stat.color} mb-2`}>
-                  <stat.icon className="h-4 w-4" />
-                </div>
-                <p className="text-lg font-semibold text-gray-900">
-                  {formatNumber(stat.value)}
-                </p>
-                <p className="text-xs text-gray-500">{stat.label}</p>
-              </div>
-            ))}
           </div>
         </Card>
 
@@ -132,15 +92,6 @@ export function UserDetailModal({ user, isOpen, onClose }: UserDetailModalProps)
               <span className="text-gray-500">Joined:</span>
               <span className="text-gray-900">{formatDate(user.createdAt)}</span>
             </div>
-            {user.lastActive && (
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-gray-400" />
-                <span className="text-gray-500">Last Active:</span>
-                <span className="text-gray-900">
-                  {formatRelativeTime(user.lastActive)}
-                </span>
-              </div>
-            )}
           </div>
         </Card>
       </div>

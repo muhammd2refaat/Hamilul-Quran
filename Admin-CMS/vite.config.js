@@ -36,10 +36,15 @@ export default defineConfig({
         },
     },
     server: {
-        port: 3000,
+        // Dedicated port — the Next.js Frontend owns 3000 (baked into
+        // Google OAuth redirect URIs), so Admin-CMS must not collide with it.
+        port: 5173,
         strictPort: true,
         host: true,
         proxy: {
+            // Convenience fallback for local dev when VITE_API_BASE_URL is
+            // unset — same-origin relative /api calls get proxied here.
+            // Ignored once client.ts resolves an absolute VITE_API_BASE_URL.
             '/api': {
                 target: 'http://127.0.0.1:8000',
                 changeOrigin: true,
@@ -52,4 +57,3 @@ export default defineConfig({
         strictPort: true,
     },
 });
-

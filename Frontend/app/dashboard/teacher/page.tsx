@@ -1,107 +1,110 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { LogOut, BookOpen, Users } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { apiClient } from "@/lib/api";
-import { type User } from "@/types/user";
-import { type Allocation } from "@/types/dashboard";
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { Users, CalendarDays, Award, Clock } from 'lucide-react';
+import { apiClient } from '@/lib/api';
+import { type TeacherStudent } from '@/types/dashboard';
+import { useLang } from '@/lib/dashboard/i18n';
+import { useDashboardUser } from '@/lib/dashboard/UserContext';
+import { EE } from '@/lib/dashboard/theme';
+import { ArchPanel } from '@/components/dashboard/ArchPanel';
+import { SectionHeader } from '@/components/dashboard/SectionHeader';
+import { StatCard } from '@/components/dashboard/StatCard';
+import { EmptyState } from '@/components/dashboard/EmptyState';
 
-export default function TeacherDashboard() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [allocations, setAllocations] = useState<Allocation[]>([]);
+const DAY_IDS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+export default function TeacherOverviewPage() {
+  const { t } = useLang();
+  const user = useDashboardUser();
+  const [students, setStudents] = useState<TeacherStudent[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        const { data: userData } = await apiClient.get<User>("/users/me");
-        setUser(userData);
+    let cancelled = false;
+    apiClient
+      .get<TeacherStudent[]>('/teachers/me/students')
+      .then(({ data }) => {
+        if (!cancelled) setStudents(data);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-        const { data: allocData } = await apiClient.get<Allocation[]>("/allocations/me");
-        setAllocations(allocData);
-      } catch (err: any) {
-        console.error(err);
-        if (err.response?.status === 401) {
-          router.push("/login");
-        }
-      }
-    }
-    fetchData();
-  }, [router]);
+  const todayId = DAY_IDS[new Date().getDay()];
+  const todaySlots = useMemo(() => {
+    return students.flatMap((s) =>
+      s.schedule
+        .filter((slot) => slot.day === todayId)
+        .map((slot) => ({ ...slot, studentName: `${s.first_name} ${s.last_name}`, studentId: s.student_id }))
+    );
+  }, [students, todayId]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    document.cookie = "access_token=; path=/; max-age=0";
-    router.push("/login");
-  };
-
-  if (!user) {
-    return <div className="flex h-screen items-center justify-center">Loading...</div>;
-  }
+  const totalSessionsPerWeek = students.reduce((sum, s) => sum + s.sessions_per_week, 0);
+  const scoresWithValues = students.filter((s) => s.last_score != null && s.last_max_score);
+  const avgScorePct = scoresWithValues.length
+    ? Math.round(
+        (scoresWithValues.reduce((sum, s) => sum + (s.last_score! / s.last_max_score!) * 100, 0) /
+          scoresWithValues.length)
+      )
+    : null;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-slate-900">Teacher Dashboard</h1>
-          <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
+    <div>
+      <SectionHeader title={`${t.welcomeBack}, ${user.first_name}`} desc={t.teacherWelcomeDesc} />
+
+      <ArchPanel>
+        <div style={{ fontFamily: EE.fontHead, fontSize: 15, letterSpacing: '1px', color: EE.gold, textTransform: 'uppercase', marginBottom: 6 }}>
+          {t.todaySessions}
         </div>
+        {todaySlots.length === 0 ? (
+          <p style={{ fontSize: 14, color: EE.sageLight, margin: 0 }}>{t.noSessionsToday}</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+            {todaySlots.map((slot, i) => (
+              <Link
+                key={i}
+                href={`/dashboard/teacher/students/${slot.studentId}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: 'rgba(255,255,255,.06)',
+                  borderRadius: 10,
+                  padding: '10px 14px',
+                  textDecoration: 'none',
+                  color: EE.parchment,
+                }}
+              >
+                <span style={{ fontWeight: 600, fontSize: 14 }}>{slot.studentName}</span>
+                <span style={{ fontSize: 13, color: EE.sage }}>{slot.time}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </ArchPanel>
 
-        <Card className="border-amber-100">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-amber-600" />
-              Welcome back, Teacher {user.first_name}!
-            </CardTitle>
-            <CardDescription>Manage your students and recitation sessions here.</CardDescription>
-          </CardHeader>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-amber-600" />
-              My Assigned Students
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Student ID</TableHead>
-                  <TableHead>Sessions / Week</TableHead>
-                  <TableHead>Duration (mins)</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {allocations.map((alloc) => (
-                  <TableRow key={alloc.id}>
-                    <TableCell className="font-mono text-xs">{alloc.student_id.substring(0,8)}...</TableCell>
-                    <TableCell>{alloc.sessions_per_week}</TableCell>
-                    <TableCell>{alloc.duration}</TableCell>
-                    <TableCell>
-                      <Button size="sm" variant="outline" className="h-8">View Details</Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {allocations.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-slate-500">No students assigned yet.</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+      <div style={{ marginTop: 26 }}>
+        <h2 style={{ fontFamily: EE.fontHead, fontSize: 16, fontWeight: 600, color: EE.ink, marginBottom: 14 }}>
+          {t.quickStats}
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
+          <StatCard label={t.statStudents} value={students.length} icon={Users} />
+          <StatCard label={t.statSessionsWeek} value={totalSessionsPerWeek} icon={CalendarDays} />
+          <StatCard label={t.statAvgScore} value={avgScorePct != null ? `${avgScorePct}%` : '—'} icon={Award} />
+        </div>
       </div>
+
+      {!loading && students.length === 0 && (
+        <div style={{ marginTop: 26 }}>
+          <EmptyState icon={Clock} text={t.noStudents} />
+        </div>
+      )}
     </div>
   );
 }

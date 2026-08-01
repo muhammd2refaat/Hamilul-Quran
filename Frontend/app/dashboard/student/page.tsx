@@ -1,188 +1,107 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { LogOut, User as UserIcon, Calendar, Activity, Clock } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { apiClient } from "@/lib/api";
-import { type User } from "@/types/user";
-import { type Allocation, type SessionScore, type TeacherHistory } from "@/types/dashboard";
+import { useState } from 'react';
+import Link from 'next/link';
+import { Sparkles, CalendarClock, Award, ClipboardList } from 'lucide-react';
+import { useLang } from '@/lib/dashboard/i18n';
+import { useDashboardUser } from '@/lib/dashboard/UserContext';
+import { useStudentStatus } from '@/lib/dashboard/StudentStatusContext';
+import { EE } from '@/lib/dashboard/theme';
+import { ArchPanel } from '@/components/dashboard/ArchPanel';
+import { SectionHeader } from '@/components/dashboard/SectionHeader';
+import { StatCard } from '@/components/dashboard/StatCard';
+import { RequestModal } from '@/components/dashboard/RequestModal';
 
-export default function StudentDashboard() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [allocations, setAllocations] = useState<Allocation[]>([]);
-  const [scores, setScores] = useState<SessionScore[]>([]);
-  const [history, setHistory] = useState<TeacherHistory[]>([]);
-
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const { data: userData } = await apiClient.get<User>("/users/me");
-        setUser(userData);
-
-        const [allocRes, scoresRes, historyRes] = await Promise.all([
-          apiClient.get<Allocation[]>("/allocations/me"),
-          apiClient.get<SessionScore[]>("/users/me/session-scores"),
-          apiClient.get<TeacherHistory[]>("/users/me/teacher-history")
-        ]);
-
-        setAllocations(allocRes.data);
-        setScores(scoresRes.data);
-        setHistory(historyRes.data);
-      } catch (err: any) {
-        console.error(err);
-        if (err.response?.status === 401) {
-          router.push("/login");
-        }
-      }
-    }
-    fetchData();
-  }, [router]);
-
-  const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    document.cookie = "access_token=; path=/; max-age=0";
-    router.push("/login");
-  };
-
-  if (!user) {
-    return <div className="flex h-screen items-center justify-center">Loading...</div>;
-  }
+export default function StudentOverviewPage() {
+  const { t } = useLang();
+  const user = useDashboardUser();
+  const { isNew, allocations } = useStudentStatus();
+  const [trialOpen, setTrialOpen] = useState(false);
+  const [trialSent, setTrialSent] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-slate-900">Student Dashboard</h1>
-          <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
+    <div>
+      <SectionHeader title={`${t.welcomeBack}, ${user.first_name}`} desc={t.studentWelcomeDesc} />
+
+      {isNew ? (
+        <ArchPanel>
+          <div
+            style={{
+              fontFamily: EE.fontHead,
+              fontSize: 15,
+              letterSpacing: '1px',
+              color: EE.gold,
+              textTransform: 'uppercase',
+              marginBottom: 8,
+            }}
+          >
+            {t.newStudentTitle}
+          </div>
+          <p style={{ fontSize: 14.5, color: EE.sageLight, maxWidth: 460, lineHeight: 1.6, margin: '0 0 18px' }}>
+            {t.newStudentDesc}
+          </p>
+          {trialSent ? (
+            <p style={{ fontSize: 14, color: EE.gold, fontWeight: 600, margin: 0 }}>{t.trialRequested}</p>
+          ) : (
+            <button
+              onClick={() => setTrialOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                background: EE.gold,
+                color: EE.emerald,
+                border: 'none',
+                padding: '13px 26px',
+                borderRadius: 8,
+                fontWeight: 700,
+                fontSize: 14.5,
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+              }}
+            >
+              <Sparkles size={16} />
+              {t.requestTrialBtn}
+            </button>
+          )}
+        </ArchPanel>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
+          <StatCard label={t.statSessionsWeek} value={allocations[0]?.sessions_per_week ?? '—'} icon={CalendarClock} />
+          <StatCard label={t.currentPlanSnapshot} value={`${allocations[0]?.duration ?? '—'}min`} icon={ClipboardList} />
+          <StatCard label={t.statLastSession} value="—" icon={Award} />
         </div>
+      )}
 
-        <Card className="border-emerald-100">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UserIcon className="h-5 w-5 text-emerald-600" />
-              Welcome back, {user.first_name}!
-            </CardTitle>
-            <CardDescription>Manage your memorization journey and sessions here.</CardDescription>
-          </CardHeader>
-        </Card>
-
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Allocations Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-emerald-600" />
-                My Allocations
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Teacher ID</TableHead>
-                    <TableHead>Sessions/Week</TableHead>
-                    <TableHead>Duration (mins)</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {allocations.map((alloc) => (
-                    <TableRow key={alloc.id}>
-                      <TableCell className="font-mono text-xs">{alloc.teacher_id.substring(0,8)}...</TableCell>
-                      <TableCell>{alloc.sessions_per_week}</TableCell>
-                      <TableCell>{alloc.duration}</TableCell>
-                    </TableRow>
-                  ))}
-                  {allocations.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center text-slate-500">No allocations found.</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          {/* Session Scores Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5 text-amber-500" />
-                Recent Session Scores
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Score</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {scores.map((score) => (
-                    <TableRow key={score.id}>
-                      <TableCell>{new Date(score.date).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <Badge variant={score.score >= 90 ? "default" : "secondary"} className={score.score >= 90 ? "bg-emerald-500" : ""}>
-                          {score.score}/100
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {scores.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={2} className="text-center text-slate-500">No scores recorded yet.</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          {/* Teacher History Table */}
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-blue-500" />
-                Teacher History
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Teacher ID</TableHead>
-                    <TableHead>Assigned At</TableHead>
-                    <TableHead>Ended At</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {history.map((hist) => (
-                    <TableRow key={hist.id}>
-                      <TableCell className="font-mono text-xs">{hist.teacher_id.substring(0,8)}...</TableCell>
-                      <TableCell>{new Date(hist.assigned_at).toLocaleDateString()}</TableCell>
-                      <TableCell>{hist.ended_at ? new Date(hist.ended_at).toLocaleDateString() : "Current"}</TableCell>
-                    </TableRow>
-                  ))}
-                  {history.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center text-slate-500">No teacher history found.</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+      {!isNew && (
+        <div style={{ marginTop: 26 }}>
+          <Link
+            href="/dashboard/student/progress"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              color: EE.emerald,
+              fontWeight: 700,
+              fontSize: 14,
+              textDecoration: 'none',
+            }}
+          >
+            {t.navProgress} →
+          </Link>
         </div>
-      </div>
+      )}
+
+      <RequestModal
+        open={trialOpen}
+        onClose={() => setTrialOpen(false)}
+        onSuccess={() => setTrialSent(true)}
+        requestType="new_enrollment"
+        title={t.requestTrialBtn}
+        description={t.newStudentDesc}
+        showRequestedPlan
+        detailsLabel={t.fieldComment}
+      />
     </div>
   );
 }

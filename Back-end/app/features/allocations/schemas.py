@@ -15,6 +15,13 @@ class AllocationCreate(BaseModel):
     duration: int
     schedule: List[AllocationSchedule]
 
+class AllocationUpdate(BaseModel):
+    teacher_id: Optional[uuid.UUID] = None
+    student_id: Optional[uuid.UUID] = None
+    sessions_per_week: Optional[int] = None
+    duration: Optional[int] = None
+    schedule: Optional[List[AllocationSchedule]] = None
+
 class AllocationResponse(BaseModel):
     id: uuid.UUID
     teacher_id: uuid.UUID

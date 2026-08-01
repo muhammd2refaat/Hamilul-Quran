@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { Button, Input } from '@/shared/components';
 import { loginSchema, type LoginFormData } from '../schemas';
 import { useAuthStore } from '../store';
@@ -17,6 +18,7 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onSuccess, onTwoFactorRequired }: LoginFormProps) {
+  const { t } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
   const { login, isLoading } = useAuthStore();
 
@@ -51,12 +53,12 @@ export function LoginForm({ onSuccess, onTwoFactorRequired }: LoginFormProps) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="text-center mb-8">
-        <h2 className="text-xl font-medium text-gray-800">Welcome Back</h2>
-        <p className="text-gray-500 mt-2 font-light">Continue your memorization journey</p>
+        <h2 className="text-xl font-medium text-gray-800">{t('auth.welcomeBack')}</h2>
+        <p className="text-gray-500 mt-2 font-light">{t('auth.journey')}</p>
       </div>
 
       <Input
-        label="Email Address"
+        label={t('auth.emailAddress')}
         type="email"
         placeholder="admin@platform.com"
         leftAddon={<Mail className="h-4 w-4" />}
@@ -65,9 +67,9 @@ export function LoginForm({ onSuccess, onTwoFactorRequired }: LoginFormProps) {
       />
 
       <Input
-        label="Password"
+        label={t('auth.password')}
         type={showPassword ? 'text' : 'password'}
-        placeholder="Enter your password"
+        placeholder={t('auth.passwordPlaceholder')}
         leftAddon={<Lock className="h-4 w-4" />}
         rightAddon={
           <button
@@ -93,13 +95,13 @@ export function LoginForm({ onSuccess, onTwoFactorRequired }: LoginFormProps) {
             type="checkbox"
             className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
           />
-          <span className="ml-2 text-sm text-gray-600">Remember me</span>
+          <span className="ms-2 text-sm text-gray-600">{t('auth.rememberMe')}</span>
         </label>
         <a
           href="/forgot-password"
           className="text-sm text-primary-600 hover:text-primary-700"
         >
-          Forgot password?
+          {t('auth.forgotPassword')}
         </a>
       </div>
 
@@ -109,11 +111,11 @@ export function LoginForm({ onSuccess, onTwoFactorRequired }: LoginFormProps) {
         isLoading={isLoading}
         leftIcon={<LogIn className="h-4 w-4" />}
       >
-        Sign In
+        {t('auth.signIn')}
       </Button>
 
       <p className="text-center text-xs text-gray-500">
-        By signing in, you agree to our Terms of Service and Privacy Policy
+        {t('auth.terms')}
       </p>
     </form>
   );

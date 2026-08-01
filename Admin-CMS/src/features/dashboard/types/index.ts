@@ -2,6 +2,37 @@
  * Dashboard module types
  */
 
+// ─── Real platform metrics (GET /dashboard/metrics) ────────────────────────────
+
+export interface SignupPoint {
+  month: string; // "YYYY-MM"
+  count: number;
+}
+
+export interface RecentSignup {
+  id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  createdAt: string;
+}
+
+export interface PlatformMetrics {
+  totalUsers: number;
+  totalStudents: number;
+  totalTeachers: number;
+  totalAdmins: number;
+  usersByStatus: Record<string, number>;
+  complaintsByStatus: Record<string, number>;
+  totalAllocations: number;
+  totalCountries: number;
+  signupsByMonth: SignupPoint[];
+  recentSignups: RecentSignup[];
+}
+
+// ─── Legacy gamification-era types (kept for the unused dashboard/components/* —
+// not wired into any route; see Admin-CMS/PROGRESS.md) ─────────────────────────
+
 export interface DashboardMetrics {
   totalUsers: number;
   pendingUsers: number;
