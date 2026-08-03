@@ -1,0 +1,20 @@
+# Root-level gitignore for Hamilul-Quran monorepo
+
+# Staging / production secrets — NEVER commit these
+.env.staging
+.env.production
+*.env.local
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Redis dump (root level)
+dump.rdb
+
+# Docker override files
+docker-compose.override.yml
+
+# Traefik certs (Let's Encrypt)
+traefik/acme.json
+traefik/letsencrypt/

@@ -1,0 +1,50 @@
+# traefik/traefik.yml
+# ─────────────────────────────────────────────────────────────────────────────
+# Traefik v3 static configuration
+# Traefik sits at the edge and routes incoming requests to the correct service:
+#
+#   kemetekai.com        →  frontend  (Next.js,  port 3000)
+#   admin.kemetekai.com  →  admin     (serve SPA, port 4173)
+#   api.kemetekai.com    →  backend   (FastAPI,   port 8000)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─── API / Dashboard ──────────────────────────────────────────────────────────
+api:
+  dashboard: true          # Enable Traefik dashboard at :8080
+  insecure: true           # Dashboard accessible on port 8080 without auth
+
+# ─── Entry Points ─────────────────────────────────────────────────────────────
+entryPoints:
+  web:
+    address: ":80"
+    # Redirect all HTTP → HTTPS (uncomment when SSL cert is ready)
+    # http:
+    #   redirections:
+    #     entryPoint:
+    #       to: websecure
+    #       scheme: https
+
+  websecure:
+    address: ":443"
+
+# ─── Certificate Resolvers (Let's Encrypt) ────────────────────────────────────
+# Uncomment this block when your domain DNS is pointed to the server.
+# certificatesResolvers:
+#   letsencrypt:
+#     acme:
+#       email: your-email@example.com        # ← change this
+#       storage: /letsencrypt/acme.json
+#       httpChallenge:
+#         entryPoint: web
+
+# ─── Providers ────────────────────────────────────────────────────────────────
+providers:
+  docker:
+    exposedByDefault: false    # Only route containers with traefik.enable=true label
+    network: hamilul-net       # Must match the network defined in docker-compose.yml
+
+# ─── Logging ──────────────────────────────────────────────────────────────────
+log:
+  level: INFO
+
+accessLog: {}
