@@ -2,7 +2,7 @@
  * Authentication types
  */
 
-import type { Session, AdminRole } from '@/shared/types';
+import type { AdminRole } from '@/shared/types';
 
 /** Backend role values from /auth/me */
 export type BackendRole = 'ADMIN' | 'TEACHER' | 'STUDENT';
@@ -57,7 +57,6 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   requiresTwoFactor: boolean;
-  sessions: Session[];
 }
 
 export interface AuthActions {
@@ -70,7 +69,6 @@ export interface AuthActions {
   refreshAuthToken: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   resetPassword: (data: PasswordReset) => Promise<void>;
-  fetchSessions: () => Promise<void>;
   setUser: (user: Admin | null) => void;
   clearAuth: () => void;
 }

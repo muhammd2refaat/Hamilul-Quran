@@ -113,6 +113,29 @@ If the bad deploy included a migration, you may also need to restore the
 pre-migration database backup (see above) — check `alembic history` and
 `Back-end/PROGRESS.md` before downgrading a migration in place.
 
+## Operations: resource limits, logs, error tracking, uptime monitoring
+
+- **Resource limits & log rotation** are set directly in `docker-compose.yml`
+  (`mem_limit`/`cpus` per service, `x-logging` anchor capping each
+  container's logs at 10MB × 5 files). Tune the limits in
+  `docker-compose.yml` if a service is legitimately using more than its cap
+  — check current usage first with `docker stats --no-stream`.
+
+- **Error tracking (Sentry)** is wired in (`Back-end/app/core/error_tracking.py`)
+  but disabled until you set a real DSN: add `SENTRY_DSN=https://...` to
+  `.env.staging` and redeploy the backend. It's a no-op with no DSN set — no
+  external account was created as part of this work, and only the backend
+  is wired up (not Frontend/Admin-CMS, which would need their own Sentry
+  projects/DSNs and a browser SDK — not done here).
+
+- **Uptime monitoring** is not set up — this needs an external service
+  (e.g. UptimeRobot, Better Uptime, healthchecks.io) polling
+  `https://api.elhafazah-academy.com/api/v1/health` (and ideally the
+  Frontend/Admin-CMS root URLs too) from outside this infrastructure, which
+  requires an account only you can create. Recommended: point a free
+  UptimeRobot monitor at the health endpoint with a 5-minute interval and
+  alert-on-down notifications to whatever channel the team actually watches.
+
 ## Smoke-testing auth after a deploy (cookie-based login)
 
 Auth now runs on HttpOnly cookies (`access_token`/`refresh_token`), set with

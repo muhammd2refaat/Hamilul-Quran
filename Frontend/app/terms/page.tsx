@@ -5,10 +5,9 @@ export const metadata = {
   title: 'Terms of Service',
 };
 
-// TODO before publishing: replace [SUPPORT_EMAIL] below and have this
-// reviewed by counsel — this draft exists to unblock Google OAuth
-// verification, not as a finished legal document.
-const SUPPORT_EMAIL = '[SUPPORT_EMAIL]';
+// TODO: have this reviewed by counsel — this draft exists to unblock
+// Google OAuth verification, not as a finished legal document.
+const SUPPORT_EMAIL = 'elhafazahacademy111@gmail.com';
 
 export default function TermsOfServicePage() {
   return (

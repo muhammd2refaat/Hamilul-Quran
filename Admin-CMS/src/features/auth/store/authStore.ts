@@ -18,7 +18,6 @@ const initialState: AuthState = {
   isAuthenticated: false,
   isLoading: false,
   requiresTwoFactor: false,
-  sessions: [],
 };
 
 export const useAuthStore = create<AuthStore>()(
@@ -183,11 +182,6 @@ export const useAuthStore = create<AuthStore>()(
 
       resetPassword: async (data: any): Promise<void> => {
         await post('/auth/reset-password', data);
-      },
-
-      fetchSessions: async (): Promise<void> => {
-        const sessions = await get<any[]>('/auth/sessions');
-        set({ sessions });
       },
 
       setUser: (user) => set({ user }),

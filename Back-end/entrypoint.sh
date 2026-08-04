@@ -2,7 +2,8 @@
 # entrypoint.sh — Backend container startup
 # 1. Wait for PostgreSQL to accept connections
 # 2. Run Alembic migrations
-# 3. Start Uvicorn
+# 3. Fix uploads/ volume ownership
+# 4. Start Uvicorn as an unprivileged user (via gosu)
 set -e
 
 # ─── Wait for Postgres ─────────────────────────────────────────────────────────
@@ -34,9 +35,15 @@ echo "[entrypoint] Running Alembic migrations..."
 alembic upgrade head
 echo "[entrypoint] Migrations complete."
 
-# ─── Start Uvicorn ─────────────────────────────────────────────────────────────
+# ─── Fix uploads/ ownership ────────────────────────────────────────────────────
+# The named volume may predate the switch to a non-root app user (or be
+# freshly created and owned by root by default) — reconcile it every start
+# rather than assuming, since a mismatch here would 500 every upload.
+chown -R appuser:appuser /app/uploads
+
+# ─── Start Uvicorn as an unprivileged user ─────────────────────────────────────
 echo "[entrypoint] Starting Uvicorn..."
-exec uvicorn app.main:app \
+exec gosu appuser uvicorn app.main:app \
     --host 0.0.0.0 \
     --port 8000 \
     --workers "${UVICORN_WORKERS:-2}" \

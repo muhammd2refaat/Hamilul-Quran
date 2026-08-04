@@ -44,8 +44,15 @@ WORKDIR /app
 # so React Router client-side navigation works correctly.
 RUN npm install -g serve@14
 
+# Non-root user — this container only ever reads static files from ./dist,
+# so no volume-ownership dance is needed (unlike the backend's uploads/).
+RUN addgroup --system --gid 1001 appgroup \
+    && adduser  --system --uid 1001 --ingroup appgroup appuser
+
 # Copy only the built output — no source code in the final image
-COPY --from=builder /app/dist ./dist
+COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
+
+USER appuser
 
 EXPOSE 4173
 

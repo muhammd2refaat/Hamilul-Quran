@@ -8,5 +8,4 @@ export { LeaderboardTable } from './LeaderboardTable';
 export { EngagementChart } from './EngagementChart';
 export { RecentActivityFeed } from './RecentActivityFeed';
 export { DateRangeFilter } from './DateRangeFilter';
-export { UserEngagementTable } from './UserEngagementTable';
 

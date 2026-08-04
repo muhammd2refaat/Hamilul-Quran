@@ -15,6 +15,14 @@
 #   docker compose --env-file .env.staging up --build -d
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Shared log rotation — without this, container logs grow unbounded on disk
+# for as long as the service runs. Applied per-service below via YAML anchor.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
 
   # ─── Traefik ────────────────────────────────────────────────────────────────
@@ -22,6 +30,9 @@ services:
     image: traefik:v3.6
     container_name: hamilul-traefik
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
+    logging: *default-logging
     ports:
       - "80:80"        # HTTP (redirects to HTTPS)
       - "443:443"      # HTTPS (Let's Encrypt)
@@ -42,6 +53,9 @@ services:
     image: postgres:16-alpine
     container_name: hamilul-postgres
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1.0
+    logging: *default-logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -64,6 +78,9 @@ services:
     image: postgres:16-alpine
     container_name: hamilul-pg-backup
     restart: unless-stopped
+    mem_limit: 128m
+    cpus: 0.25
+    logging: *default-logging
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
@@ -87,6 +104,9 @@ services:
     image: redis:7-alpine
     container_name: hamilul-redis
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
+    logging: *default-logging
     command: redis-server --save 60 1 --loglevel warning
     volumes:
       - redis_data:/data
@@ -106,6 +126,9 @@ services:
       dockerfile: Dockerfile
     container_name: hamilul-backend
     restart: unless-stopped
+    mem_limit: 768m
+    cpus: 1.5
+    logging: *default-logging
     env_file:
       - .env.staging
     environment:
@@ -158,6 +181,9 @@ services:
         VITE_ENABLE_2FA: "true"
     container_name: hamilul-admin
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
+    logging: *default-logging
     networks:
       - hamilul-net
     labels:
@@ -187,6 +213,9 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     container_name: hamilul-frontend
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: 1.0
+    logging: *default-logging
     environment:
       NODE_ENV: production
       PORT: "3000"

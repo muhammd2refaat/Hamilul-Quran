@@ -3,13 +3,12 @@
  */
 
 // Components
-export { 
-  LoginForm, 
-  TwoFactorVerify, 
-  TwoFactorSetup, 
-  PasswordResetRequest, 
-  PasswordResetForm, 
-  SessionManager 
+export {
+  LoginForm,
+  TwoFactorVerify,
+  TwoFactorSetup,
+  PasswordResetRequest,
+  PasswordResetForm
 } from './components';
 
 // Store

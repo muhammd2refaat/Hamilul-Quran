@@ -65,6 +65,10 @@ class Settings(BaseSettings):
 
     allowed_origins: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
 
+    # Error tracking (Sentry). Empty string = disabled — see
+    # app/core/error_tracking.py. Not required to start the app.
+    sentry_dsn: str = ""
+
     # Admin seed credentials — used only by full_seed.py, never at app startup.
     admin_email: str = "admin@elhafazah-academy.com"
     admin_password: str = _PLACEHOLDER_ADMIN_PASSWORD

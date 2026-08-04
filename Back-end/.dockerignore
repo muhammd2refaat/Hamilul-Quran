@@ -47,3 +47,14 @@ alembic/versions/__pycache__/
 # Logs
 *.log
 dump.rdb
+
+# Manual dev / seed / smoke-test scripts — never needed by the running
+# container, and drop_tables.py in particular must never ship to prod.
+create_tables.py
+drop_tables.py
+full_seed.py
+seed.py
+seed_history.py
+test_allocations.py
+test_api.py
+test_complaints_api.py

@@ -36,7 +36,6 @@ yarn-error.log*
 
 # Misc
 dump.rdb
-proxy.ts
 PROGRESS.md
 README.md
 

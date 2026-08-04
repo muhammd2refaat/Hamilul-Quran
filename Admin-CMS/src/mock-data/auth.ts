@@ -2,8 +2,6 @@
  * Mock data for authentication module
  */
 
-import type { Session } from '@/shared/types';
-
 export interface Admin {
   id: string;
   name: string;
@@ -26,36 +24,6 @@ export const mockAdmin: Admin = {
   createdAt: '2024-01-15T10:00:00Z',
   lastLogin: '2026-01-06T23:00:00Z',
 };
-
-export const mockSessions: Session[] = [
-  {
-    id: 'session-1',
-    device: 'Chrome on Windows',
-    location: 'Cairo, Egypt',
-    ipAddress: '156.200.xxx.xxx',
-    lastActive: '2026-01-06T23:45:00Z',
-    current: true,
-    createdAt: '2026-01-06T08:00:00Z',
-  },
-  {
-    id: 'session-2',
-    device: 'Safari on iPhone',
-    location: 'Cairo, Egypt',
-    ipAddress: '156.200.xxx.xxx',
-    lastActive: '2026-01-06T20:30:00Z',
-    current: false,
-    createdAt: '2026-01-05T14:00:00Z',
-  },
-  {
-    id: 'session-3',
-    device: 'Firefox on macOS',
-    location: 'Alexandria, Egypt',
-    ipAddress: '156.201.xxx.xxx',
-    lastActive: '2026-01-05T18:15:00Z',
-    current: false,
-    createdAt: '2026-01-04T09:30:00Z',
-  },
-];
 
 export const mockAdmins: Admin[] = [
   {

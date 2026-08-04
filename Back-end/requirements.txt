@@ -34,3 +34,6 @@ fakeredis==2.36.2  # in-memory Redis for tests — no real Redis instance requir
 
 # Utilities
 email-validator==2.2.0
+
+# Error tracking — no-ops unless SENTRY_DSN is set (see app/core/error_tracking.py)
+sentry-sdk[fastapi]==2.66.1

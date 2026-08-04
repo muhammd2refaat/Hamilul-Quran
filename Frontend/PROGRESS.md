@@ -111,8 +111,10 @@ this as work lands or plans change — newest entries at the top of each section
   the app homepage and privacy/terms links to be publicly reachable —
   `localhost` won't be accepted. This blocks Google verification entirely
   until done. See `Back-end/docs/GOOGLE_OAUTH_VERIFICATION_CHECKLIST.md`.
-- [ ] Replace `[SUPPORT_EMAIL]` in `app/privacy/page.tsx` and
-  `app/terms/page.tsx` with a real, monitored support address.
+- [x] **2026-08-04** — Replaced `[SUPPORT_EMAIL]` in `app/privacy/page.tsx`
+  and `app/terms/page.tsx` with `elhafazahacademy111@gmail.com`. Still needs
+  the legal-counsel review noted in the TODO comments in both files — this
+  only fixed the live placeholder that real visitors were seeing.
 - [ ] Both dev teacher accounts (`teacher@example.com`,
   `mr3118430@gmail.com`) are currently `status=SUSPENDED` in the DB — the
   new teacher dashboard (`/dashboard/teacher/...`) couldn't be driven

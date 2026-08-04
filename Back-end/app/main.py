@@ -6,9 +6,12 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.config.settings import settings
 from app.infrastructure.redis.client import get_redis_pool, close_redis_pool
+from app.core.error_tracking import init_error_tracking
 from app.core.handlers import register_exception_handlers
 from app.core.rate_limit import limiter
 from app.middleware.cors import register_cors
+
+init_error_tracking()
 
 
 # ─── Lifespan ──────────────────────────────────────────────────────────────────
@@ -23,15 +26,19 @@ async def lifespan(app: FastAPI):
 
 # ─── App Factory ───────────────────────────────────────────────────────────────
 def create_app() -> FastAPI:
+    # Swagger/ReDoc/the raw OpenAPI schema expose every route, request/response
+    # shape, and auth scheme — fine for dev/staging, not for a public prod API.
+    is_production = settings.app_env == "production"
+
     app = FastAPI(
         title=settings.app_name,
         description=(
             "Backend API for Hamilul-Quran platform."
         ),
         version="1.0.0",
-        docs_url=f"{settings.api_prefix}/docs",
-        redoc_url=f"{settings.api_prefix}/redoc",
-        openapi_url=f"{settings.api_prefix}/openapi.json",
+        docs_url=None if is_production else f"{settings.api_prefix}/docs",
+        redoc_url=None if is_production else f"{settings.api_prefix}/redoc",
+        openapi_url=None if is_production else f"{settings.api_prefix}/openapi.json",
         lifespan=lifespan,
     )
 
@@ -121,5 +128,8 @@ app = create_app()
 
 @app.get("/", include_in_schema=False)
 async def root():
-    """Redirect the root URL to the Swagger documentation."""
+    """Redirect the root URL to the Swagger documentation (dev/staging only —
+    docs are disabled entirely in production, see create_app())."""
+    if settings.app_env == "production":
+        return RedirectResponse(url=f"{settings.api_prefix}/health")
     return RedirectResponse(url=f"{settings.api_prefix}/docs")

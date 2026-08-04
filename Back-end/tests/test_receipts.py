@@ -105,3 +105,26 @@ async def test_expired_receipt_is_filtered_and_purged(client, student_headers, d
 
     assert await db_session.get(Receipt, receipt_id) is None
     assert not file_path.is_file()
+
+
+@pytest.mark.asyncio
+async def test_upload_rejects_spoofed_content_type(client, student_headers):
+    """Claims image/png in the multipart Content-Type field but the bytes
+    are plain text — must be rejected by magic-byte sniffing, not trusted
+    from the client-supplied header."""
+    files = {"file": ("receipt.png", b"not actually a png, just text", "image/png")}
+    r = await client.post("/receipts", headers=student_headers, files=files, data={})
+    assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_upload_rejects_oversize_file(client, student_headers, monkeypatch):
+    """Exercises the chunked read-and-abort path: the size check must fire
+    without ever needing to buffer the whole (oversize) body."""
+    from app.core import storage
+
+    monkeypatch.setattr(storage, "_RECEIPT_MAX_BYTES", 1024)
+    body = b"\x89PNG\r\n\x1a\n" + b"0" * 2048
+    files = {"file": ("receipt.png", body, "image/png")}
+    r = await client.post("/receipts", headers=student_headers, files=files, data={})
+    assert r.status_code == 400

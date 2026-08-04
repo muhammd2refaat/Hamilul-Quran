@@ -24,12 +24,15 @@ class ReceiptService:
     async def create(
         self, student_id: uuid.UUID, file: UploadFile, amount: Optional[str], note: Optional[str]
     ) -> Receipt:
-        file_path = await save_receipt(file)
+        saved = await save_receipt(file)
         receipt = Receipt(
             student_id=student_id,
-            file_path=file_path,
+            file_path=saved.path,
             original_filename=file.filename or "receipt",
-            content_type=file.content_type or "application/octet-stream",
+            # The verified (magic-byte-sniffed) type, not the client's
+            # Content-Type header — this value is later served back verbatim
+            # as the response media_type, so it must not be attacker-controlled.
+            content_type=saved.content_type,
             amount=amount,
             note=note,
         )

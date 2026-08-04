@@ -5,10 +5,9 @@ export const metadata = {
   title: 'Privacy Policy',
 };
 
-// TODO before publishing: replace [SUPPORT_EMAIL] and [COMPANY_ADDRESS] below,
-// and have this reviewed by counsel — this draft exists to unblock Google
-// OAuth verification, not as a finished legal document.
-const SUPPORT_EMAIL = '[SUPPORT_EMAIL]';
+// TODO: have this reviewed by counsel — this draft exists to unblock
+// Google OAuth verification, not as a finished legal document.
+const SUPPORT_EMAIL = 'elhafazahacademy111@gmail.com';
 
 export default function PrivacyPolicyPage() {
   return (
