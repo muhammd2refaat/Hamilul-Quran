@@ -35,6 +35,9 @@ export interface Complaint {
 export interface ScheduleSlot {
   day: string;
   time: string;
+  // Populated once the backend's Google Calendar sync succeeds for this slot
+  // (AllocationService._try_create_calendar_events) — absent/null until then.
+  meet_link?: string | null;
 }
 
 export interface Allocation {

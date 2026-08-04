@@ -38,7 +38,11 @@ export default function TeacherSchedulePage() {
       .flatMap((s) =>
         s.schedule
           .filter((slot) => slot.day === dayId)
-          .map((slot) => ({ time: slot.time, studentName: `${s.first_name} ${s.last_name}` }))
+          .map((slot) => ({
+            time: slot.time,
+            studentName: `${s.first_name} ${s.last_name}`,
+            meetLink: slot.meet_link,
+          }))
       )
       .sort((a, b) => a.time.localeCompare(b.time)),
   }));
@@ -92,29 +96,58 @@ export default function TeacherSchedulePage() {
                   >
                     <div style={{ fontSize: 12.5, fontWeight: 700, color: EE.ink, marginBottom: 2 }}>{slot.time}</div>
                     <div style={{ fontSize: 11.5, color: EE.sageMuted, marginBottom: 8 }}>{slot.studentName}</div>
-                    <button
-                      title={t.joinComingSoon}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        width: '100%',
-                        justifyContent: 'center',
-                        background: EE.emerald,
-                        color: EE.parchment,
-                        border: 'none',
-                        borderRadius: 7,
-                        padding: '6px 8px',
-                        fontSize: 11.5,
-                        fontWeight: 600,
-                        fontFamily: 'inherit',
-                        cursor: 'pointer',
-                        opacity: 0.85,
-                      }}
-                    >
-                      <Video size={12} />
-                      {t.joinBtn}
-                    </button>
+                    {slot.meetLink ? (
+                      <a
+                        href={slot.meetLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          width: '100%',
+                          justifyContent: 'center',
+                          background: EE.emerald,
+                          color: EE.parchment,
+                          border: 'none',
+                          borderRadius: 7,
+                          padding: '6px 8px',
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          fontFamily: 'inherit',
+                          textDecoration: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      >
+                        <Video size={12} />
+                        {t.joinBtn}
+                      </a>
+                    ) : (
+                      <button
+                        disabled
+                        title={t.joinComingSoon}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          width: '100%',
+                          justifyContent: 'center',
+                          background: EE.emerald,
+                          color: EE.parchment,
+                          border: 'none',
+                          borderRadius: 7,
+                          padding: '6px 8px',
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          fontFamily: 'inherit',
+                          cursor: 'not-allowed',
+                          opacity: 0.55,
+                        }}
+                      >
+                        <Video size={12} />
+                        {t.joinBtn}
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
