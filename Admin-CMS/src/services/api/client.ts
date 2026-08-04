@@ -26,6 +26,16 @@ const apiClient = axios.create({
   withCredentials: true,
 });
 
+// A role-guard 403 (e.g. "Admin access required") received while this tab
+// still believes it's logged in means the shared api.elhafazah-academy.com
+// auth cookie was overwritten by a *different* login elsewhere in the same
+// browser (e.g. the public Frontend, open in another tab) — the cookie is
+// host-scoped to the API domain, not per-app, so only one identity can be
+// active in a browser at a time. Guard against firing this more than once
+// per broken session (a page can have several requests in flight that all
+// 403 at once).
+let sessionConflictHandled = false;
+
 // ─── Response Interceptor ──────────────────────────────────────────────────────
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
@@ -39,6 +49,22 @@ apiClient.interceptors.response.use(
     // For all other requests, show a generic error toast
     const status = error.response?.status;
     const data = error.response?.data as { message?: string } | undefined;
+
+    const isRoleGuardConflict = status === 403 && /access required/i.test(data?.message ?? '');
+    if (isRoleGuardConflict && !sessionConflictHandled) {
+      sessionConflictHandled = true;
+      localStorage.removeItem('qv_auth_store');
+      import('react-hot-toast').then(({ default: toast }) => {
+        toast.error(
+          'Your session was replaced by another login in this browser. Please log in again.',
+          { duration: 6000 }
+        );
+      });
+      if (window.location.pathname !== '/auth/login') {
+        window.location.href = '/auth/login';
+      }
+      return Promise.reject(error);
+    }
 
     if (!status) {
       // Network error
