@@ -1,6 +1,6 @@
 from __future__ import annotations
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -31,7 +31,10 @@ class CalendarService:
         weeks: int,
     ) -> list[CalendarEvent]:
         events: list[CalendarEvent] = []
-        now = datetime.utcnow()
+        # Must be timezone-aware — next_occurrence() converts it to Cairo
+        # local time internally to decide "today" for the schedule's
+        # Cairo-local day/time entries.
+        now = datetime.now(timezone.utc)
 
         for alloc in allocations:
             teacher_name = names.get(alloc.teacher_id, "")

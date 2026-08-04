@@ -8,8 +8,9 @@ of this codebase talks to Google (direct httpx calls, see auth/google.py).
 """
 from __future__ import annotations
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import httpx
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -19,6 +20,14 @@ from app.features.auth.google import refresh_google_access_token, token_expiry_f
 from app.features.auth.models import GoogleCredential
 
 GOOGLE_CALENDAR_EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
+
+# Schedule times entered in the Admin CMS (AllocationsPage's TIME_SLOTS) are
+# Cairo local time, not UTC — every teacher/student the platform serves is in
+# this timezone. Events must be created with an explicit IANA zone (not a
+# fixed UTC offset) so recurring weekly events stay pinned to the same Cairo
+# wall-clock time across Egypt's DST transitions (Egypt observes DST,
+# late-April to late-October).
+CAIRO_TZ = ZoneInfo("Africa/Cairo")
 
 DAY_TO_ICAL = {
     "mon": "MO", "tue": "TU", "wed": "WE", "thu": "TH",
@@ -34,16 +43,22 @@ def parse_time_str(time_str: str):
 
 def next_occurrence(day: str, time_str: str, now: Optional[datetime] = None) -> datetime:
     """
-    Next real (naive UTC) datetime >= now for a recurring weekday+time slot.
-    `day` is one of the lowercase 3-letter ids used throughout the app
-    ('sun'..'sat'); `time_str` is "HH:MM AM/PM".
+    Next Cairo-local (timezone-aware, Africa/Cairo) datetime >= now for a
+    recurring weekday+time slot. `day` is one of the lowercase 3-letter ids
+    used throughout the app ('sun'..'sat'); `time_str` is "HH:MM AM/PM",
+    interpreted as Cairo local time (see CAIRO_TZ above).
+
+    `now`, if passed, must be timezone-aware (any zone) — it's converted to
+    Cairo local time before computing the weekday/date so the "which day is
+    it right now" check is correct for Cairo, not for whatever zone `now`
+    was constructed in.
     """
-    now = now or datetime.utcnow()
+    now_cairo = (now.astimezone(CAIRO_TZ) if now else datetime.now(CAIRO_TZ))
     target_weekday = DAY_TO_PY_WEEKDAY[day]
     t = parse_time_str(time_str)
-    days_ahead = (target_weekday - now.weekday()) % 7
-    candidate = datetime.combine(now.date(), t) + timedelta(days=days_ahead)
-    if candidate <= now:
+    days_ahead = (target_weekday - now_cairo.weekday()) % 7
+    candidate = datetime.combine(now_cairo.date(), t, tzinfo=CAIRO_TZ) + timedelta(days=days_ahead)
+    if candidate <= now_cairo:
         candidate += timedelta(days=7)
     return candidate
 
@@ -95,8 +110,14 @@ async def create_weekly_event(
     payload = {
         "summary": summary,
         "description": description,
-        "start": {"dateTime": start.isoformat() + "Z", "timeZone": "UTC"},
-        "end": {"dateTime": end.isoformat() + "Z", "timeZone": "UTC"},
+        # start/end already carry the correct Africa/Cairo UTC offset via
+        # isoformat() (e.g. "+03:00" in DST, "+02:00" otherwise); the explicit
+        # "timeZone" field additionally tells Google which IANA zone to use
+        # when projecting the weekly RRULE across DST transitions, so the
+        # recurring event stays pinned to the same Cairo wall-clock time
+        # year-round instead of drifting by an hour when DST changes.
+        "start": {"dateTime": start.isoformat(), "timeZone": "Africa/Cairo"},
+        "end": {"dateTime": end.isoformat(), "timeZone": "Africa/Cairo"},
         "recurrence": [f"RRULE:FREQ=WEEKLY;BYDAY={DAY_TO_ICAL[day]}"],
         "attendees": [{"email": email} for email in attendee_emails],
         "conferenceData": {
