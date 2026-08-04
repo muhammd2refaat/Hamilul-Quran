@@ -1,13 +1,13 @@
 # ─── docker-compose.yml ───────────────────────────────────────────────────────
-# Hamilul-Quran — Staging Environment
+# Hamilul-Quran — Staging/Production Environment
 #
 # Services:
 #   traefik   — Edge reverse proxy  (ports 80, 443, 8080-dashboard)
 #   postgres  — PostgreSQL 16       (internal only)
 #   redis     — Redis 7             (internal only)
-#   backend   — FastAPI / Uvicorn   → api.kemetekai.com
-#   admin     — Vite SPA / serve    → admin.kemetekai.com
-#   frontend  — Next.js standalone  → kemetekai.com
+#   backend   — FastAPI / Uvicorn   → api.elhafazah-academy.com
+#   admin     — Vite SPA / serve    → admin.elhafazah-academy.com
+#   frontend  — Next.js standalone  → elhafazah-academy.com
 #
 # Usage:
 #   cp .env.staging.example .env.staging
@@ -19,18 +19,17 @@ services:
 
   # ─── Traefik ────────────────────────────────────────────────────────────────
   traefik:
-    image: traefik:v3.1
+    image: traefik:v3.6
     container_name: hamilul-traefik
     restart: unless-stopped
     ports:
-      - "80:80"        # HTTP
-      - "443:443"      # HTTPS (for future SSL)
+      - "80:80"        # HTTP (redirects to HTTPS)
+      - "443:443"      # HTTPS (Let's Encrypt)
       - "8080:8080"    # Traefik dashboard (restrict to VPN/firewall in prod)
     volumes:
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      # Uncomment for Let's Encrypt cert persistence:
-      # - traefik_certs:/letsencrypt
+      - traefik_certs:/letsencrypt
     networks:
       - hamilul-net
     labels:
@@ -102,8 +101,14 @@ services:
       - hamilul-net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=Host(`api.kemetekai.com`)"
+      # HTTP router (auto-redirected to HTTPS by entrypoint rule)
+      - "traefik.http.routers.backend.rule=Host(`api.elhafazah-academy.com`)"
       - "traefik.http.routers.backend.entrypoints=web"
+      # HTTPS router
+      - "traefik.http.routers.backend-secure.rule=Host(`api.elhafazah-academy.com`)"
+      - "traefik.http.routers.backend-secure.entrypoints=websecure"
+      - "traefik.http.routers.backend-secure.tls=true"
+      - "traefik.http.routers.backend-secure.tls.certresolver=letsencrypt"
       - "traefik.http.services.backend.loadbalancer.server.port=8000"
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')\" || exit 1"]
@@ -130,8 +135,14 @@ services:
       - hamilul-net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.admin.rule=Host(`admin.kemetekai.com`)"
+      # HTTP router (auto-redirected to HTTPS by entrypoint rule)
+      - "traefik.http.routers.admin.rule=Host(`admin.elhafazah-academy.com`)"
       - "traefik.http.routers.admin.entrypoints=web"
+      # HTTPS router
+      - "traefik.http.routers.admin-secure.rule=Host(`admin.elhafazah-academy.com`)"
+      - "traefik.http.routers.admin-secure.entrypoints=websecure"
+      - "traefik.http.routers.admin-secure.tls=true"
+      - "traefik.http.routers.admin-secure.tls.certresolver=letsencrypt"
       - "traefik.http.services.admin.loadbalancer.server.port=4173"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:4173/ || exit 1"]
@@ -157,11 +168,17 @@ services:
       - hamilul-net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`kemetekai.com`) || Host(`www.kemetekai.com`)"
+      # HTTP router (auto-redirected to HTTPS by entrypoint rule)
+      - "traefik.http.routers.frontend.rule=Host(`elhafazah-academy.com`) || Host(`www.elhafazah-academy.com`)"
       - "traefik.http.routers.frontend.entrypoints=web"
+      # HTTPS router
+      - "traefik.http.routers.frontend-secure.rule=Host(`elhafazah-academy.com`) || Host(`www.elhafazah-academy.com`)"
+      - "traefik.http.routers.frontend-secure.entrypoints=websecure"
+      - "traefik.http.routers.frontend-secure.tls=true"
+      - "traefik.http.routers.frontend-secure.tls.certresolver=letsencrypt"
       - "traefik.http.services.frontend.loadbalancer.server.port=3000"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -180,5 +197,5 @@ volumes:
     driver: local
   uploads_data:
     driver: local
-  # traefik_certs:   # Uncomment when enabling Let's Encrypt
-  #   driver: local
+  traefik_certs:
+    driver: local

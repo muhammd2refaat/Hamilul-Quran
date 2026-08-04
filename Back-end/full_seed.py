@@ -18,9 +18,9 @@ async def main():
     async with AsyncSession(engine) as session:
         # Create Admin
         admin = User(
-            email="admin@qvhealth.com",
+            email=settings.admin_email,
             username="admin",
-            password_hash=bcrypt.hashpw("Admin@123456".encode(), bcrypt.gensalt()).decode(),
+            password_hash=bcrypt.hashpw(settings.admin_password.encode(), bcrypt.gensalt()).decode(),
             first_name="Admin",
             last_name="User",
             role=UserRole.ADMIN,

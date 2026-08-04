@@ -3,9 +3,9 @@
 # Traefik v3 static configuration
 # Traefik sits at the edge and routes incoming requests to the correct service:
 #
-#   kemetekai.com        →  frontend  (Next.js,  port 3000)
-#   admin.kemetekai.com  →  admin     (serve SPA, port 4173)
-#   api.kemetekai.com    →  backend   (FastAPI,   port 8000)
+#   elhafazah-academy.com        →  frontend  (Next.js,  port 3000)
+#   admin.elhafazah-academy.com  →  admin     (serve SPA, port 4173)
+#   api.elhafazah-academy.com    →  backend   (FastAPI,   port 8000)
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ─── API / Dashboard ──────────────────────────────────────────────────────────
@@ -17,25 +17,25 @@ api:
 entryPoints:
   web:
     address: ":80"
-    # Redirect all HTTP → HTTPS (uncomment when SSL cert is ready)
-    # http:
-    #   redirections:
-    #     entryPoint:
-    #       to: websecure
-    #       scheme: https
+    # Redirect all HTTP → HTTPS
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
 
   websecure:
     address: ":443"
 
 # ─── Certificate Resolvers (Let's Encrypt) ────────────────────────────────────
-# Uncomment this block when your domain DNS is pointed to the server.
-# certificatesResolvers:
-#   letsencrypt:
-#     acme:
-#       email: your-email@example.com        # ← change this
-#       storage: /letsencrypt/acme.json
-#       httpChallenge:
-#         entryPoint: web
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: admin@elhafazah-academy.com        # ← change to your real email if needed
+      storage: /letsencrypt/acme.json
+      httpChallenge:
+        entryPoint: web
 
 # ─── Providers ────────────────────────────────────────────────────────────────
 providers:

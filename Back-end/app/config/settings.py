@@ -54,8 +54,11 @@ class Settings(BaseSettings):
     # Local filesystem directory for uploaded teacher certificates.
     upload_dir: str = "uploads"
 
-    # CORS — plain string, comma-separated. Split into a list in main.py.
     allowed_origins: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
+
+    # Admin seed credentials
+    admin_email: str = "admin@elhafazah-academy.com"
+    admin_password: str = "Admin@123456"
 
 
 @lru_cache
