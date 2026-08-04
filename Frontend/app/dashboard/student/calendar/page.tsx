@@ -6,9 +6,13 @@ import { apiClient } from '@/lib/api';
 import { type CalendarEvent } from '@/types/dashboard';
 import { useLang } from '@/lib/dashboard/i18n';
 import { EE } from '@/lib/dashboard/theme';
-import { groupEventsByDate, formatEventDate } from '@/lib/dashboard/calendarUtils';
+import { groupEventsByDate, formatEventDate, getJoinWindowForDate } from '@/lib/dashboard/calendarUtils';
 import { SectionHeader } from '@/components/dashboard/SectionHeader';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+
+// Re-checked every 30s so a "Join" link flips live (from disabled to active,
+// or vice versa) without the student having to reload the page.
+const JOIN_WINDOW_RECHECK_MS = 30_000;
 
 export default function StudentCalendarPage() {
   const { t, lang } = useLang();
@@ -28,6 +32,12 @@ export default function StudentCalendarPage() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => forceTick((n) => n + 1), JOIN_WINDOW_RECHECK_MS);
+    return () => clearInterval(id);
   }, []);
 
   const grouped = groupEventsByDate(events);
@@ -95,48 +105,59 @@ export default function StudentCalendarPage() {
                       <span style={{ fontSize: 12, color: EE.sageMuted }}>{e.duration} min</span>
                     </div>
 
-                    {e.meet_link ? (
-                      <a
-                        href={e.meet_link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          background: EE.emerald,
-                          color: EE.parchment,
-                          border: 'none',
-                          borderRadius: 8,
-                          padding: '8px 14px',
-                          fontSize: 12.5,
-                          fontWeight: 600,
-                          textDecoration: 'none',
-                        }}
-                      >
-                        <Video size={13} />
-                        {t.joinBtn}
-                      </a>
-                    ) : (
-                      <span
-                        title={t.joinComingSoon}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          background: EE.parchment,
-                          color: EE.sageFaint,
-                          border: `1px solid ${EE.border}`,
-                          borderRadius: 8,
-                          padding: '8px 14px',
-                          fontSize: 12.5,
-                          fontWeight: 600,
-                        }}
-                      >
-                        <Video size={13} />
-                        {t.joinBtn}
-                      </span>
-                    )}
+                    {(() => {
+                      const win = e.meet_link ? getJoinWindowForDate(e.date, e.time, e.duration) : null;
+                      if (e.meet_link && win?.state === 'joinable') {
+                        return (
+                          <a
+                            href={e.meet_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              background: EE.emerald,
+                              color: EE.parchment,
+                              border: 'none',
+                              borderRadius: 8,
+                              padding: '8px 14px',
+                              fontSize: 12.5,
+                              fontWeight: 600,
+                              textDecoration: 'none',
+                            }}
+                          >
+                            <Video size={13} />
+                            {t.joinBtn}
+                          </a>
+                        );
+                      }
+                      const tooltip = !e.meet_link
+                        ? t.joinComingSoon
+                        : win?.state === 'ended'
+                        ? t.joinEnded
+                        : t.joinOpensSoon;
+                      return (
+                        <span
+                          title={tooltip}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            background: EE.parchment,
+                            color: EE.sageFaint,
+                            border: `1px solid ${EE.border}`,
+                            borderRadius: 8,
+                            padding: '8px 14px',
+                            fontSize: 12.5,
+                            fontWeight: 600,
+                          }}
+                        >
+                          <Video size={13} />
+                          {t.joinBtn}
+                        </span>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>

@@ -6,10 +6,15 @@ import { apiClient } from '@/lib/api';
 import { type TeacherStudent } from '@/types/dashboard';
 import { useLang } from '@/lib/dashboard/i18n';
 import { EE } from '@/lib/dashboard/theme';
+import { getJoinWindowForWeeklySlot } from '@/lib/dashboard/calendarUtils';
 import { SectionHeader } from '@/components/dashboard/SectionHeader';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 
 const DAY_IDS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+// Re-checked every 30s so a "Join" link flips live (from disabled to active,
+// or vice versa) without the teacher having to reload the page.
+const JOIN_WINDOW_RECHECK_MS = 30_000;
 
 export default function TeacherSchedulePage() {
   const { t } = useLang();
@@ -31,6 +36,12 @@ export default function TeacherSchedulePage() {
     };
   }, []);
 
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => forceTick((n) => n + 1), JOIN_WINDOW_RECHECK_MS);
+    return () => clearInterval(id);
+  }, []);
+
   const byDay = DAY_IDS.map((dayId) => ({
     dayId,
     label: t.days[dayId],
@@ -42,6 +53,7 @@ export default function TeacherSchedulePage() {
             time: slot.time,
             studentName: `${s.first_name} ${s.last_name}`,
             meetLink: slot.meet_link,
+            duration: s.duration,
           }))
       )
       .sort((a, b) => a.time.localeCompare(b.time)),
@@ -96,58 +108,71 @@ export default function TeacherSchedulePage() {
                   >
                     <div style={{ fontSize: 12.5, fontWeight: 700, color: EE.ink, marginBottom: 2 }}>{slot.time}</div>
                     <div style={{ fontSize: 11.5, color: EE.sageMuted, marginBottom: 8 }}>{slot.studentName}</div>
-                    {slot.meetLink ? (
-                      <a
-                        href={slot.meetLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          width: '100%',
-                          justifyContent: 'center',
-                          background: EE.emerald,
-                          color: EE.parchment,
-                          border: 'none',
-                          borderRadius: 7,
-                          padding: '6px 8px',
-                          fontSize: 11.5,
-                          fontWeight: 600,
-                          fontFamily: 'inherit',
-                          textDecoration: 'none',
-                          boxSizing: 'border-box',
-                        }}
-                      >
-                        <Video size={12} />
-                        {t.joinBtn}
-                      </a>
-                    ) : (
-                      <button
-                        disabled
-                        title={t.joinComingSoon}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          width: '100%',
-                          justifyContent: 'center',
-                          background: EE.emerald,
-                          color: EE.parchment,
-                          border: 'none',
-                          borderRadius: 7,
-                          padding: '6px 8px',
-                          fontSize: 11.5,
-                          fontWeight: 600,
-                          fontFamily: 'inherit',
-                          cursor: 'not-allowed',
-                          opacity: 0.55,
-                        }}
-                      >
-                        <Video size={12} />
-                        {t.joinBtn}
-                      </button>
-                    )}
+                    {(() => {
+                      const win = slot.meetLink
+                        ? getJoinWindowForWeeklySlot(day.dayId, slot.time, slot.duration)
+                        : null;
+                      if (slot.meetLink && win?.isToday && win.state === 'joinable') {
+                        return (
+                          <a
+                            href={slot.meetLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              width: '100%',
+                              justifyContent: 'center',
+                              background: EE.emerald,
+                              color: EE.parchment,
+                              border: 'none',
+                              borderRadius: 7,
+                              padding: '6px 8px',
+                              fontSize: 11.5,
+                              fontWeight: 600,
+                              fontFamily: 'inherit',
+                              textDecoration: 'none',
+                              boxSizing: 'border-box',
+                            }}
+                          >
+                            <Video size={12} />
+                            {t.joinBtn}
+                          </a>
+                        );
+                      }
+                      const tooltip = !slot.meetLink
+                        ? t.joinComingSoon
+                        : win?.isToday && win.state === 'ended'
+                        ? t.joinEnded
+                        : t.joinOpensSoon;
+                      return (
+                        <button
+                          disabled
+                          title={tooltip}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            width: '100%',
+                            justifyContent: 'center',
+                            background: EE.emerald,
+                            color: EE.parchment,
+                            border: 'none',
+                            borderRadius: 7,
+                            padding: '6px 8px',
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            fontFamily: 'inherit',
+                            cursor: 'not-allowed',
+                            opacity: 0.55,
+                          }}
+                        >
+                          <Video size={12} />
+                          {t.joinBtn}
+                        </button>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>

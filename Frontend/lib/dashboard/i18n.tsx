@@ -55,6 +55,8 @@ export interface DashboardStrings {
   scheduleDesc: string;
   joinBtn: string;
   joinComingSoon: string;
+  joinOpensSoon: string;
+  joinEnded: string;
   noSchedule: string;
 
   studentsTitle: string;
@@ -188,6 +190,8 @@ const DICT: Record<Lang, DashboardStrings> = {
     scheduleDesc: 'Your recurring session times across the week.',
     joinBtn: 'Join session',
     joinComingSoon: 'The Google Meet link opens here once your session is due.',
+    joinOpensSoon: 'Join opens 15 minutes before your session starts.',
+    joinEnded: 'This session has ended.',
     noSchedule: 'No sessions scheduled yet.',
 
     // students
@@ -328,6 +332,8 @@ const DICT: Record<Lang, DashboardStrings> = {
     scheduleDesc: 'مواعيد حصصك المتكررة خلال الأسبوع.',
     joinBtn: 'انضم للحصة',
     joinComingSoon: 'سيظهر رابط جوجل ميت هنا عند حلول موعد حصتك.',
+    joinOpensSoon: 'يفتح رابط الانضمام قبل 15 دقيقة من بدء حصتك.',
+    joinEnded: 'انتهت هذه الحصة.',
     noSchedule: 'لا توجد حصص مجدولة بعد.',
 
     studentsTitle: 'طلابي',
