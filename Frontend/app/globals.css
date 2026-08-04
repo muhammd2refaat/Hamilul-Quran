@@ -33,6 +33,35 @@
 .ee-google:hover { border-color: #B08A2E; transform: translateY(-1px); }
 .ee-role:hover  { border-color: #D9B45F; }
 
+/* ── Landing page responsive ─────────────────────────────────────────────── */
+/* Header nav: hamburger below 860px instead of squeezing logo + 3 links +
+   lang toggle + 2 buttons into one row. */
+.ee-nav-toggle { display: none; }
+.ee-nav-mobile { display: none; }
+
+@media (max-width: 860px) {
+  .ee-nav-desktop { display: none !important; }
+  .ee-nav-toggle  { display: inline-flex !important; }
+  .ee-nav-mobile  { display: flex !important; }
+}
+
+@media (max-width: 900px) {
+  .ee-hero-grid  { grid-template-columns: 1fr !important; gap: 40px !important; padding-top: 50px !important; }
+  .ee-trial-grid { grid-template-columns: 1fr !important; }
+}
+
+@media (max-width: 640px) {
+  .ee-hero-title { font-size: 38px !important; }
+}
+
+@media (max-width: 700px) {
+  .ee-step-row {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    text-align: left;
+  }
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

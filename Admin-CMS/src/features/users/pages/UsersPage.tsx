@@ -456,7 +456,7 @@ export function UsersPage() {
         }
       >
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="First Name"
               value={formData.firstName}
@@ -492,7 +492,7 @@ export function UsersPage() {
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
             placeholder="Enter job title"
           />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Country
@@ -535,7 +535,7 @@ export function UsersPage() {
               onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
               placeholder="Enter organization name"
             />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Gender

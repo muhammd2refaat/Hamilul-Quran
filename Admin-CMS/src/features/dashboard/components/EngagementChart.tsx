@@ -149,7 +149,7 @@ export function EngagementChart({ data, isLoading }: EngagementChartProps) {
       </div>
 
       <div className="mt-4 pt-4 border-t border-gray-200">
-        <div className="grid grid-cols-3 gap-4 text-center">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
           <div>
             <div className="text-2xl font-bold text-sky-600">
               {chartData.reduce((sum, d) => sum + d.quizzes, 0).toLocaleString()}

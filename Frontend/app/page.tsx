@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Menu, X } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Lang = 'en' | 'ar';
@@ -144,6 +145,7 @@ export default function EelhafazahPage() {
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [regStep, setRegStep] = useState(1);
   const [role, setRole] = useState<'' | 'student' | 'teacher'>('');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const t = S[lang];
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
@@ -242,8 +244,8 @@ export default function EelhafazahPage() {
               <div style={{ fontFamily: "'Reem Kufi',sans-serif", fontSize: 12, color: '#9DB5A0', letterSpacing: 1 }}>أكاديمية الحفظة</div>
             </div>
           </div>
-          {/* Nav links */}
-          <nav style={{ display: 'flex', alignItems: 'center', gap: 20, fontSize: 14, fontWeight: 500, color: '#B9CBBC' }}>
+          {/* Nav links — desktop */}
+          <nav className="ee-nav-desktop" style={{ display: 'flex', alignItems: 'center', gap: 20, fontSize: 14, fontWeight: 500, color: '#B9CBBC' }}>
             <a href="#programs" style={{ color: 'inherit', textDecoration: 'none' }}>{t.navPrograms}</a>
             <a href="#how" style={{ color: 'inherit', textDecoration: 'none' }}>{t.navMethod}</a>
             <a href="#trial" style={{ color: 'inherit', textDecoration: 'none' }}>{t.navTrial}</a>
@@ -263,18 +265,63 @@ export default function EelhafazahPage() {
               {t.navRegister}
             </button>
           </nav>
+
+          {/* Hamburger — mobile only */}
+          <button
+            className="ee-nav-toggle"
+            onClick={() => setMobileNavOpen((o) => !o)}
+            aria-label="Menu"
+            aria-expanded={mobileNavOpen}
+            style={{ background: 'transparent', border: 'none', color: '#F1EBDD', cursor: 'pointer' }}
+          >
+            {mobileNavOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
+
+        {/* Nav links — mobile panel */}
+        {mobileNavOpen && (
+          <nav
+            className="ee-nav-mobile"
+            style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '4px 20px 22px', fontSize: 15, fontWeight: 500, color: '#B9CBBC' }}
+          >
+            <a href="#programs" onClick={() => setMobileNavOpen(false)} style={{ color: 'inherit', textDecoration: 'none', padding: '10px 0' }}>{t.navPrograms}</a>
+            <a href="#how" onClick={() => setMobileNavOpen(false)} style={{ color: 'inherit', textDecoration: 'none', padding: '10px 0' }}>{t.navMethod}</a>
+            <a href="#trial" onClick={() => setMobileNavOpen(false)} style={{ color: 'inherit', textDecoration: 'none', padding: '10px 0' }}>{t.navTrial}</a>
+            <button
+              onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
+              className="ee-lang"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'transparent', border: '1px solid rgba(185,203,188,.4)', color: '#F1EBDD', padding: '10px 14px', borderRadius: 30, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', transition: 'all .25s', margin: '10px 0', width: 'fit-content' }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#D9B45F', display: 'inline-block' }} />
+              {t.langBtnLabel}
+            </button>
+            <button
+              onClick={() => { setMobileNavOpen(false); openLogin(); }}
+              className="ee-login"
+              style={{ background: 'transparent', border: '1px solid rgba(185,203,188,.4)', color: '#F1EBDD', fontSize: 14.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', padding: '12px', borderRadius: 7, transition: 'color .25s' }}
+            >
+              {t.navLogin}
+            </button>
+            <button
+              onClick={() => { setMobileNavOpen(false); openRegister(); }}
+              className="ee-btn"
+              style={{ background: '#D9B45F', color: DARK, border: 'none', padding: '13px', borderRadius: 7, fontWeight: 600, fontSize: 14.5, fontFamily: 'inherit', cursor: 'pointer', transition: 'transform .25s', marginTop: 8 }}
+            >
+              {t.navRegister}
+            </button>
+          </nav>
+        )}
       </header>
 
       {/* ── HERO ── */}
       <section style={{ background: DARK, position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, opacity: .07, backgroundImage: HERO_PATTERN, backgroundSize: '70px 70px' }} />
-        <div style={{ maxWidth: 1240, margin: '0 auto', padding: '70px 36px 90px', display: 'grid', gridTemplateColumns: '1.1fr .9fr', gap: 60, alignItems: 'center', position: 'relative', zIndex: 1 }}>
+        <div className="ee-hero-grid" style={{ maxWidth: 1240, margin: '0 auto', padding: '70px 36px 90px', display: 'grid', gridTemplateColumns: '1.1fr .9fr', gap: 60, alignItems: 'center', position: 'relative', zIndex: 1 }}>
           <div>
             <div className="ee-fade" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, border: '1px solid rgba(217,180,95,.4)', color: '#D9B45F', padding: '7px 15px', borderRadius: 6, fontSize: 12.5, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }}>
               {t.heroBadge}
             </div>
-            <h1 className="ee-rise-1" style={{ fontFamily: "'Space Grotesk','Reem Kufi',sans-serif", fontSize: 56, fontWeight: 600, lineHeight: 1.1, color: '#F1EBDD', margin: '24px 0 12px', letterSpacing: -1 }}>
+            <h1 className="ee-rise-1 ee-hero-title" style={{ fontFamily: "'Space Grotesk','Reem Kufi',sans-serif", fontSize: 56, fontWeight: 600, lineHeight: 1.1, color: '#F1EBDD', margin: '24px 0 12px', letterSpacing: -1 }}>
               {t.heroTitlePre} <span style={{ color: '#D9B45F' }}>{t.heroTitleHi}</span>
             </h1>
             <div className="ee-rise-2" style={{ fontFamily: "'Reem Kufi',sans-serif", fontSize: 26, color: '#9DB5A0', marginBottom: 22 }}>
@@ -330,7 +377,7 @@ export default function EelhafazahPage() {
             <p style={{ maxWidth: 340, fontSize: 14.5, lineHeight: 1.6, color: '#5C6B5F' }}>{t.programsIntro}</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 22 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 22 }}>
             {programs.map(p => (
               <div key={p.n} className="ee-card" style={{ background: p.bg, color: p.fg, borderRadius: 16, padding: '34px 30px', border: '1px solid rgba(16,36,28,.08)', position: 'relative', overflow: 'hidden', minHeight: 340, display: 'flex', flexDirection: 'column', transition: 'transform .3s' }}>
                 <div style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 13, fontWeight: 600, letterSpacing: 2, opacity: .6 }}>0{p.n}</div>
@@ -353,7 +400,7 @@ export default function EelhafazahPage() {
           <h2 style={{ fontFamily: "'Space Grotesk','Reem Kufi',sans-serif", fontSize: 44, fontWeight: 600, letterSpacing: -.5, marginBottom: 54 }}>{t.methodTitle}</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
             {steps.map(s => (
-              <div key={s.n} style={{ display: 'grid', gridTemplateColumns: '90px 1fr 2fr', gap: 30, alignItems: 'center', padding: '28px 0', borderTop: '1px solid rgba(185,203,188,.18)' }}>
+              <div key={s.n} className="ee-step-row" style={{ display: 'grid', gridTemplateColumns: '90px 1fr 2fr', gap: 30, alignItems: 'center', padding: '28px 0', borderTop: '1px solid rgba(185,203,188,.18)' }}>
                 <div style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 46, fontWeight: 600, color: '#D9B45F', opacity: .9 }}>{s.n}</div>
                 <h3 style={{ fontFamily: "'Space Grotesk','Reem Kufi',sans-serif", fontSize: 22, fontWeight: 600 }}>{s.title}</h3>
                 <p style={{ fontSize: 15, lineHeight: 1.6, color: '#B9CBBC' }}>{s.desc}</p>
@@ -365,7 +412,7 @@ export default function EelhafazahPage() {
 
       {/* ── FREE TRIAL ── */}
       <section id="trial" style={{ background: '#F1EBDD', padding: '96px 36px' }}>
-        <div style={{ maxWidth: 1040, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 54, alignItems: 'center' }}>
+        <div className="ee-trial-grid" style={{ maxWidth: 1040, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 54, alignItems: 'center' }}>
           <div>
             <div style={{ fontFamily: "'Reem Kufi',sans-serif", color: '#B08A2E', fontSize: 22, marginBottom: 8 }}>ابدأ رحلتك</div>
             <h2 style={{ fontFamily: "'Space Grotesk','Reem Kufi',sans-serif", fontSize: 42, fontWeight: 600, color: '#10241C', letterSpacing: -.5, lineHeight: 1.12, marginBottom: 16 }}>{t.trialTitle}</h2>

@@ -88,7 +88,7 @@ export function AddUserModal({ role, isOpen, onClose }: AddUserModalProps) {
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="First Name"
             value={form.firstName}
@@ -120,7 +120,7 @@ export function AddUserModal({ role, isOpen, onClose }: AddUserModalProps) {
           value={form.phone}
           onChange={(e) => update('phone', e.target.value)}
         />
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="Country"
             value={form.country}

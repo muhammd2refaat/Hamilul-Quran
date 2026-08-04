@@ -282,7 +282,7 @@ export function TeachersPage() {
       </div>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: tr('users.teachersTitle'),  value: teachers.length, icon: BookOpen,      bg: 'bg-primary-50',  text: 'text-primary-700',  iconBg: 'bg-primary-100' },
           { label: tr('users.totalStudents'),  value: students.length, icon: Users,         bg: 'bg-emerald-50', text: 'text-emerald-700', iconBg: 'bg-emerald-100' },

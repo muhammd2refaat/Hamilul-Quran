@@ -36,7 +36,7 @@ const sizeStyles: Record<ModalSize, string> = {
   md: 'max-w-lg',
   lg: 'max-w-2xl',
   xl: 'max-w-4xl',
-  full: 'max-w-full mx-4',
+  full: 'max-w-full',
 };
 
 export function Modal({
@@ -101,7 +101,7 @@ export function Modal({
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"

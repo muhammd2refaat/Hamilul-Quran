@@ -445,7 +445,10 @@ export function AllocationsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-7 gap-3">
+              {/* 7 columns don't fit a narrow screen — scroll horizontally
+                  instead of squeezing each day/time-slot button unreadably. */}
+              <div className="overflow-x-auto -mx-1 px-1">
+              <div className="grid grid-cols-7 gap-3 min-w-[640px]">
                 {DAYS_OF_WEEK.map((day) => {
                   const daySchedules = getDaySchedules(day.id);
                   const isSelected = daySchedules.length > 0;
@@ -493,6 +496,7 @@ export function AllocationsPage() {
                     </div>
                   );
                 })}
+              </div>
               </div>
             </div>
           )}
