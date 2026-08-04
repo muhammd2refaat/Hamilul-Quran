@@ -9,9 +9,13 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ─── API / Dashboard ──────────────────────────────────────────────────────────
+# Dashboard is off by default. To re-enable, do NOT set insecure:true again —
+# instead route it through a Host() router with BasicAuth + TLS (see the
+# commented example at the bottom of providers.docker below) and keep the
+# :8080 port mapping out of docker-compose.yml.
 api:
-  dashboard: true          # Enable Traefik dashboard at :8080
-  insecure: true           # Dashboard accessible on port 8080 without auth
+  dashboard: true
+  insecure: false
 
 # ─── Entry Points ─────────────────────────────────────────────────────────────
 entryPoints:

@@ -20,9 +20,6 @@ from app.features.auth.schemas import TokenResponse
 # Redis key prefix for valid refresh tokens
 _REFRESH_TOKEN_PREFIX = "hamilul_quran:refresh_token:"
 
-# In-memory fallback for revoked tokens when Redis is unavailable
-_fallback_revoked_jtis = set()
-
 
 class AuthService:
     def __init__(self, session: AsyncSession, redis: aioredis.Redis):
@@ -110,27 +107,19 @@ class AuthService:
         except (JWTError, ValueError):
             raise credentials_exception
 
-        # Verify JTI exists in Redis. The Redis call itself is wrapped so a
-        # connectivity failure degrades to the in-memory fallback instead of
-        # rejecting every refresh — but a *successful* lookup that comes back
-        # empty (revoked/expired JTI) must always reject, so that raise is
-        # kept outside this try block (HTTPException is an Exception subclass
-        # and would otherwise be swallowed by the except below).
+        # Verify JTI exists in Redis (i.e. it hasn't been revoked). Revocation
+        # is a security-critical check, so we fail CLOSED: if Redis can't be
+        # reached, the refresh is rejected rather than silently accepted.
+        # Bypassing verification on a Redis outage would re-validate every
+        # previously "logged out" refresh token for up to its full 7-day
+        # life, on whichever workers saw the outage.
         try:
             stored = await self.redis.get(f"{_REFRESH_TOKEN_PREFIX}{jti}")
-            redis_reachable = True
         except Exception:
-            stored = None
-            redis_reachable = False
+            raise credentials_exception
 
-        if redis_reachable:
-            if not stored:
-                raise credentials_exception
-        else:
-            # Redis is down — bypass JTI verification, but still honor the
-            # in-memory fallback of tokens revoked while Redis was down.
-            if jti in _fallback_revoked_jtis:
-                raise credentials_exception
+        if not stored:
+            raise credentials_exception
 
         # Load user
         result = await self.session.exec(
@@ -157,10 +146,7 @@ class AuthService:
         try:
             payload = decode_token(refresh_token)
             jti: str = payload.get("jti", "")
-            try:
-                await self.redis.delete(f"{_REFRESH_TOKEN_PREFIX}{jti}")
-            except Exception:
-                # Fallback to in-memory cache if Redis is down
-                _fallback_revoked_jtis.add(jti)
+            await self.redis.delete(f"{_REFRESH_TOKEN_PREFIX}{jti}")
         except Exception:
-            pass  # Token already invalid or couldn't decode
+            pass  # Token already invalid/couldn't decode, or Redis unreachable —
+            # a subsequent refresh() will fail closed on the same outage.

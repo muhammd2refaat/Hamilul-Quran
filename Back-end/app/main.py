@@ -1,10 +1,13 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config.settings import settings
 from app.infrastructure.redis.client import get_redis_pool, close_redis_pool
 from app.core.handlers import register_exception_handlers
+from app.core.rate_limit import limiter
 from app.middleware.cors import register_cors
 
 
@@ -31,6 +34,10 @@ def create_app() -> FastAPI:
         openapi_url=f"{settings.api_prefix}/openapi.json",
         lifespan=lifespan,
     )
+
+    # ─── Rate limiting ──────────────────────────────────────────────────────────
+    app.state.limiter = limiter
+    app.add_middleware(SlowAPIMiddleware)
 
     # ─── Session (Authlib OAuth state/nonce) ───────────────────────────────────
     app.add_middleware(

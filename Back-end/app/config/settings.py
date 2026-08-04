@@ -1,5 +1,14 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+
+# Placeholder values shipped as defaults for local-dev convenience. If any of
+# these are still in effect when app_env=="production", the app must refuse
+# to start rather than silently sign tokens / seed accounts with a secret
+# that's published in this same repo.
+_PLACEHOLDER_SECRET_KEY = "CHANGE_ME_TO_A_RANDOM_64_CHAR_HEX_STRING"
+_PLACEHOLDER_SESSION_SECRET = "CHANGE_ME_TO_A_RANDOM_SESSION_SECRET"
+_PLACEHOLDER_ADMIN_PASSWORD = "CHANGE_ME_ADMIN_PASSWORD"
 
 
 class Settings(BaseSettings):
@@ -56,9 +65,28 @@ class Settings(BaseSettings):
 
     allowed_origins: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
 
-    # Admin seed credentials
+    # Admin seed credentials — used only by full_seed.py, never at app startup.
     admin_email: str = "admin@elhafazah-academy.com"
-    admin_password: str = "Admin@123456"
+    admin_password: str = _PLACEHOLDER_ADMIN_PASSWORD
+
+    @model_validator(mode="after")
+    def _reject_placeholder_secrets_in_production(self) -> "Settings":
+        if self.app_env != "production":
+            return self
+
+        placeholders = {
+            "SECRET_KEY": self.secret_key == _PLACEHOLDER_SECRET_KEY,
+            "SESSION_SECRET": self.session_secret == _PLACEHOLDER_SESSION_SECRET,
+            "ADMIN_PASSWORD": self.admin_password == _PLACEHOLDER_ADMIN_PASSWORD,
+        }
+        offending = [name for name, is_placeholder in placeholders.items() if is_placeholder]
+        if offending:
+            raise RuntimeError(
+                "Refusing to start with app_env=production while these settings "
+                f"still hold their placeholder default: {', '.join(offending)}. "
+                "Set real values via environment variables / .env.staging."
+            )
+        return self
 
 
 @lru_cache

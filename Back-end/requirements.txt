@@ -16,6 +16,7 @@ authlib==1.3.2
 itsdangerous==2.2.0  # required by Starlette SessionMiddleware (Authlib state/nonce)
 pyotp==2.9.0  # TOTP 2FA
 qrcode[pil]==8.0  # 2FA setup QR code generation
+slowapi==0.1.10  # rate limiting on auth endpoints
 
 # Redis
 redis[asyncio]==5.2.1
