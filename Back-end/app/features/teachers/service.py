@@ -2,7 +2,7 @@ import uuid
 from typing import Optional, Sequence
 
 from fastapi import HTTPException, UploadFile, status
-from sqlmodel import select
+from sqlmodel import select, func
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.storage import save_certificate
@@ -11,16 +11,78 @@ from app.features.sessions.models import SessionScore
 from app.features.teachers.models import Ijaza, IjazaType, TeacherProfile, TeacherReview
 from app.features.teachers.schemas import (
     IjazaResponse,
+    PaginatedTeachers,
     TeacherProfileResponse,
     TeacherProfileUpdate,
+    TeacherPublicResponse,
     TeacherStudentResponse,
 )
-from app.features.users.models import User
+from app.features.users.models import User, UserRole
+
 
 
 class TeacherService:
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    async def list_all_teachers(
+        self, limit: int = 20, offset: int = 0
+    ) -> PaginatedTeachers:
+        """Paginated public list of all teacher profiles."""
+        # Total count
+        count_result = await self.session.exec(select(func.count()).select_from(TeacherProfile))
+        total = count_result.one()
+
+        # Fetch profiles + users
+        query = (
+            select(TeacherProfile, User)
+            .join(User, TeacherProfile.user_id == User.id)
+            .offset(offset)
+            .limit(limit)
+            .order_by(TeacherProfile.created_at.desc())
+        )
+        result = await self.session.exec(query)
+        rows = result.all()
+
+        items: list[TeacherPublicResponse] = []
+        for profile, user in rows:
+            items.append(await self._build_public_response(profile, user))
+
+        return PaginatedTeachers(items=items, total=total, limit=limit, offset=offset)
+
+    async def get_public_profile(self, user_id: uuid.UUID) -> TeacherPublicResponse:
+        """Public-safe profile for any teacher, accessible by any authenticated user."""
+        profile = await self._get_profile_row(user_id)
+        result = await self.session.exec(select(User).where(User.id == user_id))
+        user = result.first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found")
+        return await self._build_public_response(profile, user)
+
+    async def _build_public_response(
+        self, profile: TeacherProfile, user: User
+    ) -> TeacherPublicResponse:
+        ijazas_result = await self.session.exec(
+            select(Ijaza).where(Ijaza.teacher_profile_id == profile.id)
+        )
+        ijazas = [IjazaResponse.model_validate(i) for i in ijazas_result.all()]
+
+        reviews_result = await self.session.exec(
+            select(TeacherReview).where(TeacherReview.teacher_id == user.id)
+        )
+        reviews = reviews_result.all()
+        avg = round(sum(r.rating for r in reviews) / len(reviews), 2) if reviews else None
+
+        full_name = f"{user.first_name} {user.last_name}".strip() or user.email
+        return TeacherPublicResponse(
+            user_id=user.id,
+            full_name=full_name,
+            juz_memorized=profile.juz_memorized,
+            ijazas=ijazas,
+            average_rating=avg,
+            review_count=len(reviews),
+        )
+
 
     async def create_profile(
         self,

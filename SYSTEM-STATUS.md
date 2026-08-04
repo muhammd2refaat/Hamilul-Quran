@@ -101,22 +101,37 @@ missed call site after the OAuth signature change).
 - Admin-CMS's "active sessions" and dashboard "user engagement" widgets
   render hardcoded mock data instead of real API calls.
 
-### Known missing features (not bugs — just not built yet)
-- No public self-service signup (Google OAuth only).
-- No `POST /complaints` (admins can resolve complaints; nobody can file one).
-- No teacher-profile browsing API beyond self/admin view.
-- No write path for `teacher_history` — those endpoints return empty forever.
-- Google Calendar event creation was never implemented (tokens are captured
-  and stored but unused) — likely blocks Google's app-verification review.
-- No password-change or password-reset endpoint (frontend UI for both exists
-  and 404s).
-- Admin-CMS's 2FA UI is fully dead end-to-end (no backend support at all).
-- Landing-page signup modal "Step 3" doesn't submit anything — real signup
-  only works through the post-Google-OAuth completion page.
+### Previously missing features — now implemented (2026-08-04)
 
-Full detail with file:line references for every item above lives in the
-audit plan this deploy was based on (ask for it if you need the source
-citations again — it's not part of this repo).
+- ✅ `POST /complaints` — any authenticated user (student/teacher) can file a complaint.
+  `complaint_from` is inferred from role server-side.
+- ✅ Teacher public browsing API — `GET /teachers` (paginated) and `GET /teachers/{id}`
+  (public `TeacherPublicResponse`). `GET /teachers/{id}/full` still restricted to self/admin.
+- ✅ `teacher_history` write path — `AllocationService.create()` calls `reassign_teacher()`;
+  `GET /users/me/teacher-history` now returns real data.
+- ✅ Google Calendar event creation — wired into `AllocationService._try_create_calendar_events()`;
+  creates recurring weekly events on teacher's Google Calendar with Meet link + student attendee.
+  Best-effort (Calendar failure does not roll back the allocation).
+- ✅ `POST /auth/change-password` — authenticated, LOCAL accounts only. Returns 400 for Google-only
+  users and 401 for wrong current password.
+- ✅ `POST /auth/password-reset/request` + `/confirm` — stateless 15-min JWT tokens.
+  Request always returns 204 (no user enumeration). Token is logged to INFO; wire in
+  SMTP/SendGrid delivery when email is configured.
+- ✅ Admin 2FA (TOTP, Google Authenticator compatible):
+  - `POST /auth/totp/setup` → returns secret + QR URI (2FA not yet active).
+  - `POST /auth/totp/confirm` → verifies first code, enables 2FA.
+  - `POST /auth/totp/disable` → verifies code, disables 2FA.
+  - `POST /auth/login` now returns `{"totp_required": true, "temp_token": "..."}` for
+    admins with 2FA enabled instead of full tokens.
+  - `POST /auth/totp/verify` → exchanges temp_token + TOTP code for real access+refresh tokens.
+  - DB: `users.totp_secret` (Fernet-encrypted) + `users.totp_enabled`; migration `e1a4b2c9d7f3`.
+- ✅ Landing-page signup Step 3 — already fully wired in `/app/register/complete/page.tsx`;
+  calls `POST /auth/google/complete-registration` correctly with all fields.
+
+### Remaining known gap
+- Password reset email delivery is stubbed (logs token to INFO). Needs SMTP/SendGrid wiring
+  once an email provider is configured.
+
 
 ---
 

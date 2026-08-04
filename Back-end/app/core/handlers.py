@@ -15,6 +15,7 @@ Usage in main.py / app factory:
 
 import logging
 
+import sentry_sdk
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -88,6 +89,12 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(SQLAlchemyError)
     async def sqlalchemy_error_handler(request: Request, exc: SQLAlchemyError):
         logger.error(f"SQLAlchemy Error: {exc}")
+        # Registering a catch-all handler means FastAPI resolves the
+        # exception here instead of letting it propagate up through the ASGI
+        # stack — which is exactly where Sentry's automatic capture hooks in.
+        # Without this explicit call, Sentry would be fully initialized and
+        # still never see a single one of these.
+        sentry_sdk.capture_exception(exc)
         return JSONResponse(
             status_code=500,
             content={
@@ -99,6 +106,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         logger.exception(f"Unhandled Exception: {exc}")
+        sentry_sdk.capture_exception(exc)
         return JSONResponse(
             status_code=500,
             content={

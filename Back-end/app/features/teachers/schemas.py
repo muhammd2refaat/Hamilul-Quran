@@ -68,3 +68,22 @@ class TeacherStudentResponse(BaseModel):
     last_score: Optional[int] = None
     last_max_score: Optional[int] = None
     last_session_date: Optional[datetime] = None
+
+
+class TeacherPublicResponse(BaseModel):
+    """Public-facing teacher profile — no internal/sensitive fields."""
+    user_id: uuid.UUID
+    full_name: str
+    juz_memorized: Optional[int] = None
+    ijazas: list[IjazaResponse] = []
+    average_rating: Optional[float] = None
+    review_count: int = 0
+
+    model_config = {"from_attributes": True}
+
+
+class PaginatedTeachers(BaseModel):
+    items: list[TeacherPublicResponse]
+    total: int
+    limit: int
+    offset: int

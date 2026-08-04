@@ -1,9 +1,14 @@
 import uuid
+import datetime as _dt
+
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from fastapi import HTTPException
-from app.features.complaints.models import Complaint, ComplaintStatus
-from app.features.users.models import User
+
+from app.features.complaints.models import Complaint, ComplaintFrom, ComplaintStatus
+from app.features.complaints.schemas import ComplaintCreate
+from app.features.users.models import User, UserRole
+
 
 class ComplaintService:
     def __init__(self, session: AsyncSession):
@@ -13,6 +18,26 @@ class ComplaintService:
         query = select(Complaint).where(Complaint.user_id == user_id).order_by(Complaint.created_at.desc())
         result = await self.session.exec(query)
         return result.all()
+
+    async def create_complaint(
+        self, user_id: uuid.UUID, role: UserRole, data: ComplaintCreate
+    ) -> Complaint:
+        complaint_from = (
+            ComplaintFrom.TEACHER if role == UserRole.TEACHER else ComplaintFrom.STUDENT
+        )
+        complaint = Complaint(
+            user_id=user_id,
+            about_id=data.about_id,
+            complaint_from=complaint_from,
+            category=data.category,
+            subject=data.subject,
+            description=data.description,
+        )
+        self.session.add(complaint)
+        await self.session.commit()
+        await self.session.refresh(complaint)
+        return complaint
+
 
     async def get_all_complaints(self) -> list[dict]:
         # Perform joins to get user and about names

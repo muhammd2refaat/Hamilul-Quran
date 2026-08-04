@@ -1,14 +1,16 @@
 from typing import Annotated
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.database import get_session
 from app.core.dependencies import AdminDep, CurrentUserDep
 from app.features.sessions.schemas import SessionScoreResponse
 from app.features.teachers.schemas import (
+    PaginatedTeachers,
     TeacherProfileResponse,
     TeacherProfileUpdate,
+    TeacherPublicResponse,
     TeacherReviewCreate,
     TeacherReviewResponse,
     TeacherStudentResponse,
@@ -47,6 +49,21 @@ def _require_teacher(current_user) -> None:
         )
 
 
+# ── Public browse ─────────────────────────────────────────────────────────────
+@router.get(
+    "",
+    response_model=PaginatedTeachers,
+    summary="Browse all teacher profiles (any authenticated user)",
+)
+async def list_teachers(
+    _: CurrentUserDep,
+    svc: TeacherSvcDep,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    return await svc.list_all_teachers(limit=limit, offset=offset)
+
+
 # NOTE: these /me/... routes must be registered before /{teacher_id} below,
 # otherwise FastAPI will try to parse "me" as a teacher_id UUID and 422.
 @router.get(
@@ -73,10 +90,23 @@ async def list_my_student_session_scores(
 
 @router.get(
     "/{teacher_id}",
-    response_model=TeacherProfileResponse,
-    summary="Get a teacher's profile (self or ADMIN)",
+    response_model=TeacherPublicResponse,
+    summary="Get a teacher's public profile (any authenticated user)",
 )
 async def get_teacher_profile(
+    teacher_id: uuid.UUID, current_user: CurrentUserDep, svc: TeacherSvcDep
+):
+    """Returns the public-safe profile. Admins and the teacher themselves can
+    call GET /teachers/{teacher_id} — everyone else gets the same public view."""
+    return await svc.get_public_profile(teacher_id)
+
+
+@router.get(
+    "/{teacher_id}/full",
+    response_model=TeacherProfileResponse,
+    summary="Get full teacher profile (self or ADMIN only)",
+)
+async def get_teacher_full_profile(
     teacher_id: uuid.UUID, current_user: CurrentUserDep, svc: TeacherSvcDep
 ):
     _require_self_or_admin(current_user, teacher_id)

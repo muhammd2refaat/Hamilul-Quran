@@ -7,11 +7,22 @@ from fastapi.security import OAuth2PasswordRequestForm
 from app.core.database import get_session
 from app.core.redis_client import get_redis
 from app.core.cookies import REFRESH_TOKEN_COOKIE, clear_auth_cookies, set_auth_cookies
-from app.core.dependencies import CurrentUserDep
+from app.core.dependencies import AdminDep, CurrentUserDep
 from app.core.rate_limit import limiter
 from app.features.auth.google import build_authorize_redirect
 from app.features.auth.google_service import GoogleAuthService
-from app.features.auth.schemas import LoginRequest, TokenResponse, RefreshRequest, UserInfo
+from app.features.auth.schemas import (
+    LoginRequest,
+    PasswordChangeRequest,
+    PasswordResetConfirm,
+    PasswordResetRequest,
+    TokenResponse,
+    TotpLoginRequest,
+    TotpSetupResponse,
+    TotpVerifyRequest,
+    RefreshRequest,
+    UserInfo,
+)
 from app.features.auth.service import AuthService
 from app.features.teachers.models import IjazaType
 from app.features.users.models import Gender
@@ -39,7 +50,6 @@ GoogleServiceDep = Annotated[GoogleAuthService, Depends(_get_google_service)]
 
 @router.post(
     "/login",
-    response_model=TokenResponse,
     summary="Login with email & password",
     status_code=200,
 )
@@ -47,11 +57,15 @@ GoogleServiceDep = Annotated[GoogleAuthService, Depends(_get_google_service)]
 async def login(request: Request, response: Response, body: LoginRequest, svc: AuthServiceDep):
     """Authenticate with email/password and receive JWT access + refresh tokens.
 
-    Tokens are also set as HttpOnly cookies — browser clients should rely on
-    those rather than persisting the response body's tokens themselves."""
-    tokens = await svc.login(body.email, body.password)
-    set_auth_cookies(response, request, tokens.access_token, tokens.refresh_token)
-    return tokens
+    If the account is an admin with 2FA enabled, returns
+    `{"totp_required": true, "temp_token": "..."}` instead of tokens.
+    The client must then POST /auth/totp/verify with the temp_token and a TOTP code."""
+    result = await svc.login(body.email, body.password)
+    # 2FA gate: result is a plain dict, not a TokenResponse
+    if isinstance(result, dict) and result.get("totp_required"):
+        return result
+    set_auth_cookies(response, request, result.access_token, result.refresh_token)
+    return result
 
 
 @router.post(
@@ -200,3 +214,117 @@ async def get_me(current_user: CurrentUserDep):
         role=current_user.role.value,
         is_active=(current_user.status == UserStatus.ACTIVE),
     )
+
+
+# ─── Password change ──────────────────────────────────────────────────────────
+
+@router.post(
+    "/change-password",
+    status_code=204,
+    summary="Change password (authenticated, local accounts only)",
+)
+@limiter.limit("5/minute")
+async def change_password(
+    request: Request,
+    body: PasswordChangeRequest,
+    current_user: CurrentUserDep,
+    svc: AuthServiceDep,
+):
+    """Change the current user's password. Only works for accounts with a local
+    password (auth_provider=LOCAL). Google-only accounts return 400."""
+    await svc.change_password(current_user, body.current_password, body.new_password)
+
+
+# ─── Password reset ───────────────────────────────────────────────────────────
+
+@router.post(
+    "/password-reset/request",
+    status_code=204,
+    summary="Request a password reset email",
+)
+@limiter.limit("5/minute")
+async def password_reset_request(
+    request: Request,
+    body: PasswordResetRequest,
+    svc: AuthServiceDep,
+):
+    """Always returns 204 (no user enumeration). If the account exists and has
+    a local password, a reset token is logged (and emailed once SMTP is set up)."""
+    await svc.request_password_reset(body.email)
+
+
+@router.post(
+    "/password-reset/confirm",
+    status_code=204,
+    summary="Complete a password reset with the token from the reset link",
+)
+@limiter.limit("10/minute")
+async def password_reset_confirm(
+    request: Request,
+    body: PasswordResetConfirm,
+    svc: AuthServiceDep,
+):
+    """Apply a new password using the short-lived JWT from the reset link."""
+    await svc.confirm_password_reset(body.token, body.new_password)
+
+
+# ─── TOTP 2FA (admin only) ───────────────────────────────────────────────────
+
+@router.post(
+    "/totp/setup",
+    response_model=TotpSetupResponse,
+    summary="Begin 2FA setup — generates a TOTP secret (ADMIN only)",
+)
+async def totp_setup(current_user: AdminDep, svc: AuthServiceDep):
+    """Generates a new TOTP secret and returns the QR code URI.
+    2FA is NOT yet active until /totp/confirm is called with a valid code."""
+    result = await svc.setup_totp(current_user)
+    return TotpSetupResponse(**result)
+
+
+@router.post(
+    "/totp/confirm",
+    status_code=204,
+    summary="Confirm 2FA setup with first TOTP code (ADMIN only)",
+)
+async def totp_confirm(
+    body: TotpVerifyRequest,
+    current_user: AdminDep,
+    svc: AuthServiceDep,
+):
+    """Verify the first code from the authenticator app and enable 2FA."""
+    await svc.confirm_totp(current_user, body.code)
+
+
+@router.post(
+    "/totp/disable",
+    status_code=204,
+    summary="Disable 2FA (ADMIN only — requires current TOTP code)",
+)
+async def totp_disable(
+    body: TotpVerifyRequest,
+    current_user: AdminDep,
+    svc: AuthServiceDep,
+):
+    """Disable 2FA after verifying a current TOTP code."""
+    await svc.disable_totp(current_user, body.code)
+
+
+@router.post(
+    "/totp/verify",
+    response_model=TokenResponse,
+    summary="Complete 2FA login — exchange temp_token + TOTP code for real tokens",
+)
+@limiter.limit("10/minute")
+async def totp_verify(
+    request: Request,
+    response: Response,
+    body: TotpLoginRequest,
+    svc: AuthServiceDep,
+):
+    """Second step of the admin 2FA login flow. Accepts the temp_token returned
+    by POST /auth/login and a 6-digit TOTP code from the authenticator app."""
+    tokens = await svc.verify_totp_login(body.temp_token, body.code)
+    set_auth_cookies(response, request, tokens.access_token, tokens.refresh_token)
+    return tokens
+

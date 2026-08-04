@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 
 
 class LoginRequest(BaseModel):
@@ -28,3 +28,59 @@ class UserInfo(BaseModel):
     email: str
     role: str
     is_active: bool
+
+
+# ─── Password change (authenticated users only) ──────────────────────────────
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def new_password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("new_password must be at least 8 characters")
+        return v
+
+
+# ─── Password reset (unauthenticated, token-based) ───────────────────────────
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def new_password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("new_password must be at least 8 characters")
+        return v
+
+
+# ─── TOTP 2FA ────────────────────────────────────────────────────────────────
+
+class TotpSetupResponse(BaseModel):
+    """Returned by POST /auth/totp/setup before 2FA is activated."""
+    secret: str        # base32 secret (show only once — for authenticator app manual entry)
+    qr_uri: str        # otpauth:// URI for QR code generation on the client
+
+
+class TotpVerifyRequest(BaseModel):
+    """Used for both /totp/confirm (enable) and /totp/disable."""
+    code: str
+
+
+class TotpLoginRequest(BaseModel):
+    """Second step of the 2FA login flow."""
+    temp_token: str    # short-lived JWT issued by login() when admin has 2FA enabled
+    code: str
+
+
+class TotpLoginResponse(TokenResponse):
+    """Full token pair issued after successful TOTP verification."""
+    pass

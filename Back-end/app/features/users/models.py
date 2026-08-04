@@ -66,7 +66,13 @@ class User(SQLModel, table=True):
     teacher_id: Optional[UUID] = Field(
         default=None, foreign_key="users.id", nullable=True, index=True
     )
-    
+
+    # ─── 2FA (admin accounts only) ─────────────────────────────────────────
+    # totp_secret stores the Fernet-encrypted base32 TOTP secret.
+    # Null means 2FA has never been set up for this account.
+    totp_secret: Optional[str] = Field(default=None, nullable=True)
+    totp_enabled: bool = Field(default=False)
+
     joined_date: datetime = Field(default_factory=datetime.utcnow)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(
