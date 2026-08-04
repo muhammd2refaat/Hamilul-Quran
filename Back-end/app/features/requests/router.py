@@ -33,7 +33,7 @@ async def list_my_requests(current_user: CurrentUserDep, svc: SvcDep):
 
 @router.post("", response_model=RequestResponse, status_code=201, summary="File a new request")
 async def create_request(body: RequestCreate, current_user: CurrentUserDep, svc: SvcDep):
-    return await svc.create(current_user.id, body)
+    return await svc.create(current_user.id, current_user.role, body)
 
 
 @router.patch(

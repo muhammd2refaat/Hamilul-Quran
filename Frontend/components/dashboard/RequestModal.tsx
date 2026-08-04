@@ -50,7 +50,6 @@ export function RequestModal({
     try {
       await apiClient.post('/requests', {
         type: requestType,
-        from_role: 'student',
         details: details || title,
         requested_teacher: showRequestedTeacher && requestedTeacher ? requestedTeacher : undefined,
         requested_plan: showRequestedPlan && requestedPlan ? requestedPlan : undefined,

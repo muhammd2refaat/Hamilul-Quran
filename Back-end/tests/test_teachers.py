@@ -100,7 +100,12 @@ async def test_list_teacher_reviews(client, student_headers, teacher_user):
 # ─── Session scores ───────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_teacher_records_own_session_score(client, teacher_headers, teacher_user, student_user):
+async def test_teacher_records_own_session_score(client, teacher_headers, teacher_user, student_user, db_session):
+    from app.features.sessions.models import TeacherHistory
+
+    db_session.add(TeacherHistory(student_id=student_user.id, teacher_id=teacher_user.id))
+    await db_session.commit()
+
     r = await client.post(
         "/session-scores", headers=teacher_headers,
         json={"student_id": str(student_user.id), "score": 18, "max_score": 20, "surah": "Al-Baqarah"},
@@ -109,6 +114,15 @@ async def test_teacher_records_own_session_score(client, teacher_headers, teache
     body = r.json()
     assert body["teacher_id"] == str(teacher_user.id)
     assert body["score"] == 18
+
+
+@pytest.mark.asyncio
+async def test_teacher_cannot_record_score_for_unallocated_student(client, teacher_headers, teacher_user, student_user):
+    r = await client.post(
+        "/session-scores", headers=teacher_headers,
+        json={"student_id": str(student_user.id), "score": 18, "max_score": 20},
+    )
+    assert r.status_code == 403
 
 
 @pytest.mark.asyncio

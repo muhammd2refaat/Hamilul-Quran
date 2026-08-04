@@ -188,6 +188,25 @@ class ReviewService:
         comment: Optional[str],
         is_admin: bool,
     ) -> TeacherReview:
+        """Create a review, or update the reviewer's existing review for this
+        teacher if one already exists — one review per reviewer per teacher."""
+        if reviewer_id is not None:
+            existing_result = await self.session.exec(
+                select(TeacherReview)
+                .where(TeacherReview.teacher_id == teacher_id)
+                .where(TeacherReview.reviewer_id == reviewer_id)
+            )
+            existing = existing_result.first()
+            if existing is not None:
+                existing.reviewer_name = reviewer_name
+                existing.rating = rating
+                existing.comment = comment
+                existing.is_admin = is_admin
+                self.session.add(existing)
+                await self.session.commit()
+                await self.session.refresh(existing)
+                return existing
+
         review = TeacherReview(
             teacher_id=teacher_id,
             reviewer_id=reviewer_id,

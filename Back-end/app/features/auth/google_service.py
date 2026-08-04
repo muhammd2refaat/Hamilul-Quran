@@ -15,6 +15,7 @@ from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from app.config.settings import settings
+from app.core.cookies import set_auth_cookies
 from app.core.crypto import encrypt_secret
 from app.features.auth.google import (
     exchange_code,
@@ -66,13 +67,19 @@ class GoogleAuthService:
         userinfo: dict[str, Any] = token.get("userinfo") or {}
         google_sub = userinfo.get("sub")
         email = (userinfo.get("email") or "").lower()
+        email_verified = bool(userinfo.get("email_verified"))
         if not google_sub or not email:
             return self._frontend_error("google_identity_unavailable")
 
         role = request.session.pop("oauth_role", None)
         intent = request.session.pop("oauth_intent", "login")
 
-        user = await self._find_user(google_sub, email)
+        user = await self._find_user(google_sub, email, email_verified)
+
+        if user is None and not email_verified and await self._email_taken(email):
+            # An account with this email exists, but Google hasn't verified
+            # ownership of the address — refuse to silently link/take it over.
+            return self._frontend_error("email_not_verified")
 
         if user:
             if user.status != UserStatus.ACTIVE:
@@ -85,7 +92,7 @@ class GoogleAuthService:
             await self._upsert_credential(user.id, google_sub, token)
             await self.session.commit()
             tokens = await self.auth.issue_tokens_for_user(user)
-            return self._frontend_success(tokens, user.role.value)
+            return self._frontend_success(request, tokens, user.role.value)
 
         # No user yet. Logging in (not signing up) with a Google account that
         # was never registered is explicitly rejected — no auto-signup here.
@@ -121,7 +128,11 @@ class GoogleAuthService:
         email = data["email"]
 
         # Idempotency: if the account was already created, just log them in.
-        existing = await self._find_user(google_sub, email)
+        # Matches by google_id only (email_verified=False) — a retry of this
+        # exact flow always finds its own account via google_id; we don't
+        # want an email fallback here re-opening the account-takeover case
+        # _find_user's email_verified gate exists to close.
+        existing = await self._find_user(google_sub, email, email_verified=False)
         if existing:
             await self._delete_pending(registration_token)
             return await self.auth.issue_tokens_for_user(existing)
@@ -164,13 +175,27 @@ class GoogleAuthService:
         return await self.auth.issue_tokens_for_user(user)
 
     # ─── Helpers ─────────────────────────────────────────────────────────────
-    async def _find_user(self, google_sub: str, email: str) -> Optional[User]:
-        result = await self.session.exec(
-            select(User).where(
-                (User.google_id == google_sub) | (User.email == email)
-            )
-        )
+    async def _find_user(
+        self, google_sub: str, email: str, email_verified: bool
+    ) -> Optional[User]:
+        """
+        Match by google_id first (the identity is already linked — always
+        safe). Only fall back to matching by email when Google has confirmed
+        the caller actually owns that address (email_verified); otherwise an
+        attacker with an unverified-email Google account could silently
+        take over an existing local account, including an admin's.
+        """
+        result = await self.session.exec(select(User).where(User.google_id == google_sub))
+        user = result.first()
+        if user or not email_verified:
+            return user
+
+        result = await self.session.exec(select(User).where(User.email == email))
         return result.first()
+
+    async def _email_taken(self, email: str) -> bool:
+        result = await self.session.exec(select(User).where(User.email == email))
+        return result.first() is not None
 
     # ─── Pending-registration storage (Redis, in-memory fallback) ────────────
     async def _store_pending(self, token: str, blob_str: str, ttl: int) -> None:
@@ -320,8 +345,11 @@ class GoogleAuthService:
                 detail=f"Missing required fields: {', '.join(missing)}",
             )
 
-    def _frontend_success(self, tokens: TokenResponse, role: str) -> RedirectResponse:
-        # Tokens go in the URL fragment so they never hit server logs / Referer.
+    def _frontend_success(self, request: Request, tokens: TokenResponse, role: str) -> RedirectResponse:
+        # Tokens also go in the URL fragment so they never hit server logs /
+        # Referer — kept for backward compatibility with any client still
+        # reading them from there. Browser clients should rely on the
+        # HttpOnly cookies set below instead.
         fragment = urlencode(
             {
                 "access_token": tokens.access_token,
@@ -329,10 +357,12 @@ class GoogleAuthService:
                 "role": role,
             }
         )
-        return RedirectResponse(
+        redirect = RedirectResponse(
             url=f"{settings.frontend_url}/auth/callback#{fragment}",
             status_code=status.HTTP_302_FOUND,
         )
+        set_auth_cookies(redirect, request, tokens.access_token, tokens.refresh_token)
+        return redirect
 
     def _frontend_error(self, code: str, path: str = "/login", **extra: str) -> RedirectResponse:
         query = urlencode({"error": code, **extra})

@@ -37,7 +37,6 @@ class RequestGlobalResponse(RequestResponse):
 
 class RequestCreate(BaseModel):
     type: RequestType
-    from_role: RequestFromRole
     details: str
     current_day: Optional[str] = None
     current_time: Optional[str] = None

@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Menu, X, LogOut, Languages } from 'lucide-react';
 import { EE } from '@/lib/dashboard/theme';
 import { useLang } from '@/lib/dashboard/i18n';
-import { clearTokens } from '@/lib/auth';
+import { logout } from '@/lib/auth';
 import type { User } from '@/types/user';
 
 export interface NavItem {
@@ -29,8 +29,8 @@ export function DashboardShell({
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const handleLogout = () => {
-    clearTokens();
+  const handleLogout = async () => {
+    await logout();
     router.push('/login');
   };
 

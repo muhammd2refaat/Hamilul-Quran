@@ -21,7 +21,6 @@ export default function ContactPage() {
     try {
       await apiClient.post('/requests', {
         type: 'other',
-        from_role: 'student',
         details: message,
       });
       setSent(true);

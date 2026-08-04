@@ -1,7 +1,7 @@
 from typing import Annotated, Optional
 import uuid
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -9,32 +9,44 @@ from sqlmodel import select
 
 from app.database.session import get_session
 from app.config.settings import settings
+from app.core.cookies import ACCESS_TOKEN_COOKIE
 from app.core.security import decode_token
 from app.features.users.models import User, UserRole, UserStatus
 
 # ─── OAuth2 ──────────────────────────────────────────────────────────────────
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.api_prefix}/auth/swagger-login")
+# auto_error=False: a browser client authenticates via the HttpOnly cookie and
+# sends no Authorization header at all, so a missing header must not 401 by
+# itself — get_current_user() below falls back to the cookie before failing.
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.api_prefix}/auth/swagger-login", auto_error=False
+)
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
-TokenDep = Annotated[str, Depends(oauth2_scheme)]
+TokenDep = Annotated[Optional[str], Depends(oauth2_scheme)]
 
 
 # ─── Token → User Resolution ──────────────────────────────────────────────────
 async def get_current_user(
+    request: Request,
     credentials: TokenDep,
     session: SessionDep,
 ) -> User:
     """
-    Dependency: Validates Bearer token and returns the authenticated User.
-    Raises 401 on any token error or if user is not found / active.
+    Dependency: validates the access token, taken from the Authorization
+    header if present (Swagger UI, non-browser API clients) or otherwise
+    from the HttpOnly access_token cookie (browser clients). Raises 401 on
+    any token error, on a missing token, or if the user isn't found/active.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    token = credentials or request.cookies.get(ACCESS_TOKEN_COOKIE)
+    if not token:
+        raise credentials_exception
     try:
-        payload = decode_token(credentials)
+        payload = decode_token(token)
         token_type: str = payload.get("type", "")
         if token_type != "access":
             raise credentials_exception

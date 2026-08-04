@@ -39,10 +39,10 @@ export const useAuthStore = create<AuthStore>()(
           }>('/auth/login', credentials);
 
           const { access_token, refresh_token } = tokenResponse;
-
-          // Store tokens so the interceptor sends them on the next request
-          localStorage.setItem('qv_auth_token', access_token);
-          localStorage.setItem('qv_refresh_token', refresh_token);
+          // Auth cookies (HttpOnly access_token/refresh_token) were already
+          // set by the backend on this same response — apiClient's
+          // withCredentials sends them automatically from here on. The
+          // values below are kept in memory only, never persisted.
 
           // Step 2: Fetch real user profile from backend
           const me = await get<{ id: string; email: string; role: string; is_active: boolean }>(
@@ -87,9 +87,6 @@ export const useAuthStore = create<AuthStore>()(
           return { success: true, requiresTwoFactor: false, token: access_token, user };
 
         } catch (error: any) {
-          // Clear any partially stored tokens
-          localStorage.removeItem('qv_auth_token');
-          localStorage.removeItem('qv_refresh_token');
           set({ isLoading: false });
 
           // Already toasted with the correct message above — just propagate.
@@ -124,9 +121,6 @@ export const useAuthStore = create<AuthStore>()(
             '/auth/verify-2fa',
             { code }
           );
-          
-          localStorage.setItem('qv_auth_token', response.access_token);
-          localStorage.setItem('qv_refresh_token', response.refresh_token);
 
           set({
             user: response.user,
@@ -153,42 +147,29 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       logout: async (): Promise<void> => {
-        const storedRefresh = localStorage.getItem('qv_refresh_token');
         try {
-          if (storedRefresh) {
-            await post('/auth/logout', { refresh_token: storedRefresh });
-          }
+          // refresh_token cookie is sent automatically — nothing to pass.
+          await post('/auth/logout');
         } catch {
           // Ignore backend errors — still clear local session
         } finally {
-          localStorage.removeItem('qv_auth_token');
-          localStorage.removeItem('qv_refresh_token');
           set(initialState);
         }
       },
 
       logoutAllSessions: async (): Promise<void> => {
-        const storedRefresh = localStorage.getItem('qv_refresh_token');
         try {
-          if (storedRefresh) {
-            await post('/auth/logout', { refresh_token: storedRefresh });
-          }
+          await post('/auth/logout');
         } catch {
           // Ignore
         } finally {
-          localStorage.removeItem('qv_auth_token');
-          localStorage.removeItem('qv_refresh_token');
           set(initialState);
         }
       },
 
       refreshAuthToken: async (): Promise<void> => {
-        const { refreshToken } = getStore();
         try {
-          const response = await post<{ access_token: string }>('/auth/refresh', {
-            refresh_token: refreshToken
-          });
-          localStorage.setItem('qv_auth_token', response.access_token);
+          const response = await post<{ access_token: string }>('/auth/refresh');
           set({ token: response.access_token });
         } catch (error) {
           getStore().clearAuth();
@@ -212,17 +193,16 @@ export const useAuthStore = create<AuthStore>()(
       setUser: (user) => set({ user }),
 
       clearAuth: () => {
-        localStorage.removeItem('qv_auth_token');
-        localStorage.removeItem('qv_refresh_token');
         set(initialState);
       },
     }),
     {
       name: 'qv_auth_store',
       storage: createJSONStorage(() => localStorage),
+      // token/refreshToken are deliberately excluded — real auth is the
+      // HttpOnly cookie the backend set; persisting the raw JWT here would
+      // put it right back within reach of an XSS bug.
       partialize: (state) => ({
-        token: state.token,
-        refreshToken: state.refreshToken,
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),

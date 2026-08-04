@@ -121,3 +121,68 @@ async def test_swagger_login_accepts_form_data(client, make_user):
     )
     assert r.status_code == 200
     assert r.json()["access_token"]
+
+
+# ─── HttpOnly cookie auth ──────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_login_sets_httponly_cookies(client, make_user):
+    user = await make_user(email="cookie-login@apitest.dev", username="cookie_login", password="Correct123!")
+    r = await _login(client, user.email, "Correct123!")
+    assert r.status_code == 200
+
+    set_cookie_headers = r.headers.get_list("set-cookie")
+    cookie_names = {h.split("=", 1)[0] for h in set_cookie_headers}
+    assert {"access_token", "refresh_token"} <= cookie_names
+    for h in set_cookie_headers:
+        assert "httponly" in h.lower()
+        assert "samesite=lax" in h.lower()
+    # Test client talks over plain http — Secure must not be set here, only
+    # when the (proxied) request scheme is actually https.
+    assert not any("secure" in h.lower() for h in set_cookie_headers)
+
+
+@pytest.mark.asyncio
+async def test_auth_me_works_via_cookie_only(client, make_user):
+    """No Authorization header at all — proves get_current_user() falls back
+    to the access_token cookie for browser-style clients."""
+    user = await make_user(email="cookie-me@apitest.dev", username="cookie_me", password="Correct123!")
+    await _login(client, user.email, "Correct123!")
+
+    r = await client.get("/auth/me")
+    assert r.status_code == 200
+    assert r.json()["email"] == user.email
+
+
+@pytest.mark.asyncio
+async def test_refresh_works_via_cookie_only(client, make_user):
+    user = await make_user(email="cookie-refresh@apitest.dev", username="cookie_refresh", password="Correct123!")
+    await _login(client, user.email, "Correct123!")
+
+    r = await client.post("/auth/refresh")
+    assert r.status_code == 200
+    assert r.json()["access_token"]
+
+
+@pytest.mark.asyncio
+async def test_refresh_without_cookie_or_body_401(client):
+    r = await client.post("/auth/refresh")
+    assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_logout_via_cookie_clears_cookies_and_revokes(client, make_user):
+    user = await make_user(email="cookie-logout@apitest.dev", username="cookie_logout", password="Correct123!")
+    await _login(client, user.email, "Correct123!")
+
+    r = await client.post("/auth/logout")
+    assert r.status_code == 204
+    set_cookie_headers = r.headers.get_list("set-cookie")
+    # Clearing cookies re-sends them with an expiry in the past / empty value.
+    assert any(h.startswith("access_token=") for h in set_cookie_headers)
+    assert any(h.startswith("refresh_token=") for h in set_cookie_headers)
+
+    # The refresh token that was revoked must no longer work even though the
+    # cookie jar still holds it client-side.
+    r = await client.post("/auth/refresh")
+    assert r.status_code == 401

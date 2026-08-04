@@ -28,6 +28,12 @@ async def create_session_score(
     score on behalf of any teacher by supplying teacher_id explicitly."""
     if current_user.role == UserRole.TEACHER:
         teacher_id = current_user.id
+        current_teacher_id = await svc.get_current_teacher_id(body.student_id)
+        if current_teacher_id != teacher_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not allocated to this student",
+            )
     elif current_user.role == UserRole.ADMIN:
         if not body.teacher_id:
             raise HTTPException(

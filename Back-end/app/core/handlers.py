@@ -18,6 +18,7 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy.exc import IntegrityError, DataError, SQLAlchemyError
 
@@ -26,6 +27,16 @@ logger = logging.getLogger(__name__)
 
 def register_exception_handlers(app: FastAPI) -> None:
     """Register all global exception handlers onto the FastAPI application."""
+
+    @app.exception_handler(RateLimitExceeded)
+    async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+        return JSONResponse(
+            status_code=429,
+            content={
+                "error_code": "RATE_LIMIT_EXCEEDED",
+                "message": "Too many requests. Please try again later.",
+            },
+        )
 
     @app.exception_handler(StarletteHTTPException)
     async def http_exception_handler(request: Request, exc: StarletteHTTPException):
@@ -60,7 +71,6 @@ def register_exception_handlers(app: FastAPI) -> None:
         orig = getattr(exc, "orig", exc)
         error_code = "DATABASE_INTEGRITY_ERROR"
         message = "A database integrity constraint was violated."
-        details = str(orig)
 
         if hasattr(orig, "pgcode"):
             if orig.pgcode == "23505":  # unique_violation
@@ -72,11 +82,7 @@ def register_exception_handlers(app: FastAPI) -> None:
 
         return JSONResponse(
             status_code=400,
-            content={
-                "error_code": error_code,
-                "message": message,
-                "details": details,
-            },
+            content={"error_code": error_code, "message": message},
         )
 
     @app.exception_handler(SQLAlchemyError)
@@ -87,7 +93,6 @@ def register_exception_handlers(app: FastAPI) -> None:
             content={
                 "error_code": "DATABASE_ERROR",
                 "message": "An unexpected database error occurred.",
-                "details": str(exc),
             },
         )
 
@@ -99,6 +104,5 @@ def register_exception_handlers(app: FastAPI) -> None:
             content={
                 "error_code": "INTERNAL_SERVER_ERROR",
                 "message": "An unexpected error occurred on the server.",
-                "details": str(exc),
             },
         )

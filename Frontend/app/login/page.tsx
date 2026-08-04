@@ -9,8 +9,7 @@ import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 import { apiClient } from '@/lib/api';
-import { storeTokens } from '@/lib/auth';
-import { type User, type AuthResponse } from '@/types/user';
+import { type User } from '@/types/user';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 const DARK = '#0C3326';
@@ -29,6 +28,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   account_inactive: 'Your account is inactive. Please contact support.',
   google_identity_unavailable: 'Google sign-in failed. Please try again.',
+  email_not_verified: "Your Google account's email isn't verified, so we can't confirm it's you. Please verify your email with Google first, or sign in with your password instead.",
 };
 
 function startGoogle(intent: 'login' | 'signup') {
@@ -91,12 +91,10 @@ function LoginPageInner() {
     setIsLoading(true);
     setError(null);
     try {
-      const { data: authData } = await apiClient.post<AuthResponse>('/auth/login', {
+      await apiClient.post('/auth/login', {
         email: values.email,
         password: values.password,
       });
-
-      storeTokens(authData.access_token, authData.refresh_token);
 
       const { data: userProfile } = await apiClient.get<User>('/users/me');
 

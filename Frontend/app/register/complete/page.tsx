@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BookOpen, Loader2 } from 'lucide-react';
 
-import { storeTokens } from '@/lib/auth';
-import { type AuthResponse } from '@/types/user';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -85,14 +83,13 @@ export default function CompleteRegistrationPage() {
     try {
       const res = await fetch(`${API_BASE}/auth/google/complete-registration`, {
         method: 'POST',
+        credentials: 'include',
         body: form,
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.detail || 'Registration failed. Please try again.');
       }
-      const auth: AuthResponse = await res.json();
-      storeTokens(auth.access_token, auth.refresh_token);
       router.replace(role === 'teacher' ? '/dashboard/teacher' : '/dashboard/student');
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please try again.');

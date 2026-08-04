@@ -21,12 +21,18 @@ from app.features.users.models import AuthProvider, Gender, User, UserRole, User
 from app.features.users.service import UserService
 
 
+class _FakeURL:
+    scheme = "https"
+
+
 class FakeRequest:
-    """Minimal stand-in for a Starlette Request — handle_callback only touches
-    `.session` (and passes the request to the mocked exchange_code)."""
+    """Minimal stand-in for a Starlette Request — handle_callback touches
+    `.session` and (via set_auth_cookies) `.url.scheme`, and passes the
+    request to the mocked exchange_code."""
 
     def __init__(self, session: dict):
         self.session = session
+        self.url = _FakeURL()
 
 
 def _token(sub: str, email: str, name: str = "New Student"):

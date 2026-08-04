@@ -119,6 +119,12 @@ async def create_teacher_review(
     current_user: CurrentUserDep,
     svc: ReviewSvcDep,
 ):
+    if current_user.id == teacher_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You cannot review yourself",
+        )
+
     reviewer_name = body.reviewer_name or f"{current_user.first_name} {current_user.last_name}".strip()
     return await svc.create(
         teacher_id=teacher_id,

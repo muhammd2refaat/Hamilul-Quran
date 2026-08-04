@@ -18,7 +18,9 @@ class TokenResponse(BaseModel):
 
 
 class RefreshRequest(BaseModel):
-    refresh_token: str
+    # Optional: browser clients rely on the HttpOnly refresh_token cookie
+    # instead and don't need to send this at all.
+    refresh_token: Optional[str] = None
 
 
 class UserInfo(BaseModel):

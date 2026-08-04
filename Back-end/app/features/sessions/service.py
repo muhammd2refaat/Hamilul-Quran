@@ -23,6 +23,16 @@ class SessionService:
         result = await self.session.exec(query)
         return result.all()
 
+    async def get_current_teacher_id(self, student_id: uuid.UUID) -> Optional[uuid.UUID]:
+        result = await self.session.exec(
+            select(TeacherHistory)
+            .where(TeacherHistory.student_id == student_id)
+            .where(TeacherHistory.unassigned_at.is_(None))
+            .order_by(TeacherHistory.assigned_at.desc())
+        )
+        entry = result.first()
+        return entry.teacher_id if entry else None
+
     async def create_score(
         self, data: SessionScoreCreate, teacher_id: uuid.UUID
     ) -> SessionScore:

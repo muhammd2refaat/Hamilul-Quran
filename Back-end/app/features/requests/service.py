@@ -4,9 +4,14 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from fastapi import HTTPException
 
-from app.features.requests.models import PlatformRequest, RequestStatus
+from app.features.requests.models import PlatformRequest, RequestFromRole, RequestStatus
 from app.features.requests.schemas import RequestCreate
-from app.features.users.models import User
+from app.features.users.models import User, UserRole
+
+_FROM_ROLE_BY_USER_ROLE = {
+    UserRole.STUDENT: RequestFromRole.STUDENT,
+    UserRole.TEACHER: RequestFromRole.TEACHER,
+}
 
 
 class RequestService:
@@ -38,8 +43,19 @@ class RequestService:
             out.append(r_dict)
         return out
 
-    async def create(self, user_id: uuid.UUID, data: RequestCreate) -> PlatformRequest:
-        req = PlatformRequest(user_id=user_id, **data.model_dump())
+    async def create(
+        self, user_id: uuid.UUID, user_role: UserRole, data: RequestCreate
+    ) -> PlatformRequest:
+        """from_role is derived from the authenticated user's actual role,
+        never trusted from the client, so a caller can't misrepresent who
+        they are filing a request as."""
+        from_role = _FROM_ROLE_BY_USER_ROLE.get(user_role)
+        if from_role is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Your account role cannot file this type of request",
+            )
+        req = PlatformRequest(user_id=user_id, from_role=from_role, **data.model_dump())
         self.session.add(req)
         await self.session.commit()
         await self.session.refresh(req)

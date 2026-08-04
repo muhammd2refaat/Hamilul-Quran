@@ -25,7 +25,9 @@ services:
     ports:
       - "80:80"        # HTTP (redirects to HTTPS)
       - "443:443"      # HTTPS (Let's Encrypt)
-      - "8080:8080"    # Traefik dashboard (restrict to VPN/firewall in prod)
+      # Dashboard port intentionally NOT published — api.insecure is false in
+      # traefik.yml. If the dashboard is ever needed, route it via a Host()
+      # router behind BasicAuth + TLS instead of publishing :8080.
     volumes:
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -54,6 +56,31 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+
+  # ─── PostgreSQL backups ─────────────────────────────────────────────────────
+  # Periodic pg_dump to a named volume — see db/backup.sh. Same postgres image
+  # as the DB itself so pg_dump/pg_restore are always version-matched.
+  pg-backup:
+    image: postgres:16-alpine
+    container_name: hamilul-pg-backup
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      BACKUP_RETENTION_DAYS: "14"
+      BACKUP_INTERVAL_SECONDS: "86400"
+    entrypoint: ["sh", "/backup/backup.sh"]
+    volumes:
+      - ./db:/backup:ro
+      - postgres_backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hamilul-net
 
   # ─── Redis ──────────────────────────────────────────────────────────────────
   redis:
@@ -192,6 +219,8 @@ networks:
 # ─── Volumes ─────────────────────────────────────────────────────────────────
 volumes:
   postgres_data:
+    driver: local
+  postgres_backups:
     driver: local
   redis_data:
     driver: local

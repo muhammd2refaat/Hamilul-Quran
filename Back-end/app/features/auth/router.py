@@ -1,12 +1,14 @@
 from typing import Annotated, Literal, Optional
 
 import redis.asyncio as aioredis
-from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.database import get_session
 from app.core.redis_client import get_redis
+from app.core.cookies import REFRESH_TOKEN_COOKIE, clear_auth_cookies, set_auth_cookies
 from app.core.dependencies import CurrentUserDep
+from app.core.rate_limit import limiter
 from app.features.auth.google import build_authorize_redirect
 from app.features.auth.google_service import GoogleAuthService
 from app.features.auth.schemas import LoginRequest, TokenResponse, RefreshRequest, UserInfo
@@ -41,9 +43,15 @@ GoogleServiceDep = Annotated[GoogleAuthService, Depends(_get_google_service)]
     summary="Login with email & password",
     status_code=200,
 )
-async def login(body: LoginRequest, svc: AuthServiceDep):
-    """Authenticate with email/password and receive JWT access + refresh tokens."""
-    return await svc.login(body.email, body.password)
+@limiter.limit("10/minute")
+async def login(request: Request, response: Response, body: LoginRequest, svc: AuthServiceDep):
+    """Authenticate with email/password and receive JWT access + refresh tokens.
+
+    Tokens are also set as HttpOnly cookies — browser clients should rely on
+    those rather than persisting the response body's tokens themselves."""
+    tokens = await svc.login(body.email, body.password)
+    set_auth_cookies(response, request, tokens.access_token, tokens.refresh_token)
+    return tokens
 
 
 @router.post(
@@ -52,12 +60,17 @@ async def login(body: LoginRequest, svc: AuthServiceDep):
     summary="Login specifically for Swagger UI (OAuth2 format)",
     include_in_schema=False,
 )
+@limiter.limit("10/minute")
 async def swagger_login(
+    request: Request,
+    response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     svc: AuthServiceDep,
 ):
     """Native endpoint for Swagger's green 'Authorize' button."""
-    return await svc.login(form_data.username, form_data.password)
+    tokens = await svc.login(form_data.username, form_data.password)
+    set_auth_cookies(response, request, tokens.access_token, tokens.refresh_token)
+    return tokens
 
 
 @router.post(
@@ -66,9 +79,22 @@ async def swagger_login(
     summary="Refresh access token",
     status_code=200,
 )
-async def refresh_token(body: RefreshRequest, svc: AuthServiceDep):
-    """Exchange a valid refresh token for a new access token."""
-    return await svc.refresh(body.refresh_token)
+@limiter.limit("30/minute")
+async def refresh_token(
+    request: Request,
+    response: Response,
+    svc: AuthServiceDep,
+    body: Optional[RefreshRequest] = None,
+):
+    """Exchange a valid refresh token for a new access token. Browser clients
+    can omit the body entirely — the refresh_token cookie is used instead."""
+    token = (body.refresh_token if body else None) or request.cookies.get(REFRESH_TOKEN_COOKIE)
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No refresh token provided")
+
+    tokens = await svc.refresh(token)
+    set_auth_cookies(response, request, tokens.access_token, tokens.refresh_token)
+    return tokens
 
 
 @router.post(
@@ -76,9 +102,18 @@ async def refresh_token(body: RefreshRequest, svc: AuthServiceDep):
     summary="Revoke refresh token",
     status_code=204,
 )
-async def logout(body: RefreshRequest, svc: AuthServiceDep):
-    """Revoke a refresh token (deletes it from Redis). Access token expires naturally."""
-    await svc.logout(body.refresh_token)
+async def logout(
+    request: Request,
+    response: Response,
+    svc: AuthServiceDep,
+    body: Optional[RefreshRequest] = None,
+):
+    """Revoke a refresh token (deletes it from Redis) and clear auth cookies.
+    Access token expires naturally."""
+    token = (body.refresh_token if body else None) or request.cookies.get(REFRESH_TOKEN_COOKIE)
+    if token:
+        await svc.logout(token)
+    clear_auth_cookies(response)
 
 
 @router.get(
@@ -115,7 +150,10 @@ async def google_callback(request: Request, svc: GoogleServiceDep):
     response_model=TokenResponse,
     summary="Finish Google signup with role-specific profile fields",
 )
+@limiter.limit("10/minute")
 async def google_complete_registration(
+    request: Request,
+    response: Response,
     svc: GoogleServiceDep,
     registration_token: str = Form(...),
     full_name: str = Form(...),
@@ -132,7 +170,7 @@ async def google_complete_registration(
 ):
     """Create the user (+ teacher profile / ijazas) from the pending Google
     registration and return JWT access + refresh tokens."""
-    return await svc.complete_registration(
+    tokens = await svc.complete_registration(
         registration_token=registration_token,
         full_name=full_name,
         country=country,
@@ -144,6 +182,8 @@ async def google_complete_registration(
         ijazas=ijazas,
         certificate=certificate,
     )
+    set_auth_cookies(response, request, tokens.access_token, tokens.refresh_token)
+    return tokens
 
 
 @router.get(

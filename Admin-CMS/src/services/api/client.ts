@@ -6,7 +6,6 @@ import axios, {
   type AxiosRequestConfig,
   type AxiosResponse,
   type AxiosError,
-  type InternalAxiosRequestConfig,
 } from 'axios';
 
 // Backend base URL — reads VITE_API_BASE_URL (e.g. http://localhost:8000/api/v1
@@ -15,10 +14,6 @@ import axios, {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 const API_TIMEOUT = Number(import.meta.env.VITE_API_TIMEOUT) || 30000;
 
-// Storage keys
-const TOKEN_KEY = 'qv_auth_token';
-const REFRESH_TOKEN_KEY = 'qv_refresh_token';
-
 // Create the Axios instance
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -26,28 +21,10 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  // No withCredentials — we use JWT in Authorization header, not cookies
+  // Sends/receives the backend's HttpOnly access_token/refresh_token cookies
+  // instead of a JS-held Authorization header.
+  withCredentials: true,
 });
-
-// ─── Request Interceptor ───────────────────────────────────────────────────────
-apiClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    let token = localStorage.getItem(TOKEN_KEY);
-
-    // Clean up any corrupt Zustand JSON objects stored as tokens
-    if (token && token.startsWith('{')) {
-      localStorage.removeItem(TOKEN_KEY);
-      token = null;
-    }
-
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
 
 // ─── Response Interceptor ──────────────────────────────────────────────────────
 apiClient.interceptors.response.use(
@@ -69,9 +46,6 @@ apiClient.interceptors.response.use(
         toast.error('Cannot connect to server. Please check your connection.');
       });
     } else if (status === 401) {
-      // Clear stale tokens and let the page refresh handle redirect
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
       window.location.href = '/auth/login';
     } else if (status >= 400) {
       import('react-hot-toast').then(({ default: toast }) => {

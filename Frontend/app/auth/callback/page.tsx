@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
-import { storeTokens } from '@/lib/auth';
-
 /**
  * Landing page for the backend Google OAuth redirect (existing-user login).
- * The backend returns tokens in the URL fragment so they never hit server logs:
+ * The backend already set the HttpOnly access_token/refresh_token cookies on
+ * this same redirect response, so this page only needs `role` for routing.
+ * The URL fragment still carries the tokens too (never hit server logs /
+ * Referer) for any non-cookie client, but this page ignores them.
  *   /auth/callback#access_token=...&refresh_token=...&role=STUDENT
  */
 export default function OAuthCallbackPage() {
@@ -20,17 +21,13 @@ export default function OAuthCallbackPage() {
       ? window.location.hash.slice(1)
       : window.location.hash;
     const params = new URLSearchParams(hash);
-
-    const accessToken = params.get('access_token');
-    const refreshToken = params.get('refresh_token');
     const role = params.get('role');
 
-    if (!accessToken || !role) {
+    if (!role) {
       setError('Sign-in failed. Please try again.');
       return;
     }
 
-    storeTokens(accessToken, refreshToken);
     // Strip tokens from the address bar.
     window.history.replaceState(null, '', '/auth/callback');
 

@@ -61,8 +61,6 @@ picks from the Backlog above, highest-value first:)*
 
 - [ ] Complaint filing endpoint (`POST /complaints`) — smallest gap, unblocks
   a whole feature that currently has no write path at all.
-- [ ] Reconcile the drifted Alembic baseline (see note below) so a fresh
-  `alembic upgrade head` works against an empty database.
 - [ ] Teacher profile `GET`/`PATCH` router — at least self-view/edit.
 
 ## In Progress
@@ -93,6 +91,26 @@ of the above.)*
   browser test (only `not_registered` has been live-verified).
 
 ## Done
+
+- **2026-08-04** — Security/reliability pass: teachers could record a
+  session score for any student, not just their own allocated ones
+  (`sessions/router.py`/`service.py`, fixed by checking the student's
+  current open `TeacherHistory` row); reviews could be posted unlimited
+  times on any teacher including self-reviews (`teachers/router.py` now
+  blocks self-review, `ReviewService.create` upserts instead of duplicating
+  a reviewer's review); `POST /requests` trusted a client-supplied
+  `from_role` — now derived server-side from the caller's actual
+  `UserRole`; exception handlers and `/health` no longer echo raw
+  `str(exc)`/`str(e)` to clients, only to server logs; fixed the drifted
+  Alembic baseline (see Notes below) so `alembic upgrade head` works
+  against a truly empty database. Also added `db/backup.sh` +
+  `db/restore.sh` and a `pg-backup` service in `docker-compose.yml` — daily
+  `pg_dump | gzip` into a `postgres_backups` named volume with a
+  `BACKUP_RETENTION_DAYS` prune (default 14d); restore via `docker compose
+  exec pg-backup sh /backup/restore.sh /backups/<file>.sql.gz`. Both
+  scripts verified against a disposable, fully isolated postgres container
+  (dump → inspect contents → restore into a fresh DB → confirm data),
+  never against the real dev/staging DB.
 
 - **2026-07-13** — Test suite (pytest, 104 tests) + two auth bug fixes.
   Isolated `hamilul_quran_test` DB, transaction-per-test rollback, fakeredis,
@@ -281,12 +299,24 @@ of the above.)*
   plus context like `&email=...`), NOT the fragment — only the token-bearing
   success redirect (`_frontend_success`) uses the fragment, since those
   values must not appear in server logs/Referer headers.
-- Migrations are add-only by convention here because the existing baseline
-  (`0af01f5224fd`) is drifted from the model — don't trust `--autogenerate`
-  blindly; diff it against reality first. Right now `alembic upgrade head`
-  only works because the dev DB was `create_all`'d first and then stamped
-  at the current head — a truly fresh/empty database will NOT migrate
-  cleanly yet.
+- Migrations are add-only by convention here — don't trust `--autogenerate`
+  blindly; diff it against reality first (`SQLModel.metadata.create_all`
+  against a scratch DB, `pg_dump -s`, diff).
+- **2026-08-04** — Fixed the drifted baseline: `f3b6c1a70e21_platform_requests`
+  hand-wrote `requests.from_role/type/status` as plain `VARCHAR`, but the
+  models declare them as Python `Enum`s, which SQLAlchemy backs with native
+  Postgres `ENUM` types — so a fresh `alembic upgrade head` against an empty
+  DB built a schema that didn't match the models and rejected real inserts.
+  Fixed by declaring proper `sa.Enum(...)` columns in that migration.
+  Gotcha worth remembering: SQLAlchemy's native `Enum(SomeStrEnum)` persists
+  the Python enum **member name** (`"PENDING"`), not its `.value`
+  (`"pending"`) — same convention already used correctly in
+  `a1c9e4f0b3d2_subscriptions`'s raw-SQL enum. Verified by running
+  `alembic upgrade head` against a scratch empty DB and `pg_dump -s`-diffing
+  it against a `create_all`'d scratch DB; only cosmetic drift remains
+  (`TEXT` vs unbounded `VARCHAR` for a couple of free-text columns, and a
+  couple of migrations that added a `server_default` alongside a `NOT NULL`
+  column that the model doesn't declare a default for — both harmless).
 - `app/core/config.py`, `app/core/database.py`, `app/core/redis_client.py`
   are deprecated shims re-exporting from `app/config/settings.py`,
   `app/database/session.py`, and `app/infrastructure/redis/client.py`
