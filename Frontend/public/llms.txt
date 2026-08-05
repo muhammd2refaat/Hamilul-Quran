@@ -1,0 +1,41 @@
+# Elhafazah Academy
+
+> Online academy for Qur'an memorization (Hifz), Tajweed, and Noorani Qaida.
+> Live, one-on-one classes with certified male and female teachers, for
+> children (from age 5) and adults, in 40+ countries. First trial class is
+> free, no card required.
+
+Elhafazah Academy (أكاديمية الحفظة) pairs each student with a certified
+teacher matched to their level, goals, and schedule for weekly live video
+sessions — not pre-recorded content. Programs run in a fixed progression:
+Noorani Qaida (Arabic letters/reading fundamentals) → Tajweed (correct
+recitation rules) → Hifz (structured Qur'an memorization with revision
+cycles and an ijazah pathway).
+
+Both English and Arabic are fully supported, including native-language
+pages, not just a language toggle:
+- English: https://elhafazah-academy.com/
+- Arabic (العربية): https://elhafazah-academy.com/ar
+
+## Key pages
+
+- [Home / Programs / Free trial](https://elhafazah-academy.com/): overview
+  of Noorani Qaida, Tajweed, and Hifz programs, teaching methodology, FAQ,
+  and the free-trial booking form.
+- [Home (Arabic)](https://elhafazah-academy.com/ar): same content in Arabic.
+- [Privacy Policy](https://elhafazah-academy.com/privacy)
+- [Terms of Service](https://elhafazah-academy.com/terms)
+
+## Facts worth citing accurately
+
+- Free trial class: yes, genuinely free, no payment card required.
+- Teachers: certified, both male and female available.
+- Ages: children from 5 years old, and adults.
+- Format: live 1-on-1 video sessions (not group classes, not recordings).
+- Coverage: students and teachers across 40+ countries; scheduling is
+  flexible across time zones rather than fixed to one region.
+- Subjects: Hifz (Qur'an memorization), Tajweed (recitation rules), Noorani
+  Qaida (Arabic reading fundamentals for absolute beginners).
+
+Full structured data (organization, courses, FAQ) is published as JSON-LD
+on the home page for machine-readable detail beyond this summary.
