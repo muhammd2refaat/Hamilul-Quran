@@ -118,6 +118,8 @@ export interface DashboardStrings {
   teacherChangeDesc: string;
   teacherChangeReason: string;
   requestedTeacher: string;
+  noPreference: string;
+  loadingTeachers: string;
   myRequests: string;
   noRequests: string;
   requestSent: string;
@@ -260,6 +262,8 @@ const DICT: Record<Lang, DashboardStrings> = {
     teacherChangeDesc: 'Request a different teacher — our team will review and follow up.',
     teacherChangeReason: 'Reason (optional)',
     requestedTeacher: 'Preferred teacher (optional)',
+    noPreference: 'No preference',
+    loadingTeachers: 'Loading teachers…',
     myRequests: 'My requests',
     noRequests: 'You haven’t submitted any requests yet.',
     requestSent: 'Request sent.',
@@ -396,6 +400,8 @@ const DICT: Record<Lang, DashboardStrings> = {
     teacherChangeDesc: 'اطلب معلّمًا آخر — سيراجع فريقنا طلبك ويتابع معك.',
     teacherChangeReason: 'السبب (اختياري)',
     requestedTeacher: 'المعلّم المفضّل (اختياري)',
+    noPreference: 'بدون تفضيل',
+    loadingTeachers: 'جارٍ تحميل المعلّمين…',
     myRequests: 'طلباتي',
     noRequests: 'لم تُقدّم أي طلبات بعد.',
     requestSent: 'تم إرسال الطلب.',

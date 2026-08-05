@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { EE } from '@/lib/dashboard/theme';
 import { useLang } from '@/lib/dashboard/i18n';
 import { apiClient } from '@/lib/api';
+import { type TeacherOption } from '@/types/dashboard';
 
 export type RequestKind = 'new_enrollment' | 'change_teacher' | 'pause' | 'other';
 
@@ -41,6 +42,30 @@ export function RequestModal({
   const [requestedPlan, setRequestedPlan] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [teachers, setTeachers] = useState<TeacherOption[]>([]);
+  const [teachersLoading, setTeachersLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open || !showRequestedTeacher) return;
+    let cancelled = false;
+    async function loadTeachers() {
+      setTeachersLoading(true);
+      try {
+        const { data } = await apiClient.get<{ items: TeacherOption[] }>('/teachers', {
+          params: { limit: 100 },
+        });
+        if (!cancelled) setTeachers(data.items);
+      } catch {
+        if (!cancelled) setTeachers([]);
+      } finally {
+        if (!cancelled) setTeachersLoading(false);
+      }
+    }
+    loadTeachers();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, showRequestedTeacher]);
 
   if (!open) return null;
 
@@ -118,11 +143,21 @@ export function RequestModal({
 
         {showRequestedTeacher && (
           <FormField label={t.requestedTeacher}>
-            <input
+            <select
               value={requestedTeacher}
               onChange={(e) => setRequestedTeacher(e.target.value)}
+              disabled={teachersLoading}
               style={inputStyle}
-            />
+            >
+              <option value="">
+                {teachersLoading ? t.loadingTeachers : t.noPreference}
+              </option>
+              {teachers.map((teacher) => (
+                <option key={teacher.user_id} value={teacher.full_name}>
+                  {teacher.full_name}
+                </option>
+              ))}
+            </select>
           </FormField>
         )}
 

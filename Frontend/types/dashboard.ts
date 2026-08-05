@@ -98,6 +98,11 @@ export interface CalendarEvent {
   meet_link?: string | null;
 }
 
+export interface TeacherOption {
+  user_id: string;
+  full_name: string;
+}
+
 export type SubscriptionStatus = 'active' | 'paused' | 'withdrawn';
 
 export interface Subscription {
