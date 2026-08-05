@@ -73,6 +73,17 @@ class Settings(BaseSettings):
     admin_email: str = "admin@elhafazah-academy.com"
     admin_password: str = _PLACEHOLDER_ADMIN_PASSWORD
 
+    # Outbound email (see app/core/email.py). Empty smtp_host means "not
+    # configured" — sends are skipped (logged, not raised) rather than
+    # failing whatever triggered them, e.g. a student's contact-us message.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_use_tls: bool = True
+    # Envelope From address — falls back to smtp_username if unset.
+    smtp_from_email: str = ""
+
     @model_validator(mode="after")
     def _reject_placeholder_secrets_in_production(self) -> "Settings":
         if self.app_env != "production":

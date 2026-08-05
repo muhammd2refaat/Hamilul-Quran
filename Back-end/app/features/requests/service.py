@@ -4,6 +4,8 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from fastapi import HTTPException
 
+from app.config.settings import settings
+from app.core.email import send_email
 from app.features.requests.models import PlatformRequest, RequestFromRole, RequestStatus
 from app.features.requests.schemas import RequestCreate
 from app.features.users.models import User, UserRole
@@ -59,7 +61,27 @@ class RequestService:
         self.session.add(req)
         await self.session.commit()
         await self.session.refresh(req)
+
+        await self._notify_admin(req, user_id)
         return req
+
+    async def _notify_admin(self, req: PlatformRequest, user_id: uuid.UUID) -> None:
+        """Best-effort email to the admin inbox — never raises, so a mail
+        outage can't fail the request submission itself."""
+        filer = await self.session.get(User, user_id)
+        filer_label = f"{filer.first_name} {filer.last_name}".strip() or filer.email if filer else str(user_id)
+        subject = f"[Elhafazah] New {req.type.value.replace('_', ' ')} request from {filer_label}"
+        body = (
+            f"From: {filer_label} ({req.from_role.value})\n"
+            f"Type: {req.type.value}\n"
+            f"Submitted: {req.created_at}\n"
+            f"\nDetails:\n{req.details}\n"
+        )
+        if req.requested_teacher:
+            body += f"\nPreferred teacher: {req.requested_teacher}\n"
+        if req.requested_plan:
+            body += f"\nRequested plan: {req.requested_plan}\n"
+        await send_email(settings.admin_email, subject, body)
 
     async def update_status(
         self, request_id: uuid.UUID, status: RequestStatus, admin_note: str | None
