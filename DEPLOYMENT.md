@@ -61,6 +61,19 @@ HttpOnly-cookie auth) — see `Back-end/PROGRESS.md` for what changed.
    account (see "Smoke-testing auth" below) rather than trusting `/health`
    alone.
 
+6. **Prune stale Docker build cache.** `docker build`/`docker compose build`
+   leaves intermediate layers behind that nothing ever garbage-collects on
+   its own — left unchecked this silently ate 18GB+ of disk over a few
+   months on this host (found 2026-08-06). Doesn't touch any running
+   container, image, or volume — only unreferenced build-cache layers, so
+   it's safe to run after every deploy:
+   ```bash
+   docker builder prune -af --filter until=72h
+   ```
+   Keeps cache from the last 3 days (so a same-week rebuild is still fast)
+   and drops anything older. Check current usage any time with
+   `docker system df`.
+
 ## First-time setup / disaster recovery (empty database)
 
 If standing up a brand-new environment (empty `postgres` volume), bringing
