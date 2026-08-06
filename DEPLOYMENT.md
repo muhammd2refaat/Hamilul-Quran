@@ -111,6 +111,55 @@ docker cp <path-to-backup>.sql.gz hamilul-pg-backup:/backups/   # if restoring f
 docker exec -it hamilul-pg-backup sh /backup/restore.sh /backups/<file>.sql.gz
 ```
 `restore.sh` gives a 5-second window to Ctrl+C before it drops the database.
+Backups are daily snapshots, not point-in-time/WAL — restoring loses
+everything written after that backup's timestamp. If you're undoing a
+mistake rather than recovering from total DB loss, take a fresh manual
+backup (above) *before* restoring, so you still have a fallback from the
+"bad" state.
+
+**Explore a backup's contents without touching production.** Don't run
+`restore.sh` against the live DB just to look around — restore into a
+throwaway database on the same Postgres instance instead, by overriding
+`POSTGRES_DB` for that one command:
+```bash
+docker exec -e POSTGRES_DB=hamilul_quran_explore hamilul-pg-backup \
+  sh /backup/restore.sh /backups/<file>.sql.gz
+
+docker exec -it hamilul-postgres psql -U hamilul_user -d hamilul_quran_explore
+# \dt              list tables
+# \d users         describe a table's columns
+# SELECT * FROM users LIMIT 10;
+# \q               exit
+```
+Clean up when done so it doesn't sit around:
+```bash
+docker exec hamilul-postgres psql -U hamilul_user -d postgres \
+  -c 'DROP DATABASE hamilul_quran_explore;'
+```
+For a quick single-value check, it's even faster to read the dump directly
+— it's plain SQL text under the gzip, no Postgres involved:
+```bash
+docker exec hamilul-pg-backup sh -c 'zcat /backups/<file>.sql.gz | less'
+docker exec hamilul-pg-backup sh -c "zcat /backups/<file>.sql.gz | grep 'some@email.com'"
+```
+
+**GUI access (pgAdmin / DBeaver / TablePlus) via SSH tunnel.** Postgres is
+bound to `127.0.0.1:5433` on this host (see `docker-compose.yml`) —
+loopback only, never exposed to the internet. Port 5433, not 5432: this
+box separately runs an unrelated host-level (non-Docker) Postgres already
+on `127.0.0.1:5432` for another project — don't reuse that port or touch
+that service. To connect a desktop client:
+```bash
+# Run on your own machine, not the server — keep this session open as the tunnel
+ssh -L 5433:localhost:5433 <your-ssh-user>@<server-host>
+```
+Then point the GUI client at `Host: localhost`, `Port: 5433`,
+`Database: hamilul_quran_db`, `Username: hamilul_user`, password from
+`POSTGRES_PASSWORD` in `.env.staging` on this host (never commit that
+value anywhere, including here). SSL mode `disable`/`prefer` is fine — the
+connection never leaves the tunnel. This is the *live* database — any
+edit/delete in the GUI is real; use `Database: hamilul_quran_explore`
+(above) instead if you want zero risk while just browsing.
 
 ## Rollback
 
