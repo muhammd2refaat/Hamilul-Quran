@@ -62,6 +62,15 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # Bound to loopback only — reachable solely via an SSH tunnel into this
+    # host, never from the public internet. Host port is 5433, not 5432:
+    # this box also runs an unrelated host-level (non-Docker) Postgres
+    # already listening on 127.0.0.1:5432 for some other project — do not
+    # reuse that port. Do not change the host side of this mapping to
+    # anything on 0.0.0.0 — that would expose the raw database to the
+    # internet.
+    ports:
+      - "127.0.0.1:5433:5432"
     networks:
       - hamilul-net
     healthcheck:
