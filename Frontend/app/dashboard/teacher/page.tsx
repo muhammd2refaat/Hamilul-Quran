@@ -2,18 +2,23 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Users, CalendarDays, Award, Clock } from 'lucide-react';
+import { Users, CalendarDays, Award, Clock, Video } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { type TeacherStudent } from '@/types/dashboard';
 import { useLang } from '@/lib/dashboard/i18n';
 import { useDashboardUser } from '@/lib/dashboard/UserContext';
 import { EE } from '@/lib/dashboard/theme';
+import { getJoinWindowForWeeklySlot } from '@/lib/dashboard/calendarUtils';
 import { ArchPanel } from '@/components/dashboard/ArchPanel';
 import { SectionHeader } from '@/components/dashboard/SectionHeader';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 
 const DAY_IDS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+// Re-checked every 30s so a "Join" link flips live (from disabled to active,
+// or vice versa) without the teacher having to reload the page.
+const JOIN_WINDOW_RECHECK_MS = 30_000;
 
 export default function TeacherOverviewPage() {
   const { t } = useLang();
@@ -36,12 +41,18 @@ export default function TeacherOverviewPage() {
     };
   }, []);
 
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => forceTick((n) => n + 1), JOIN_WINDOW_RECHECK_MS);
+    return () => clearInterval(id);
+  }, []);
+
   const todayId = DAY_IDS[new Date().getDay()];
   const todaySlots = useMemo(() => {
     return students.flatMap((s) =>
       s.schedule
         .filter((slot) => slot.day === todayId)
-        .map((slot) => ({ ...slot, studentName: `${s.first_name} ${s.last_name}`, studentId: s.student_id }))
+        .map((slot) => ({ ...slot, studentName: `${s.first_name} ${s.last_name}`, studentId: s.student_id, duration: s.duration }))
     );
   }, [students, todayId]);
 
@@ -66,25 +77,82 @@ export default function TeacherOverviewPage() {
           <p style={{ fontSize: 14, color: EE.sageLight, margin: 0 }}>{t.noSessionsToday}</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-            {todaySlots.map((slot, i) => (
-              <Link
-                key={i}
-                href={`/dashboard/teacher/students/${slot.studentId}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  background: 'rgba(255,255,255,.06)',
-                  borderRadius: 10,
-                  padding: '10px 14px',
-                  textDecoration: 'none',
-                  color: EE.parchment,
-                }}
-              >
-                <span style={{ fontWeight: 600, fontSize: 14 }}>{slot.studentName}</span>
-                <span style={{ fontSize: 13, color: EE.sage }}>{slot.time}</span>
-              </Link>
-            ))}
+            {todaySlots.map((slot, i) => {
+              const win = slot.meet_link
+                ? getJoinWindowForWeeklySlot(todayId, slot.time, slot.duration)
+                : null;
+              const joinable = Boolean(slot.meet_link && win?.isToday && win.state === 'joinable');
+              const tooltip = !slot.meet_link
+                ? t.joinComingSoon
+                : win?.isToday && win.state === 'ended'
+                ? t.joinEnded
+                : t.joinOpensSoon;
+              return (
+                <div
+                  key={i}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    background: 'rgba(255,255,255,.06)',
+                    borderRadius: 10,
+                    padding: '10px 14px',
+                  }}
+                >
+                  <Link
+                    href={`/dashboard/teacher/students/${slot.studentId}`}
+                    style={{ display: 'flex', flexDirection: 'column', textDecoration: 'none', color: EE.parchment, minWidth: 0 }}
+                  >
+                    <span style={{ fontWeight: 600, fontSize: 14 }}>{slot.studentName}</span>
+                    <span style={{ fontSize: 13, color: EE.sage }}>{slot.time}</span>
+                  </Link>
+                  {joinable ? (
+                    <a
+                      href={slot.meet_link!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        background: EE.gold,
+                        color: '#10241C',
+                        borderRadius: 8,
+                        padding: '7px 12px',
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        textDecoration: 'none',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Video size={13} />
+                      {t.joinBtn}
+                    </a>
+                  ) : (
+                    <span
+                      title={tooltip}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        color: EE.sage,
+                        border: '1px solid rgba(255,255,255,.18)',
+                        borderRadius: 8,
+                        padding: '7px 12px',
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                        opacity: 0.6,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Video size={13} />
+                      {t.joinBtn}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </ArchPanel>
