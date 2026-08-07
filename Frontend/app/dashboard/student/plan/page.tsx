@@ -8,7 +8,7 @@ import { useStudentStatus } from '@/lib/dashboard/StudentStatusContext';
 import { EE } from '@/lib/dashboard/theme';
 import { SectionHeader } from '@/components/dashboard/SectionHeader';
 import { Placeholder } from '@/components/dashboard/Placeholder';
-import { RequestModal } from '@/components/dashboard/RequestModal';
+import { PlanRequestModal } from '@/components/dashboard/PlanRequestModal';
 import type { Subscription, SubscriptionStatus } from '@/types/dashboard';
 
 const STATUS_COLORS: Record<SubscriptionStatus, { bg: string; fg: string }> = {
@@ -151,15 +151,12 @@ export default function StudentPlanPage() {
         </button>
       )}
 
-      <RequestModal
+      <PlanRequestModal
         open={changeOpen}
         onClose={() => setChangeOpen(false)}
         onSuccess={() => setSent(true)}
-        requestType="other"
         title={t.changePlanBtn}
         description={t.changePlanDesc}
-        showRequestedPlan
-        detailsLabel={t.fieldComment}
       />
     </div>
   );

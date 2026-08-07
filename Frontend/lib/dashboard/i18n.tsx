@@ -97,6 +97,14 @@ export interface DashboardStrings {
   fieldPlan: string;
   planStartDateLabel: string;
   planNotesLabel: string;
+  sessionsPerWeekLabel: string;
+  sessionsPerWeekDesc: string;
+  durationLabel: string;
+  durationDesc: string;
+  timeSlotsLabel: string;
+  slotsSelectedSuffix: string;
+  planRequestFailed: string;
+  additionalNotesLabel: string;
 
   receiptsTitle: string;
   receiptsDesc: string;
@@ -238,6 +246,14 @@ const DICT: Record<Lang, DashboardStrings> = {
     fieldPlan: 'Requested plan',
     planStartDateLabel: 'Start date',
     planNotesLabel: 'Notes',
+    sessionsPerWeekLabel: 'Sessions per week',
+    sessionsPerWeekDesc: 'How many lessons would you like each week?',
+    durationLabel: 'Session length',
+    durationDesc: 'How long should each session be?',
+    timeSlotsLabel: 'Choose your time slots',
+    slotsSelectedSuffix: 'time slots selected',
+    planRequestFailed: 'Could not send your request. Please try again.',
+    additionalNotesLabel: 'Additional notes (optional)',
 
     // receipts
     receiptsTitle: 'Payment Receipts',
@@ -378,6 +394,14 @@ const DICT: Record<Lang, DashboardStrings> = {
     fieldPlan: 'الخطة المطلوبة',
     planStartDateLabel: 'تاريخ البدء',
     planNotesLabel: 'ملاحظات',
+    sessionsPerWeekLabel: 'عدد الحصص أسبوعيًا',
+    sessionsPerWeekDesc: 'كم عدد الحصص التي ترغب بها كل أسبوع؟',
+    durationLabel: 'مدة الحصة',
+    durationDesc: 'كم تستغرق كل حصة؟',
+    timeSlotsLabel: 'اختر أوقات حصصك',
+    slotsSelectedSuffix: 'فترة مختارة',
+    planRequestFailed: 'تعذّر إرسال طلبك. حاول مرة أخرى.',
+    additionalNotesLabel: 'ملاحظات إضافية (اختياري)',
 
     // receipts
     receiptsTitle: 'إيصالات الدفع',

@@ -10,7 +10,7 @@ import { EE } from '@/lib/dashboard/theme';
 import { ArchPanel } from '@/components/dashboard/ArchPanel';
 import { SectionHeader } from '@/components/dashboard/SectionHeader';
 import { StatCard } from '@/components/dashboard/StatCard';
-import { RequestModal } from '@/components/dashboard/RequestModal';
+import { PlanRequestModal } from '@/components/dashboard/PlanRequestModal';
 
 export default function StudentOverviewPage() {
   const { t } = useLang();
@@ -92,15 +92,12 @@ export default function StudentOverviewPage() {
         </div>
       )}
 
-      <RequestModal
+      <PlanRequestModal
         open={trialOpen}
         onClose={() => setTrialOpen(false)}
         onSuccess={() => setTrialSent(true)}
-        requestType="new_enrollment"
         title={t.requestTrialBtn}
         description={t.newStudentDesc}
-        showRequestedPlan
-        detailsLabel={t.fieldComment}
       />
     </div>
   );
