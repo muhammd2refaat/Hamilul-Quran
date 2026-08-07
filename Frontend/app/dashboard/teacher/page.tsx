@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Users, CalendarDays, Award, Clock, Video } from 'lucide-react';
 import { apiClient } from '@/lib/api';
-import { type TeacherStudent } from '@/types/dashboard';
+import { type AttendanceSummary, type TeacherStudent } from '@/types/dashboard';
 import { useLang } from '@/lib/dashboard/i18n';
 import { useDashboardUser } from '@/lib/dashboard/UserContext';
 import { EE } from '@/lib/dashboard/theme';
-import { getJoinWindowForWeeklySlot } from '@/lib/dashboard/calendarUtils';
+import { getJoinWindowForWeeklySlot, cairoTodayISO } from '@/lib/dashboard/calendarUtils';
+import { recordAttendance } from '@/lib/dashboard/attendance';
 import { ArchPanel } from '@/components/dashboard/ArchPanel';
 import { SectionHeader } from '@/components/dashboard/SectionHeader';
 import { StatCard } from '@/components/dashboard/StatCard';
@@ -25,6 +26,7 @@ export default function TeacherOverviewPage() {
   const user = useDashboardUser();
   const [students, setStudents] = useState<TeacherStudent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [attendance, setAttendance] = useState<AttendanceSummary | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,6 +37,21 @@ export default function TeacherOverviewPage() {
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .get<AttendanceSummary>('/sessions/attendance/summary')
+      .then(({ data }) => {
+        if (!cancelled) setAttendance(data);
+      })
+      .catch(() => {
+        // Non-critical stat — leave the card showing "—" on failure.
       });
     return () => {
       cancelled = true;
@@ -52,7 +69,13 @@ export default function TeacherOverviewPage() {
     return students.flatMap((s) =>
       s.schedule
         .filter((slot) => slot.day === todayId)
-        .map((slot) => ({ ...slot, studentName: `${s.first_name} ${s.last_name}`, studentId: s.student_id, duration: s.duration }))
+        .map((slot) => ({
+          ...slot,
+          allocationId: s.allocation_id,
+          studentName: `${s.first_name} ${s.last_name}`,
+          studentId: s.student_id,
+          duration: s.duration,
+        }))
     );
   }, [students, todayId]);
 
@@ -112,6 +135,7 @@ export default function TeacherOverviewPage() {
                       href={slot.meet_link!}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => recordAttendance(slot.allocationId, cairoTodayISO(), todayId, slot.time)}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -165,6 +189,7 @@ export default function TeacherOverviewPage() {
           <StatCard label={t.statStudents} value={students.length} icon={Users} />
           <StatCard label={t.statSessionsWeek} value={totalSessionsPerWeek} icon={CalendarDays} />
           <StatCard label={t.statAvgScore} value={avgScorePct != null ? `${avgScorePct}%` : '—'} icon={Award} />
+          <StatCard label={t.statSessionsAttended} value={attendance?.total_sessions ?? '—'} icon={Video} />
         </div>
       </div>
 

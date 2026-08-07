@@ -2,9 +2,9 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Award, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Award, MessageSquare, Video } from 'lucide-react';
 import { apiClient } from '@/lib/api';
-import { type TeacherStudent, type SessionScore } from '@/types/dashboard';
+import { type AttendanceSummary, type TeacherStudent, type SessionScore } from '@/types/dashboard';
 import { useLang } from '@/lib/dashboard/i18n';
 import { EE, scoreColor } from '@/lib/dashboard/theme';
 import { SectionHeader } from '@/components/dashboard/SectionHeader';
@@ -16,6 +16,7 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
 
   const [student, setStudent] = useState<TeacherStudent | null>(null);
   const [scores, setScores] = useState<SessionScore[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [score, setScore] = useState('17');
@@ -39,12 +40,14 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
     Promise.all([
       apiClient.get<TeacherStudent[]>('/teachers/me/students'),
       apiClient.get<SessionScore[]>(`/teachers/me/students/${studentId}/session-scores`),
+      apiClient.get<AttendanceSummary>('/sessions/attendance/summary').catch(() => ({ data: null })),
     ])
-      .then(([studentsRes, scoresRes]) => {
+      .then(([studentsRes, scoresRes, attendanceRes]) => {
         if (cancelled) return;
         const found = studentsRes.data.find((s) => s.student_id === studentId) ?? null;
         setStudent(found);
         setScores(scoresRes.data);
+        setAttendance(attendanceRes.data);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -53,6 +56,9 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
       cancelled = true;
     };
   }, [studentId]);
+
+  const sessionsWithThisStudent =
+    attendance?.by_counterpart.find((c) => c.counterpart_id === studentId)?.session_count ?? null;
 
   const handleRecord = async () => {
     setSaving(true);
@@ -107,6 +113,27 @@ export default function StudentDetailPage({ params }: { params: Promise<{ id: st
         title={student ? `${student.first_name} ${student.last_name}` : ''}
         desc={student?.email}
       />
+
+      {sessionsWithThisStudent != null && (
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            background: 'rgba(217,180,95,.14)',
+            border: `1px solid ${EE.goldDeep}`,
+            borderRadius: 20,
+            padding: '6px 14px',
+            fontSize: 13,
+            fontWeight: 700,
+            color: EE.goldDeep,
+            marginBottom: 20,
+          }}
+        >
+          <Video size={14} />
+          {t.sessionsWithLabel} {student?.first_name}: {sessionsWithThisStudent}
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }} className="ee-student-grid">
         {/* Record session form */}

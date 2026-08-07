@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Award, History, MessageSquare } from 'lucide-react';
 import { apiClient } from '@/lib/api';
-import { type SessionScore, type TeacherHistory } from '@/types/dashboard';
+import { type AttendanceSummary, type SessionScore, type TeacherHistory } from '@/types/dashboard';
 import { useLang } from '@/lib/dashboard/i18n';
 import { EE, scoreColor } from '@/lib/dashboard/theme';
 import { SectionHeader } from '@/components/dashboard/SectionHeader';
@@ -13,6 +13,7 @@ export default function StudentProgressPage() {
   const { t } = useLang();
   const [scores, setScores] = useState<SessionScore[]>([]);
   const [history, setHistory] = useState<TeacherHistory[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,11 +21,13 @@ export default function StudentProgressPage() {
     Promise.all([
       apiClient.get<SessionScore[]>('/users/me/session-scores'),
       apiClient.get<TeacherHistory[]>('/users/me/teacher-history'),
+      apiClient.get<AttendanceSummary>('/sessions/attendance/summary').catch(() => ({ data: null })),
     ])
-      .then(([scoresRes, historyRes]) => {
+      .then(([scoresRes, historyRes, attendanceRes]) => {
         if (cancelled) return;
         setScores(scoresRes.data);
         setHistory(historyRes.data);
+        setAttendance(attendanceRes.data);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -33,6 +36,9 @@ export default function StudentProgressPage() {
       cancelled = true;
     };
   }, []);
+
+  const sessionsWithTeacher = (teacherId: string): number | null =>
+    attendance?.by_counterpart.find((c) => c.counterpart_id === teacherId)?.session_count ?? null;
 
   return (
     <div>
@@ -125,6 +131,11 @@ export default function StudentProgressPage() {
                         {h.unassigned_at ? new Date(h.unassigned_at).toLocaleDateString() : t.current}
                       </div>
                       {h.reason && <div style={{ fontSize: 12.5, color: EE.sageMuted, marginTop: 2 }}>{h.reason}</div>}
+                      {sessionsWithTeacher(h.teacher_id) != null && (
+                        <div style={{ fontSize: 12, color: EE.goldDeep, marginTop: 2, fontWeight: 600 }}>
+                          {sessionsWithTeacher(h.teacher_id)} {t.statSessionsAttended.toLowerCase()}
+                        </div>
+                      )}
                     </div>
                     {!h.unassigned_at && (
                       <span

@@ -44,6 +44,8 @@ export interface DashboardStrings {
   statSessionsWeek: string;
   statAvgScore: string;
   statLastSession: string;
+  statSessionsAttended: string;
+  sessionsWithLabel: string;
   newStudentTitle: string;
   newStudentDesc: string;
   requestTrialBtn: string;
@@ -192,6 +194,8 @@ const DICT: Record<Lang, DashboardStrings> = {
     statSessionsWeek: 'Sessions / week',
     statAvgScore: 'Average score',
     statLastSession: 'Last session',
+    statSessionsAttended: 'Sessions attended',
+    sessionsWithLabel: 'Sessions with',
     newStudentTitle: 'Start your journey',
     newStudentDesc: 'You don’t have an active plan yet. Book a free trial session and we’ll match you with a certified teacher.',
     requestTrialBtn: 'Request a free trial',
@@ -349,6 +353,8 @@ const DICT: Record<Lang, DashboardStrings> = {
     statSessionsWeek: 'حصص / أسبوعياً',
     statAvgScore: 'متوسط الدرجات',
     statLastSession: 'آخر حصة',
+    statSessionsAttended: 'الحصص الملتحق بها',
+    sessionsWithLabel: 'الحصص مع',
     newStudentTitle: 'ابدأ رحلتك',
     newStudentDesc: 'ليس لديك خطة نشطة بعد. احجز حصة تجريبية مجانية وسنطابقك مع معلّم مجاز.',
     requestTrialBtn: 'اطلب حصة تجريبية مجانية',

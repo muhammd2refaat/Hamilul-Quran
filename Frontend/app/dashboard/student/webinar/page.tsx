@@ -5,7 +5,8 @@ import { Video, CalendarClock } from 'lucide-react';
 import { useLang } from '@/lib/dashboard/i18n';
 import { useStudentStatus } from '@/lib/dashboard/StudentStatusContext';
 import { EE } from '@/lib/dashboard/theme';
-import { getJoinWindowForWeeklySlot } from '@/lib/dashboard/calendarUtils';
+import { getJoinWindowForWeeklySlot, cairoTodayISO } from '@/lib/dashboard/calendarUtils';
+import { recordAttendance } from '@/lib/dashboard/attendance';
 import { SectionHeader } from '@/components/dashboard/SectionHeader';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { Placeholder } from '@/components/dashboard/Placeholder';
@@ -27,7 +28,12 @@ export default function StudentWebinarPage() {
   }, []);
 
   const slots = allocations.flatMap((a) =>
-    a.schedule.map((slot) => ({ ...slot, sessionsPerWeek: a.sessions_per_week, duration: a.duration }))
+    a.schedule.map((slot) => ({
+      ...slot,
+      allocationId: a.id,
+      sessionsPerWeek: a.sessions_per_week,
+      duration: a.duration,
+    }))
   );
   const sorted = [...slots].sort((a, b) => DAY_IDS.indexOf(a.day) - DAY_IDS.indexOf(b.day));
 
@@ -74,6 +80,7 @@ export default function StudentWebinarPage() {
                       href={slot.meet_link}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => recordAttendance(slot.allocationId, cairoTodayISO(), slot.day, slot.time)}
                       style={{
                         display: 'flex',
                         alignItems: 'center',

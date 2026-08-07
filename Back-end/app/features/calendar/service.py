@@ -56,6 +56,7 @@ class CalendarService:
                     events.append(
                         CalendarEvent(
                             id=f"{alloc.id}:{occurrence.date().isoformat()}:{time_str}",
+                            allocation_id=alloc.id,
                             date=occurrence.date(),
                             day=day,
                             time=time_str,

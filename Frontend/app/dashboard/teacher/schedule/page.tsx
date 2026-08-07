@@ -6,7 +6,8 @@ import { apiClient } from '@/lib/api';
 import { type TeacherStudent } from '@/types/dashboard';
 import { useLang } from '@/lib/dashboard/i18n';
 import { EE } from '@/lib/dashboard/theme';
-import { getJoinWindowForWeeklySlot } from '@/lib/dashboard/calendarUtils';
+import { getJoinWindowForWeeklySlot, cairoTodayISO } from '@/lib/dashboard/calendarUtils';
+import { recordAttendance } from '@/lib/dashboard/attendance';
 import { SectionHeader } from '@/components/dashboard/SectionHeader';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 
@@ -51,6 +52,7 @@ export default function TeacherSchedulePage() {
           .filter((slot) => slot.day === dayId)
           .map((slot) => ({
             time: slot.time,
+            allocationId: s.allocation_id,
             studentName: `${s.first_name} ${s.last_name}`,
             meetLink: slot.meet_link,
             duration: s.duration,
@@ -118,6 +120,7 @@ export default function TeacherSchedulePage() {
                             href={slot.meetLink}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={() => recordAttendance(slot.allocationId, cairoTodayISO(), day.dayId, slot.time)}
                             style={{
                               display: 'flex',
                               alignItems: 'center',

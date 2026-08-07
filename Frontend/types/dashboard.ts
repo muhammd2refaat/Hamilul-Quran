@@ -11,6 +11,31 @@ export interface SessionScore {
   recitation_type?: string;
 }
 
+export interface AttendanceSummaryItem {
+  allocation_id: string;
+  counterpart_id: string;
+  counterpart_name: string;
+  session_count: number;
+}
+
+export interface AttendanceSummary {
+  total_sessions: number;
+  by_counterpart: AttendanceSummaryItem[];
+}
+
+export interface AdminAttendanceItem {
+  allocation_id: string;
+  session_date: string;
+  scheduled_day: string;
+  scheduled_time: string;
+  student_id: string;
+  student_name: string;
+  student_joined_at?: string | null;
+  teacher_id: string;
+  teacher_name: string;
+  teacher_joined_at?: string | null;
+}
+
 export interface TeacherHistory {
   id: string;
   student_id: string;
@@ -93,6 +118,7 @@ export interface PlatformRequest {
 
 export interface CalendarEvent {
   id: string;
+  allocation_id: string;
   date: string; // ISO date, e.g. "2026-07-16"
   day: string;
   time: string;

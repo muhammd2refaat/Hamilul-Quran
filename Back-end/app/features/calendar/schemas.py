@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 class CalendarEvent(BaseModel):
     id: str
+    allocation_id: uuid.UUID
     date: date_type
     day: str
     time: str

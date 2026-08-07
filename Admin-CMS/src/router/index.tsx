@@ -20,6 +20,7 @@ import { ComplaintsPage } from '@/features/complaints/pages/ComplaintsPage';
 import { RequestsPage } from '@/features/requests/pages/RequestsPage';
 import { CalendarPage } from '@/features/calendar/pages/CalendarPage';
 import { ReceiptsPage } from '@/features/receipts/pages/ReceiptsPage';
+import { AttendancePage } from '@/features/attendance/pages/AttendancePage';
 
 
 
@@ -107,6 +108,10 @@ export const router = createBrowserRouter([
       {
         path: 'receipts',
         element: <ReceiptsPage />,
+      },
+      {
+        path: 'attendance',
+        element: <AttendancePage />,
       },
       {
         path: 'admins',

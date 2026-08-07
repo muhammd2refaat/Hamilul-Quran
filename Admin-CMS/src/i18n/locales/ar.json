@@ -46,6 +46,7 @@
     "complaints": "الشكاوى",
     "requests": "الطلبات",
     "receipts": "الإيصالات",
+    "attendance": "الحضور",
     "admins": "المشرفون",
     "logout": "تسجيل الخروج"
   },
@@ -146,6 +147,22 @@
       "student": "طالب",
       "teacher": "معلم",
       "guardian": "ولي أمر"
+    }
+  },
+  "attendance": {
+    "title": "الحضور",
+    "subtitle": "من انضمّ فعليًا لكل حصة مجدولة — الطالب والمعلّم جنبًا إلى جنب.",
+    "searchPlaceholder": "ابحث باسم الطالب أو المعلّم…",
+    "loading": "جارٍ تحميل الحضور…",
+    "total": "الإجمالي المسجَّل",
+    "allStatuses": "الكل",
+    "noMatch": "لا توجد سجلات حضور تطابق الفلاتر المحددة.",
+    "joinedAt": "انضم في",
+    "didNotJoin": "لم ينضم",
+    "completeness": {
+      "both": "انضمّ الطرفان",
+      "teacher_only": "المعلّم فقط",
+      "student_only": "الطالب فقط"
     }
   },
   "allocations": {

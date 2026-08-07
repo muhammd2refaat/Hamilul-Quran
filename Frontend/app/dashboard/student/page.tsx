@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Sparkles, CalendarClock, Award, ClipboardList } from 'lucide-react';
+import { apiClient } from '@/lib/api';
+import { type AttendanceSummary } from '@/types/dashboard';
 import { useLang } from '@/lib/dashboard/i18n';
 import { useDashboardUser } from '@/lib/dashboard/UserContext';
 import { useStudentStatus } from '@/lib/dashboard/StudentStatusContext';
@@ -18,6 +20,23 @@ export default function StudentOverviewPage() {
   const { isNew, allocations } = useStudentStatus();
   const [trialOpen, setTrialOpen] = useState(false);
   const [trialSent, setTrialSent] = useState(false);
+  const [attendance, setAttendance] = useState<AttendanceSummary | null>(null);
+
+  useEffect(() => {
+    if (isNew) return;
+    let cancelled = false;
+    apiClient
+      .get<AttendanceSummary>('/sessions/attendance/summary')
+      .then(({ data }) => {
+        if (!cancelled) setAttendance(data);
+      })
+      .catch(() => {
+        // Non-critical stat — leave the card showing "—" on failure.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isNew]);
 
   return (
     <div>
@@ -69,7 +88,7 @@ export default function StudentOverviewPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
           <StatCard label={t.statSessionsWeek} value={allocations[0]?.sessions_per_week ?? '—'} icon={CalendarClock} />
           <StatCard label={t.currentPlanSnapshot} value={`${allocations[0]?.duration ?? '—'}min`} icon={ClipboardList} />
-          <StatCard label={t.statLastSession} value="—" icon={Award} />
+          <StatCard label={t.statSessionsAttended} value={attendance?.total_sessions ?? '—'} icon={Award} />
         </div>
       )}
 

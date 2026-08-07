@@ -101,6 +101,10 @@ def _register_routers(app: FastAPI) -> None:
     from app.features.sessions.router import router as sessions_router
     app.include_router(sessions_router, prefix=prefix, tags=["Sessions"])
 
+    # Attendance (Join-button click tracking)
+    from app.features.sessions.attendance_router import router as attendance_router
+    app.include_router(attendance_router, prefix=prefix, tags=["Attendance"])
+
     # Teachers (profile + reviews)
     from app.features.teachers.router import router as teachers_router
     app.include_router(teachers_router, prefix=prefix, tags=["Teachers"])

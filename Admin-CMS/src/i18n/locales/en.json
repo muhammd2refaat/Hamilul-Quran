@@ -46,6 +46,7 @@
     "complaints": "Complaints",
     "requests": "Requests",
     "receipts": "Receipts",
+    "attendance": "Attendance",
     "admins": "Admins",
     "logout": "Logout"
   },
@@ -146,6 +147,22 @@
       "student": "student",
       "teacher": "teacher",
       "guardian": "guardian"
+    }
+  },
+  "attendance": {
+    "title": "Attendance",
+    "subtitle": "Who actually clicked Join for each scheduled session — student and teacher side by side.",
+    "searchPlaceholder": "Search by student or teacher name…",
+    "loading": "Loading attendance…",
+    "total": "Total logged",
+    "allStatuses": "All",
+    "noMatch": "No attendance records match the selected filters.",
+    "joinedAt": "joined at",
+    "didNotJoin": "did not join",
+    "completeness": {
+      "both": "Both joined",
+      "teacher_only": "Only teacher joined",
+      "student_only": "Only student joined"
     }
   },
   "allocations": {

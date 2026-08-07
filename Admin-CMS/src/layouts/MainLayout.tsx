@@ -22,6 +22,7 @@ import {
   Inbox,
   CalendarDays,
   Receipt,
+  Video,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useComplaintsStore } from '@/features/complaints/store/complaintsStore';
@@ -79,6 +80,7 @@ export function MainLayout() {
     { name: 'Complaints', labelKey: 'nav.complaints', path: '/complaints', icon: AlertCircle, badge: openComplaints },
     { name: 'Requests', labelKey: 'nav.requests', path: '/requests', icon: Inbox, badge: pendingRequests },
     { name: 'Receipts', labelKey: 'nav.receipts', path: '/receipts', icon: Receipt, badge: newReceipts },
+    { name: 'Attendance', labelKey: 'nav.attendance', path: '/attendance', icon: Video },
     ...(isSuperAdmin ? [{ name: 'Admins', labelKey: 'nav.admins', path: '/admins', icon: Shield }] : []),
   ];
 

@@ -7,6 +7,7 @@ import { type CalendarEvent } from '@/types/dashboard';
 import { useLang } from '@/lib/dashboard/i18n';
 import { EE } from '@/lib/dashboard/theme';
 import { groupEventsByDate, formatEventDate, getJoinWindowForDate } from '@/lib/dashboard/calendarUtils';
+import { recordAttendance } from '@/lib/dashboard/attendance';
 import { SectionHeader } from '@/components/dashboard/SectionHeader';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 
@@ -113,6 +114,7 @@ export default function StudentCalendarPage() {
                             href={e.meet_link}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={() => recordAttendance(e.allocation_id, e.date, e.day, e.time)}
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',

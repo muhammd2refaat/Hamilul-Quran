@@ -112,3 +112,12 @@ export function getJoinWindowForWeeklySlot(
   }
   return { ...windowFromCairoStart(startsAt, durationMinutes, nowCairo), isToday: true };
 }
+
+/** Today's date in Cairo, as "YYYY-MM-DD" — for weekly-slot views (no
+ * specific dated occurrence) that need *a* date to record attendance
+ * against; calendar views already carry a real per-occurrence date. */
+export function cairoTodayISO(now: Date = new Date()): string {
+  const c = cairoNow(now);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${c.getUTCFullYear()}-${pad(c.getUTCMonth() + 1)}-${pad(c.getUTCDate())}`;
+}
