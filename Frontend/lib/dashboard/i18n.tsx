@@ -105,6 +105,10 @@ export interface DashboardStrings {
   slotsSelectedSuffix: string;
   planRequestFailed: string;
   additionalNotesLabel: string;
+  editBtn: string;
+  saveChangesBtn: string;
+  editPlanRequestTitle: string;
+  editPlanRequestDesc: string;
 
   receiptsTitle: string;
   receiptsDesc: string;
@@ -254,6 +258,10 @@ const DICT: Record<Lang, DashboardStrings> = {
     slotsSelectedSuffix: 'time slots selected',
     planRequestFailed: 'Could not send your request. Please try again.',
     additionalNotesLabel: 'Additional notes (optional)',
+    editBtn: 'Edit',
+    saveChangesBtn: 'Save changes',
+    editPlanRequestTitle: 'Edit your plan request',
+    editPlanRequestDesc: 'You can change any of this until an admin reviews it.',
 
     // receipts
     receiptsTitle: 'Payment Receipts',
@@ -402,6 +410,10 @@ const DICT: Record<Lang, DashboardStrings> = {
     slotsSelectedSuffix: 'فترة مختارة',
     planRequestFailed: 'تعذّر إرسال طلبك. حاول مرة أخرى.',
     additionalNotesLabel: 'ملاحظات إضافية (اختياري)',
+    editBtn: 'تعديل',
+    saveChangesBtn: 'حفظ التغييرات',
+    editPlanRequestTitle: 'تعديل طلب الخطة',
+    editPlanRequestDesc: 'يمكنك تغيير أي شيء هنا حتى يراجعه المشرف.',
 
     // receipts
     receiptsTitle: 'إيصالات الدفع',

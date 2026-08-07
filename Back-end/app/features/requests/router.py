@@ -10,6 +10,7 @@ from app.features.requests.schemas import (
     RequestGlobalResponse,
     RequestResponse,
     RequestStatusUpdate,
+    RequestUpdate,
 )
 from app.features.requests.service import RequestService
 
@@ -51,6 +52,21 @@ async def create_public_trial_request(
     """Unauthenticated: anyone can submit this from the marketing landing
     page. Rate-limited per IP to curb spam on an otherwise open endpoint."""
     return await svc.create_public_trial_request(body)
+
+
+@router.patch(
+    "/{request_id}",
+    response_model=RequestResponse,
+    summary="Edit my own request (only while pending/in_review)",
+)
+async def update_my_request(
+    request_id: uuid.UUID, body: RequestUpdate, current_user: CurrentUserDep, svc: SvcDep
+):
+    """The filer can edit their own request's content up until an admin
+    acts on it — once approved/rejected it's a record of what was decided,
+    not an editable draft. Ownership and editable-status are enforced in
+    the service, not trusted from the client."""
+    return await svc.update_own_request(request_id, current_user.id, body)
 
 
 @router.patch(

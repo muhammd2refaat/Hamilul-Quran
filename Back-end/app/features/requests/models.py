@@ -2,8 +2,8 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Optional
-from sqlmodel import SQLModel, Field
+from typing import Any, Dict, List, Optional
+from sqlmodel import SQLModel, Field, Column, JSON
 
 
 class RequestStatus(str, Enum):
@@ -64,6 +64,17 @@ class PlatformRequest(SQLModel, table=True):
     # Enrollment / change-teacher specific.
     requested_plan: Optional[str] = Field(default=None, max_length=255)
     requested_teacher: Optional[str] = Field(default=None, max_length=255)
+
+    # Structured plan-request picks (PlanRequestModal — sessions/week,
+    # duration, day/time slots), same shape as Allocation.schedule. Kept
+    # alongside `details`/`requested_plan` (still the human-readable summary
+    # admins see) so the request can be reliably read back and pre-filled
+    # when a student edits it, rather than re-parsing formatted text.
+    requested_sessions_per_week: Optional[int] = Field(default=None)
+    requested_duration: Optional[int] = Field(default=None)
+    requested_schedule: Optional[List[Dict[str, Any]]] = Field(
+        default=None, sa_column=Column(JSON)
+    )
 
     admin_note: Optional[str] = Field(default=None)
 

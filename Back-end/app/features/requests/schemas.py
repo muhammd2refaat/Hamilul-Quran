@@ -2,7 +2,7 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from app.features.requests.models import (
     RequestStatus,
@@ -29,6 +29,9 @@ class RequestResponse(BaseModel):
     requested_time: Optional[str] = None
     requested_plan: Optional[str] = None
     requested_teacher: Optional[str] = None
+    requested_sessions_per_week: Optional[int] = None
+    requested_duration: Optional[int] = None
+    requested_schedule: Optional[List[Dict[str, Any]]] = None
     guest_name: Optional[str] = None
     guest_email: Optional[str] = None
     guest_phone: Optional[str] = None
@@ -54,6 +57,26 @@ class RequestCreate(BaseModel):
     requested_time: Optional[str] = None
     requested_plan: Optional[str] = None
     requested_teacher: Optional[str] = None
+    requested_sessions_per_week: Optional[int] = None
+    requested_duration: Optional[int] = None
+    requested_schedule: Optional[List[Dict[str, Any]]] = None
+
+
+class RequestUpdate(BaseModel):
+    """Student-facing edit of their own request — see
+    RequestService.update_own_request(). Everything optional (PATCH
+    semantics: only fields actually sent get changed); `type` isn't here —
+    it's the request's identity, not editable content."""
+    details: Optional[str] = None
+    current_day: Optional[str] = None
+    current_time: Optional[str] = None
+    requested_day: Optional[str] = None
+    requested_time: Optional[str] = None
+    requested_plan: Optional[str] = None
+    requested_teacher: Optional[str] = None
+    requested_sessions_per_week: Optional[int] = None
+    requested_duration: Optional[int] = None
+    requested_schedule: Optional[List[Dict[str, Any]]] = None
 
 
 class RequestStatusUpdate(BaseModel):

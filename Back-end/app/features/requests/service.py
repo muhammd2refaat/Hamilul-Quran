@@ -13,7 +13,7 @@ from app.features.requests.models import (
     RequestStatus,
     RequestType,
 )
-from app.features.requests.schemas import PublicTrialRequestCreate, RequestCreate
+from app.features.requests.schemas import PublicTrialRequestCreate, RequestCreate, RequestUpdate
 from app.features.users.models import User, UserRole
 
 _FROM_ROLE_BY_USER_ROLE = {
@@ -108,7 +108,7 @@ class RequestService:
         await self._send_trial_confirmation(req, lang=data.lang, message=data.message)
         return req
 
-    async def _notify_admin(self, req: PlatformRequest) -> None:
+    async def _notify_admin(self, req: PlatformRequest, edited: bool = False) -> None:
         """Best-effort email to the admin inbox — never raises, so a mail
         outage can't fail the request submission itself."""
         if req.user_id:
@@ -121,7 +121,8 @@ class RequestService:
         else:
             filer_label = f"{req.guest_name} (guest, not yet registered)"
 
-        subject = f"[Elhafazah] New {req.type.value.replace('_', ' ')} request from {filer_label}"
+        verb = "Updated" if edited else "New"
+        subject = f"[Elhafazah] {verb} {req.type.value.replace('_', ' ')} request from {filer_label}"
         body = (
             f"From: {filer_label} ({req.from_role.value})\n"
             f"Type: {req.type.value}\n"
@@ -168,6 +169,34 @@ class RequestService:
             lang=lang if lang in ("en", "ar") else "en",  # type: ignore[arg-type]
         )
         await send_email(to_email, subject, text_body, html_body=html_body)
+
+    async def update_own_request(
+        self, request_id: uuid.UUID, user_id: uuid.UUID, data: RequestUpdate
+    ) -> PlatformRequest:
+        """Let a student/teacher edit the content of their own request —
+        but only while it's still pending an admin's decision. Once
+        approved/rejected, the request is a record of what was decided, not
+        an editable draft anymore."""
+        req = await self.session.get(PlatformRequest, request_id)
+        if not req or req.user_id != user_id:
+            raise HTTPException(status_code=404, detail="Request not found")
+
+        if req.status not in (RequestStatus.PENDING, RequestStatus.IN_REVIEW):
+            raise HTTPException(
+                status_code=400,
+                detail="This request has already been resolved and can no longer be edited",
+            )
+
+        update_data = data.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(req, field, value)
+
+        self.session.add(req)
+        await self.session.commit()
+        await self.session.refresh(req)
+
+        await self._notify_admin(req, edited=True)
+        return req
 
     async def update_status(
         self, request_id: uuid.UUID, status: RequestStatus, admin_note: str | None

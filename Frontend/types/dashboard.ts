@@ -79,6 +79,12 @@ export interface PlatformRequest {
   requested_time?: string;
   requested_plan?: string;
   requested_teacher?: string;
+  // Structured PlanRequestModal picks — present for plan requests filed
+  // since this was added; older requests may have these as null/undefined
+  // even for the same request type.
+  requested_sessions_per_week?: number | null;
+  requested_duration?: number | null;
+  requested_schedule?: ScheduleSlot[] | null;
   admin_note?: string;
   status: RequestStatus;
   created_at: string;

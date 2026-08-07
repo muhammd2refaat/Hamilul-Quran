@@ -5,7 +5,7 @@ import { X, CalendarDays, Clock, CalendarCheck } from 'lucide-react';
 import { EE } from '@/lib/dashboard/theme';
 import { useLang } from '@/lib/dashboard/i18n';
 import { apiClient } from '@/lib/api';
-import { type TeacherOption, type ScheduleSlot } from '@/types/dashboard';
+import { type TeacherOption, type ScheduleSlot, type PlatformRequest } from '@/types/dashboard';
 
 const DAY_IDS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const SESSIONS_OPTIONS = [1, 2, 3, 4, 5, 6, 7] as const;
@@ -22,6 +22,10 @@ interface PlanRequestModalProps {
   onSuccess?: () => void;
   title: string;
   description?: string;
+  /** Editing an existing pending/in_review request instead of filing a new
+   * one — pre-fills the picker from its stored values and PATCHes
+   * /requests/{id} on save instead of POSTing a new request. */
+  editRequest?: PlatformRequest;
 }
 
 /**
@@ -30,13 +34,24 @@ interface PlanRequestModalProps {
  * admin would otherwise build for them — everything mandatory except the
  * preferred teacher, which defaults to "no preference, admin decides."
  *
- * Submits through the existing POST /requests (type: new_enrollment) — no
- * backend schema change needed, the structured picks are formatted into
- * requested_plan/details/requested_teacher, which Admin-CMS's Requests page
- * already renders as summary chips for that type. An admin still manually
- * creates the real allocation once they've reviewed/approved the request.
+ * Submits through POST /requests (type: new_enrollment) for a new request,
+ * or PATCH /requests/{id} when editing an existing one — the backend
+ * rejects the edit once an admin has already approved/rejected it. The
+ * structured picks are stored as real fields (requested_sessions_per_week/
+ * requested_duration/requested_schedule) so an edit can reliably re-open
+ * with the previous selections, and also formatted into
+ * requested_plan/details for Admin-CMS's Requests page, which still
+ * displays those as its summary chips. An admin still manually creates the
+ * real allocation once they've reviewed/approved the request.
  */
-export function PlanRequestModal({ open, onClose, onSuccess, title, description }: PlanRequestModalProps) {
+export function PlanRequestModal({
+  open,
+  onClose,
+  onSuccess,
+  title,
+  description,
+  editRequest,
+}: PlanRequestModalProps) {
   const { t, dir } = useLang();
   const [sessionsPerWeek, setSessionsPerWeek] = useState(2);
   const [duration, setDuration] = useState<30 | 45 | 60>(30);
@@ -69,6 +84,28 @@ export function PlanRequestModal({ open, onClose, onSuccess, title, description 
       cancelled = true;
     };
   }, [open]);
+
+  // Pre-fill from the request being edited (or reset to defaults for a new
+  // request) each time the modal opens for a *different* target — adjusted
+  // during render rather than in an effect, per React's own guidance for
+  // "resetting state when a prop changes" (avoids an extra render pass and
+  // the lint rule against synchronous setState in effects). `openKey` is
+  // null while closed so re-opening the same request still triggers a
+  // fresh pre-fill instead of keeping stale in-progress edits.
+  const openKey = open ? (editRequest?.id ?? '__create__') : null;
+  const [prefilledFor, setPrefilledFor] = useState<string | null>(null);
+  if (open && openKey !== prefilledFor) {
+    setPrefilledFor(openKey);
+    setSessionsPerWeek(editRequest?.requested_sessions_per_week ?? 2);
+    setDuration((editRequest?.requested_duration as 30 | 45 | 60) ?? 30);
+    setSchedule(editRequest?.requested_schedule ?? []);
+    setPreferredTeacher(editRequest?.requested_teacher ?? '');
+    // The free-text note isn't stored as its own field — it's folded into
+    // `details` for admin readability, so it isn't reliably recoverable
+    // here. Left blank on edit; re-typing it is a small ask.
+    setNotes('');
+    setError(null);
+  }
 
   if (!open) return null;
 
@@ -104,18 +141,21 @@ export function PlanRequestModal({ open, onClose, onSuccess, title, description 
         `${t.timeSlotsLabel}: ${slotsText}` +
         (notes.trim() ? `\n\n${t.additionalNotesLabel}: ${notes.trim()}` : '');
 
-      await apiClient.post('/requests', {
-        type: 'new_enrollment',
+      const payload = {
         details,
         requested_plan: `${sessionsPerWeek}×/week, ${duration} min`,
         requested_teacher: preferredTeacher || undefined,
-      });
+        requested_sessions_per_week: sessionsPerWeek,
+        requested_duration: duration,
+        requested_schedule: schedule,
+      };
 
-      setSessionsPerWeek(2);
-      setDuration(30);
-      setSchedule([]);
-      setPreferredTeacher('');
-      setNotes('');
+      if (editRequest) {
+        await apiClient.patch(`/requests/${editRequest.id}`, payload);
+      } else {
+        await apiClient.post('/requests', { type: 'new_enrollment', ...payload });
+      }
+
       onSuccess?.();
       onClose();
     } catch {
@@ -312,7 +352,7 @@ export function PlanRequestModal({ open, onClose, onSuccess, title, description 
               opacity: submitting || !isValid ? 0.5 : 1,
             }}
           >
-            {t.submit}
+            {editRequest ? t.saveChangesBtn : t.submit}
           </button>
         </div>
       </div>

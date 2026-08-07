@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ClipboardList, RefreshCcw, Inbox } from 'lucide-react';
+import { ClipboardList, RefreshCcw, Inbox, Pencil } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { useLang } from '@/lib/dashboard/i18n';
 import { useStudentStatus } from '@/lib/dashboard/StudentStatusContext';
@@ -28,13 +28,24 @@ const REQUEST_STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
 export default function StudentPlanPage() {
   const { t, lang } = useLang();
   const { isNew, allocations } = useStudentStatus();
-  const [changeOpen, setChangeOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingRequest, setEditingRequest] = useState<PlatformRequest | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loadingSub, setLoadingSub] = useState(true);
   const [planRequests, setPlanRequests] = useState<PlatformRequest[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
 
   const alloc = allocations[0];
+
+  function openCreateModal() {
+    setEditingRequest(null);
+    setModalOpen(true);
+  }
+  function openEditModal(r: PlatformRequest) {
+    setEditingRequest(r);
+    setModalOpen(true);
+  }
+  const EDITABLE_STATUSES = new Set(['pending', 'in_review']);
 
   const loadPlanRequests = () => {
     apiClient
@@ -155,7 +166,7 @@ export default function StudentPlanPage() {
       </div>
 
       <button
-        onClick={() => setChangeOpen(true)}
+        onClick={openCreateModal}
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -202,18 +213,42 @@ export default function StudentPlanPage() {
                   <span style={{ fontSize: 12.5, color: EE.sageMuted }}>
                     {new Date(r.created_at).toLocaleDateString(lang === 'ar' ? 'ar' : 'en-US')}
                   </span>
-                  <span
-                    style={{
-                      fontSize: 11.5,
-                      fontWeight: 700,
-                      padding: '3px 10px',
-                      borderRadius: 20,
-                      background: colors.bg,
-                      color: colors.fg,
-                    }}
-                  >
-                    {requestStatusLabel(r.status)}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {EDITABLE_STATUSES.has(r.status) && (
+                      <button
+                        onClick={() => openEditModal(r)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          background: 'transparent',
+                          border: `1px solid ${EE.border}`,
+                          color: EE.emerald,
+                          padding: '3px 10px',
+                          borderRadius: 20,
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          fontFamily: 'inherit',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Pencil size={11} />
+                        {t.editBtn}
+                      </button>
+                    )}
+                    <span
+                      style={{
+                        fontSize: 11.5,
+                        fontWeight: 700,
+                        padding: '3px 10px',
+                        borderRadius: 20,
+                        background: colors.bg,
+                        color: colors.fg,
+                      }}
+                    >
+                      {requestStatusLabel(r.status)}
+                    </span>
+                  </div>
                 </div>
                 {r.requested_plan && (
                   <div style={{ fontSize: 13.5, fontWeight: 600, color: EE.ink, marginBottom: 4 }}>
@@ -238,11 +273,12 @@ export default function StudentPlanPage() {
       )}
 
       <PlanRequestModal
-        open={changeOpen}
-        onClose={() => setChangeOpen(false)}
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
         onSuccess={loadPlanRequests}
-        title={t.changePlanBtn}
-        description={t.changePlanDesc}
+        title={editingRequest ? t.editPlanRequestTitle : t.changePlanBtn}
+        description={editingRequest ? t.editPlanRequestDesc : t.changePlanDesc}
+        editRequest={editingRequest ?? undefined}
       />
     </div>
   );
