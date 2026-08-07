@@ -94,36 +94,48 @@ half-applied restore.
 
 ### Do I need to shut down the app first?
 
-**Yes — specifically `backend`, and it's not optional.** I tested this
-directly against a live Postgres 16 instance rather than assuming:
+**No longer required, though still the cleaner option.** `DROP DATABASE`
+refuses to run while *any* other session holds a connection to the target
+database — `backend` keeps a live pool open the entire time it's running
+(confirmed 4 active connections to `hamilul_quran_db` from a normal idle
+state on this host), which used to make step 2 abort outright:
 
 ```
 ERROR:  database "..." is being accessed by other users
 DETAIL:  There is 1 other session using the database.
 ```
 
-`DROP DATABASE` refuses to run while *any* other session holds a connection
-to that database. `backend` keeps a live connection pool open the entire
-time it's running (confirmed 4 active connections to `hamilul_quran_db`
-from a normal idle state on this host) — so step 2 above will fail and
-abort **before touching any data** if `backend` is still up.
-
-**This is currently a manual step the operator has to know and do** — the
-scripts don't automate it. Practical sequence:
+(I reproduced this directly against a live Postgres 16 instance rather than
+assuming it, then fixed it.) `restore.sh` now runs `pg_terminate_backend()`
+against every other session on the target database immediately before the
+drop — verified live (a held connection went from present to terminated,
+and the immediately-following `DROP DATABASE` succeeded with no error).
+`backend`'s connection pool reconnects on its own next query once the
+restore finishes, no restart needed.
 
 ```bash
-docker compose --env-file .env.staging stop backend
 docker exec -it hamilul-pg-backup sh /backup/restore.sh /backups/<file>.sql.gz
-docker compose --env-file .env.staging up -d backend
 ```
 
-`postgres`, `redis`, `traefik`, `frontend`, and `admin` do **not** need to
-stop — only `backend` holds a Postgres connection. But since Frontend and
-Admin-CMS both depend on `backend`'s API for everything, the *practical*
-effect is the whole product is unusable to real visitors for the duration —
-login fails, dashboards fail to load, etc. — even though those containers
-are technically still running. Don't read "only backend needs to stop" as
-"the site stays up."
+Stopping `backend` first is still worth doing if you want a *clean* window
+rather than live requests hitting abrupt connection-reset errors during the
+exact moment of the restore:
+
+```bash
+docker compose --env-file .env.staging stop backend   # optional, cleaner
+docker exec -it hamilul-pg-backup sh /backup/restore.sh /backups/<file>.sql.gz
+docker compose --env-file .env.staging up -d backend   # only if you stopped it
+```
+
+`postgres`, `redis`, `traefik`, `frontend`, and `admin` never needed to
+stop — only `backend` ever holds a Postgres connection. But since Frontend
+and Admin-CMS both depend on `backend`'s API for everything, the *practical*
+effect during the restore window is the whole product being unusable to
+real visitors regardless of which approach you take — login fails,
+dashboards fail to load, etc. — even though those other containers stay
+running throughout. Don't read "backend doesn't have to stop" as "the site
+stays up during a restore" — it doesn't, only the mechanics of *how* you
+get there changed.
 
 **How long is that window?** Failing safely (aborting on the connection
 error) is instant. An actual successful restore — drop, create, replay — is
@@ -143,11 +155,12 @@ error; if that happens, just retry a few seconds later.)*
 Backup: yes, always, zero impact, as covered above.
 
 Restore: **no** — by definition, restoring wipes and replaces the live
-database `backend` is actively reading and writing. There's no way to
-restore "underneath" a running app without at minimum stopping the one
-service connected to that database. This isn't a limitation you can route
-around; it's what "restore" means for a database that other things are
-actively connected to.
+database `backend` is actively reading and writing. `restore.sh` no longer
+*requires* stopping `backend` first (it force-terminates its connections
+for you), but the database still goes away and comes back mid-restore
+either way — there's no version of "restore while nothing notices." That's
+what "restore" means for a database other things are actively connected to,
+not a limitation you can route around.
 
 ## 4. What happens to existing/current data
 
@@ -218,49 +231,56 @@ don't require stopping `backend`.
 - The scratch-database explore pattern and loopback-only GUI access mean
   you can inspect real data without ever risking the live database.
 
-**Real gaps, in rough order of how much they'd hurt:**
+**Fixed since the first version of this doc (2026-08-07):**
 
-1. **No off-server copy.** Every backup lives on the exact same disk, same
-   host, as the live database. If this server is lost — hardware failure,
-   disk corruption, the hosting account itself being compromised or lost —
-   the live database *and every single backup* are lost together. This is
-   the single biggest risk in the current setup; a daily backup that dies
-   with the server it's backing up isn't protecting against the scenario
-   that matters most. Highest-value fix: ship backups off-box periodically
-   (S3/Backblaze/rsync to a second host — anything not sharing a failure
-   domain with this server).
-2. **Restore needing `backend` stopped isn't automated or documented
-   anywhere until this file** — someone's first real restore attempt would
-   hit the `DROP DATABASE ... being accessed by other users` error cold,
-   with no indication beforehand that they needed to stop a service first.
-   `restore.sh` could be made to `SELECT pg_terminate_backend(pid) FROM
-   pg_stat_activity WHERE datname = current_database() AND pid <>
-   pg_backend_pid()` before dropping, removing the manual step entirely —
-   flag if you'd like that added.
-3. **24-hour granularity, no point-in-time recovery.** You can only roll
+- ✅ **Restore no longer needs `backend` stopped as a hard requirement.**
+  `restore.sh` now runs `pg_terminate_backend()` against the target
+  database's other sessions immediately before dropping it — verified live
+  (a held connection went from present to gone, and the following
+  `DROP DATABASE` succeeded with no error where it previously failed).
+  Stopping `backend` first is still cleaner (avoids live requests erroring
+  mid-restore) but the restore no longer aborts outright without it.
+- ✅ **Automated monthly restore drill added** (`db/restore_drill.sh`,
+  scheduled via host crontab, `0 3 1 * *`, logs to
+  `/var/log/hamilul-restore-drill.log`). Restores the latest backup into a
+  throwaway `hamilul_quran_drill` database, confirms the replay succeeds
+  and the schema isn't empty, then drops it. Verified working with a real
+  run against the live host's actual latest backup (passed: 13 tables
+  restored cleanly). Run it manually any time with
+  `docker exec hamilul-pg-backup sh /backup/restore_drill.sh`.
+- 🔶 **Backup-failure alerting is wired but not yet active.** Both
+  `backup.sh` and `restore_drill.sh` now ping a healthchecks.io-style URL
+  on success/failure (`HEALTHCHECK_PING_URL` /
+  `RESTORE_DRILL_HEALTHCHECK_PING_URL` in `.env.staging`, both currently
+  blank — no-op until set, same pattern as `SENTRY_DSN`). No external
+  account was created as part of this work; create a free healthchecks.io
+  account, add the two URLs, and redeploy `pg-backup` to turn it on.
+
+**Still open, in rough order of how much they'd hurt:**
+
+1. **No off-server copy.** Every backup still lives on the exact same disk,
+   same host, as the live database — deliberately deferred for now (an S3
+   or equivalent setup is planned for later, not an oversight). If this
+   server is lost — hardware failure, disk corruption, the hosting account
+   itself being compromised or lost — the live database *and every single
+   backup* are lost together. This remains the single biggest risk in the
+   current setup; a daily backup that dies with the server it's backing up
+   isn't protecting against the scenario that matters most. Revisit once
+   an S3-compatible bucket (or a second server) is available to ship copies
+   to.
+2. **24-hour granularity, no point-in-time recovery.** You can only roll
    back to whichever daily snapshot exists, never to "two minutes before
    the mistake." A WAL-archiving setup would close this gap but is real
    additional complexity — probably not worth it at current data volumes,
    worth revisiting as the platform grows.
-4. **No automated restore drills.** Backups are created but, as far as
-   this system goes, never automatically test-restored anywhere to confirm
-   they're actually valid. A silently corrupt or truncated backup file
-   would only be discovered at the worst possible moment — when you
-   actually need it. A periodic (e.g. monthly) scripted restore into a
-   scratch database plus a basic row-count/integrity check would catch
-   this early.
-5. **No alerting on backup failure.** `backup.sh` logs a failure to the
-   container's stdout and moves on — nothing pages anyone. Combined with
-   #4, a broken backup pipeline could go unnoticed for weeks. A free
-   healthchecks.io-style "ping on success, alert if no ping received in
-   25 hours" hook would close this cheaply.
-6. **14-day retention, single tier.** Fine for "I broke something this
+3. **14-day retention, single tier.** Fine for "I broke something this
    week," useless for "I need data from two months ago." Not urgent at
    current scale, but worth a longer-retention weekly/monthly tier once
    there's real user data worth protecting that long.
 
 None of these are "this system is broken" — daily backups with verified
-retention pruning and a safe, fail-closed restore script is a real, working
-safety net, better than a lot of small production setups have. The gap
-that actually matters is #1 (single point of failure on this one server);
-the rest are refinements on top of a fundamentally sound base.
+retention pruning, a now-automated monthly restore verification, and a
+safe, fail-closed restore script is a real, working safety net, better than
+a lot of small production setups have. The gap that actually matters is #1
+(single point of failure on this one server, deliberately deferred); the
+rest are refinements on top of an already-solid base.

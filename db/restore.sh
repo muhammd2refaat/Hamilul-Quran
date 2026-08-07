@@ -26,7 +26,15 @@ sleep 5
 
 export PGPASSWORD="$POSTGRES_PASSWORD"
 
+# DROP DATABASE refuses to run while any other session (e.g. backend's
+# connection pool) is connected to it — confirmed directly against this
+# stack's Postgres. Force-terminating those connections first means a
+# manual `docker compose stop backend` is no longer required before running
+# this script; backend's own pool reconnects on its next query once the
+# restore finishes. Stopping backend first is still the cleanest way to
+# avoid live requests erroring mid-restore, just no longer mandatory.
 psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 \
+  -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${POSTGRES_DB}' AND pid <> pg_backend_pid();" \
   -c "DROP DATABASE IF EXISTS \"${POSTGRES_DB}\";" \
   -c "CREATE DATABASE \"${POSTGRES_DB}\";"
 

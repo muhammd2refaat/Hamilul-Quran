@@ -9,8 +9,23 @@ set -eu
 BACKUP_DIR="${BACKUP_DIR:-/backups}"
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-14}"
 INTERVAL_SECONDS="${BACKUP_INTERVAL_SECONDS:-86400}"
+# Optional healthchecks.io-style ping URL — "ping on success, alert if no
+# ping arrives within the check's configured grace period" (see the check's
+# own dashboard, not this script, for that timeout). Empty = disabled, same
+# no-op-until-configured pattern as SMTP_HOST elsewhere in this stack.
+# Failure pings hit "$HEALTHCHECK_PING_URL/fail" (healthchecks.io convention).
+HEALTHCHECK_PING_URL="${HEALTHCHECK_PING_URL:-}"
 
 mkdir -p "$BACKUP_DIR"
+
+ping_healthcheck() {
+  # $1: "" for success, "/fail" for failure. Never let a monitoring blip
+  # break the backup itself — ping failures here are swallowed. wget, not
+  # curl: this image (postgres:16-alpine) doesn't ship curl, but does ship
+  # BusyBox's wget.
+  [ -n "$HEALTHCHECK_PING_URL" ] || return 0
+  wget -q -T 10 -t 3 -O /dev/null "${HEALTHCHECK_PING_URL}${1}" >/dev/null 2>&1 || true
+}
 
 run_backup() {
   timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -27,9 +42,11 @@ run_backup() {
     gzip -f "$tmp_sql"
     mv "${tmp_sql}.gz" "$out_file"
     echo "[pg-backup] $(date -u +%FT%TZ) completed: $(du -h "$out_file" | cut -f1)"
+    ping_healthcheck ""
   else
     echo "[pg-backup] $(date -u +%FT%TZ) FAILED — leaving prior backups untouched" >&2
     rm -f "$tmp_sql"
+    ping_healthcheck "/fail"
   fi
 
   find "$BACKUP_DIR" -name "${POSTGRES_DB}_*.sql.gz" -mtime "+${RETENTION_DAYS}" -delete

@@ -110,14 +110,21 @@ docker exec hamilul-pg-backup ls -la /backups
 ```
 
 **Restore from a backup** (destructive — drops and recreates the target
-database). **Stop `backend` first** — `DROP DATABASE` fails outright
-(`database "..." is being accessed by other users`, verified live) while
-its connection pool is open, so the restore won't even start otherwise:
+database):
 ```bash
-docker compose --env-file .env.staging stop backend
 docker cp <path-to-backup>.sql.gz hamilul-pg-backup:/backups/   # if restoring from off-box
 docker exec -it hamilul-pg-backup sh /backup/restore.sh /backups/<file>.sql.gz
-docker compose --env-file .env.staging up -d backend
+```
+`restore.sh` force-terminates other connections to the target database
+before dropping it (`DROP DATABASE` otherwise fails outright with
+`database "..." is being accessed by other users` while backend's pool is
+connected — verified live), so a manual `docker compose stop backend` isn't
+required. Stopping it first is still the cleanest way to avoid live
+requests erroring mid-restore, just no longer mandatory:
+```bash
+docker compose --env-file .env.staging stop backend   # optional, cleaner
+docker exec -it hamilul-pg-backup sh /backup/restore.sh /backups/<file>.sql.gz
+docker compose --env-file .env.staging up -d backend   # only if you stopped it
 ```
 `restore.sh` gives a 5-second window to Ctrl+C before it drops the database.
 Backups are daily snapshots, not point-in-time/WAL — restoring loses
@@ -126,6 +133,16 @@ mistake rather than recovering from total DB loss, take a fresh manual
 backup (above) *before* restoring, so you still have a fallback from the
 "bad" state. Full detail on all of this, including what happens to
 existing data: `DATABASE.md`.
+
+**Restore drill (automated monthly check).** `db/restore_drill.sh` restores
+the latest backup into a throwaway `hamilul_quran_drill` database, confirms
+it replays cleanly, then drops it — catches a silently corrupt/truncated
+backup within a month instead of during a real emergency. Runs via host
+crontab (`0 3 1 * *`, logs to `/var/log/hamilul-restore-drill.log`); run it
+manually any time with:
+```bash
+docker exec hamilul-pg-backup sh /backup/restore_drill.sh
+```
 
 **Explore a backup's contents without touching production.** Don't run
 `restore.sh` against the live DB just to look around — restore into a
@@ -207,6 +224,18 @@ pre-migration database backup (see above) — check `alembic history` and
   requires an account only you can create. Recommended: point a free
   UptimeRobot monitor at the health endpoint with a 5-minute interval and
   alert-on-down notifications to whatever channel the team actually watches.
+
+- **Backup-failure alerting** is wired into `db/backup.sh` and
+  `db/restore_drill.sh` but disabled until configured — same no-op-until-set
+  pattern as Sentry above. Both scripts ping a healthchecks.io-style URL on
+  success (and `/fail` on failure), which pages you if the expected ping
+  doesn't arrive within that check's grace period — the useful case here,
+  since a silently broken backup pipeline otherwise goes unnoticed until
+  the moment you actually need a backup. To enable: create a free
+  healthchecks.io account (or reuse another monitoring service that accepts
+  plain GET pings) and two checks, then set `HEALTHCHECK_PING_URL` and
+  `RESTORE_DRILL_HEALTHCHECK_PING_URL` in `.env.staging`, redeploy
+  `pg-backup`. No external account was created as part of this work.
 
 ## Smoke-testing auth after a deploy (cookie-based login)
 
