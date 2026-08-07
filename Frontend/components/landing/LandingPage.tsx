@@ -225,7 +225,7 @@ export function LandingPage({ initialLang = 'en' }: { initialLang?: Lang }) {
   // chosen role so the callback routes new users to profile completion.
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
   function startGoogle(intent: 'login' | 'signup', chosenRole?: 'student' | 'teacher') {
-    const params = new URLSearchParams({ intent });
+    const params = new URLSearchParams({ intent, lang });
     if (chosenRole) params.set('role', chosenRole);
     window.location.href = `${API_BASE}/auth/google/login?${params.toString()}`;
   }

@@ -17,6 +17,8 @@ from starlette.responses import RedirectResponse
 from app.config.settings import settings
 from app.core.cookies import set_auth_cookies
 from app.core.crypto import encrypt_secret
+from app.core.email import send_email
+from app.core.email_templates import build_welcome_email
 from app.features.auth.google import (
     exchange_code,
     token_expiry_from,
@@ -73,6 +75,7 @@ class GoogleAuthService:
 
         role = request.session.pop("oauth_role", None)
         intent = request.session.pop("oauth_intent", "login")
+        lang = request.session.pop("oauth_lang", "en")
 
         user = await self._find_user(google_sub, email, email_verified)
 
@@ -99,7 +102,7 @@ class GoogleAuthService:
         if intent != "signup" or role not in ("student", "teacher"):
             return self._frontend_error("not_registered", path="/register/required", email=email)
 
-        return await self._start_pending_registration(role, google_sub, email, userinfo, token)
+        return await self._start_pending_registration(role, google_sub, email, userinfo, token, lang)
 
     # ─── Complete registration ───────────────────────────────────────────────
     async def complete_registration(
@@ -172,6 +175,7 @@ class GoogleAuthService:
         await self.session.refresh(user)
 
         await self._delete_pending(registration_token)
+        await self._send_welcome_email(user, lang=data.get("lang", "en"))
         return await self.auth.issue_tokens_for_user(user)
 
     # ─── Helpers ─────────────────────────────────────────────────────────────
@@ -232,6 +236,7 @@ class GoogleAuthService:
         email: str,
         userinfo: dict[str, Any],
         token: dict[str, Any],
+        lang: str = "en",
     ) -> RedirectResponse:
         registration_token = secrets.token_urlsafe(32)
         refresh_token = token.get("refresh_token")
@@ -246,6 +251,9 @@ class GoogleAuthService:
             "access_token": token.get("access_token"),
             "token_expiry": expiry.isoformat() if expiry else None,
             "scopes": token.get("scope") or settings.google_oauth_scopes,
+            # Language the landing page was in at signup — only used to pick
+            # the welcome email's language once the account is created.
+            "lang": lang if lang in ("en", "ar") else "en",
         }
         await self._store_pending(
             registration_token,
@@ -257,6 +265,20 @@ class GoogleAuthService:
             url=f"{settings.frontend_url}/register/complete?{query}",
             status_code=status.HTTP_302_FOUND,
         )
+
+    async def _send_welcome_email(self, user: User, lang: str = "en") -> None:
+        """Best-effort welcome email right after a brand-new account is
+        created via Google signup — never fires on the idempotent "already
+        exists" retry path in complete_registration(). Never raises
+        (send_email itself never raises)."""
+        name = f"{user.first_name} {user.last_name}".strip() or user.email
+        role = "teacher" if user.role == UserRole.TEACHER else "student"
+        subject, text_body, html_body = build_welcome_email(
+            name=name,
+            role=role,
+            lang=lang if lang in ("en", "ar") else "en",
+        )
+        await send_email(user.email, subject, text_body, html_body=html_body)
 
     def _add_credential_from_blob(
         self, user_id: uuid.UUID, google_sub: str, data: dict[str, Any]

@@ -138,14 +138,18 @@ async def google_login(
     request: Request,
     intent: Literal["login", "signup"] = Query("login"),
     role: Optional[Literal["student", "teacher"]] = Query(None),
+    lang: Literal["en", "ar"] = Query("en"),
 ):
     """
     Redirect the browser to Google's consent screen. `intent=signup` with a
     `role` collects the role so the callback can route new users to profile
-    completion. Requests Calendar scope so lessons can be scheduled later.
+    completion. `lang` is only used to pick the welcome email's language on
+    a successful signup. Requests Calendar scope so lessons can be scheduled
+    later.
     """
     request.session["oauth_intent"] = intent
     request.session["oauth_role"] = role
+    request.session["oauth_lang"] = lang
     return await build_authorize_redirect(request)
 
 
