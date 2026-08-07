@@ -89,6 +89,11 @@ this guide).
 
 ## Database backups
 
+For the full explanation — exactly how restore works mechanically, why
+`backend` has to be stopped first (verified, not assumed), what happens to
+existing data, and an honest evaluation of the gaps in this setup — see
+`DATABASE.md`. This section is the short command reference.
+
 `pg-backup` runs a daily `pg_dump | gzip` into the `postgres_backups` named
 volume (`db/backup.sh`), pruning anything older than `BACKUP_RETENTION_DAYS`
 (default 14). It starts automatically with the rest of the stack; if it
@@ -105,17 +110,22 @@ docker exec hamilul-pg-backup ls -la /backups
 ```
 
 **Restore from a backup** (destructive — drops and recreates the target
-database):
+database). **Stop `backend` first** — `DROP DATABASE` fails outright
+(`database "..." is being accessed by other users`, verified live) while
+its connection pool is open, so the restore won't even start otherwise:
 ```bash
+docker compose --env-file .env.staging stop backend
 docker cp <path-to-backup>.sql.gz hamilul-pg-backup:/backups/   # if restoring from off-box
 docker exec -it hamilul-pg-backup sh /backup/restore.sh /backups/<file>.sql.gz
+docker compose --env-file .env.staging up -d backend
 ```
 `restore.sh` gives a 5-second window to Ctrl+C before it drops the database.
 Backups are daily snapshots, not point-in-time/WAL — restoring loses
 everything written after that backup's timestamp. If you're undoing a
 mistake rather than recovering from total DB loss, take a fresh manual
 backup (above) *before* restoring, so you still have a fallback from the
-"bad" state.
+"bad" state. Full detail on all of this, including what happens to
+existing data: `DATABASE.md`.
 
 **Explore a backup's contents without touching production.** Don't run
 `restore.sh` against the live DB just to look around — restore into a
