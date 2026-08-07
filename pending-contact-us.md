@@ -31,30 +31,20 @@ message should reach Admin-CMS and email the admin."
   not necessarily the same inbox). Set in `.env.staging`; falls back to
   `ADMIN_EMAIL` if ever left blank.
 
-## Pending — needs input from the site owner
+## Done (continued) — SMTP configured and verified (2026-08-07)
 
-**SMTP is still not configured — the destination is set, but nothing can
-send yet.** `SMTP_HOST` is unset in `.env.staging`, so `send_email()`
-currently no-ops (logs `"Email not sent (SMTP not configured)"` and
-returns) — messages still land in Admin-CMS correctly, they just don't
-trigger an email yet.
+Gmail SMTP via `elhafazahacademy111@gmail.com` (App Password auth) is set
+in `.env.staging` (`SMTP_HOST=smtp.gmail.com`, port 587, STARTTLS) and
+`backend` has been rebuilt/redeployed with it. Verified with a direct
+`send_email()` call from inside the container — completed with no
+exceptions (auth + send both succeeded). Contact Us messages and platform
+requests (free trial, reschedule, change-teacher, ...) now actually email
+`elhafazahacademy111@gmail.com`, not just log-and-skip.
 
-To turn emailing on, need from the site owner:
-- SMTP host + port (whatever mailbox/relay actually sends the mail — could
-  be Gmail SMTP on `elhafazahacademy111@gmail.com` itself, Google Workspace
-  on `elhafazah-academy.com`, or a transactional service like
-  SendGrid/Mailgun)
-- Username + password (or app password) to authenticate with that host —
-  if using Gmail/Workspace SMTP directly, this must be a 16-character
-  **App Password** (Google Account → Security → 2-Step Verification → App
-  passwords), not the account's normal login password; Gmail rejects plain
-  password SMTP auth
-- Which address to send *as* (defaults to the SMTP username if
-  `SMTP_FROM_EMAIL` is left unset)
-
-Once provided: set `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` /
-`SMTP_PASSWORD` / `SMTP_FROM_EMAIL` in `.env.staging`, redeploy `backend`,
-then verify with a real Contact Us submission.
+Not yet done: password-reset emails still only log the token
+(`AuthService.request_password_reset()`) rather than actually emailing it —
+that's a separate code path from the requests notifier and wasn't wired to
+`send_email()` as part of this. Flag if that's wanted too.
 
 ## Known limitation (not yet scoped/built)
 
