@@ -1,15 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ClipboardList, RefreshCcw } from 'lucide-react';
+import { ClipboardList, RefreshCcw, Inbox } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { useLang } from '@/lib/dashboard/i18n';
 import { useStudentStatus } from '@/lib/dashboard/StudentStatusContext';
 import { EE } from '@/lib/dashboard/theme';
 import { SectionHeader } from '@/components/dashboard/SectionHeader';
 import { Placeholder } from '@/components/dashboard/Placeholder';
+import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PlanRequestModal } from '@/components/dashboard/PlanRequestModal';
-import type { Subscription, SubscriptionStatus } from '@/types/dashboard';
+import type { PlatformRequest, Subscription, SubscriptionStatus } from '@/types/dashboard';
 
 const STATUS_COLORS: Record<SubscriptionStatus, { bg: string; fg: string }> = {
   active: { bg: 'rgba(16,163,74,.12)', fg: '#0F7A3D' },
@@ -17,15 +18,30 @@ const STATUS_COLORS: Record<SubscriptionStatus, { bg: string; fg: string }> = {
   withdrawn: { bg: 'rgba(220,38,38,.12)', fg: '#B91C1C' },
 };
 
+const REQUEST_STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
+  pending: { bg: 'rgba(217,180,95,.18)', fg: '#B08A2E' },
+  in_review: { bg: 'rgba(59,130,246,.12)', fg: '#1D4ED8' },
+  approved: { bg: 'rgba(16,163,74,.12)', fg: '#0F7A3D' },
+  rejected: { bg: 'rgba(220,38,38,.1)', fg: '#B91C1C' },
+};
+
 export default function StudentPlanPage() {
   const { t, lang } = useLang();
   const { isNew, allocations } = useStudentStatus();
   const [changeOpen, setChangeOpen] = useState(false);
-  const [sent, setSent] = useState(false);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loadingSub, setLoadingSub] = useState(true);
+  const [planRequests, setPlanRequests] = useState<PlatformRequest[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(true);
 
   const alloc = allocations[0];
+
+  const loadPlanRequests = () => {
+    apiClient
+      .get<PlatformRequest[]>('/requests/me')
+      .then(({ data }) => setPlanRequests(data.filter((r) => r.type === 'new_enrollment')))
+      .finally(() => setLoadingRequests(false));
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -44,6 +60,18 @@ export default function StudentPlanPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    loadPlanRequests();
+  }, []);
+
+  const requestStatusLabel = (status: string) =>
+    ({
+      pending: t.statusPending,
+      in_review: t.statusInReview,
+      approved: t.statusApproved,
+      rejected: t.statusRejected,
+    })[status] ?? status;
 
   const statusLabel = subscription
     ? { active: t.planStatusActive, paused: t.planStatusPaused, withdrawn: t.planStatusWithdrawn }[subscription.status]
@@ -126,35 +154,93 @@ export default function StudentPlanPage() {
         )}
       </div>
 
-      {sent ? (
-        <p style={{ fontSize: 14, color: EE.emerald, fontWeight: 600 }}>{t.requestSent}</p>
+      <button
+        onClick={() => setChangeOpen(true)}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          background: EE.emerald,
+          color: EE.parchment,
+          border: 'none',
+          padding: '12px 22px',
+          borderRadius: 9,
+          fontWeight: 600,
+          fontSize: 14,
+          fontFamily: 'inherit',
+          cursor: 'pointer',
+          marginBottom: 26,
+        }}
+      >
+        <RefreshCcw size={15} />
+        {t.changePlanBtn}
+      </button>
+
+      <h3 style={{ fontFamily: EE.fontHead, fontSize: 15.5, fontWeight: 600, color: EE.ink, marginBottom: 14 }}>
+        {t.myRequests}
+      </h3>
+
+      {loadingRequests ? (
+        <p style={{ color: EE.sageMuted, fontSize: 14 }}>{t.loading}</p>
+      ) : planRequests.length === 0 ? (
+        <EmptyState icon={Inbox} text={t.noRequests} />
       ) : (
-        <button
-          onClick={() => setChangeOpen(true)}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            background: EE.emerald,
-            color: EE.parchment,
-            border: 'none',
-            padding: '12px 22px',
-            borderRadius: 9,
-            fontWeight: 600,
-            fontSize: 14,
-            fontFamily: 'inherit',
-            cursor: 'pointer',
-          }}
-        >
-          <RefreshCcw size={15} />
-          {t.changePlanBtn}
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {planRequests.map((r) => {
+            const colors = REQUEST_STATUS_COLORS[r.status] ?? REQUEST_STATUS_COLORS.pending;
+            return (
+              <div
+                key={r.id}
+                style={{
+                  background: '#fff',
+                  border: `1px solid ${EE.border}`,
+                  borderRadius: EE.radiusMd,
+                  padding: '14px 16px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 12.5, color: EE.sageMuted }}>
+                    {new Date(r.created_at).toLocaleDateString(lang === 'ar' ? 'ar' : 'en-US')}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      padding: '3px 10px',
+                      borderRadius: 20,
+                      background: colors.bg,
+                      color: colors.fg,
+                    }}
+                  >
+                    {requestStatusLabel(r.status)}
+                  </span>
+                </div>
+                {r.requested_plan && (
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: EE.ink, marginBottom: 4 }}>
+                    {t.fieldPlan}: {r.requested_plan}
+                  </div>
+                )}
+                {r.requested_teacher && (
+                  <div style={{ fontSize: 13, color: EE.sageMuted, marginBottom: 4 }}>
+                    {t.requestedTeacher}: {r.requested_teacher}
+                  </div>
+                )}
+                <p style={{ fontSize: 13, color: EE.sageMuted, margin: 0, whiteSpace: 'pre-wrap' }}>{r.details}</p>
+                {r.admin_note && (
+                  <p style={{ fontSize: 12.5, color: EE.goldDeep, marginTop: 6, fontStyle: 'italic' }}>
+                    “{r.admin_note}”
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
 
       <PlanRequestModal
         open={changeOpen}
         onClose={() => setChangeOpen(false)}
-        onSuccess={() => setSent(true)}
+        onSuccess={loadPlanRequests}
         title={t.changePlanBtn}
         description={t.changePlanDesc}
       />
