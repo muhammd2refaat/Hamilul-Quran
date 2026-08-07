@@ -264,6 +264,7 @@ export function LandingPage({ initialLang = 'en' }: { initialLang?: Lang }) {
           phone: whatsapp.trim(),
           program,
           message: message.trim() || undefined,
+          lang,
         }),
       });
       if (res.status === 429) {

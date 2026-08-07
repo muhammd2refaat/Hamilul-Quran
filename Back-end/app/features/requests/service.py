@@ -6,6 +6,7 @@ from fastapi import HTTPException
 
 from app.config.settings import settings
 from app.core.email import send_email
+from app.core.email_templates import build_trial_confirmation_email
 from app.features.requests.models import (
     PlatformRequest,
     RequestFromRole,
@@ -73,6 +74,11 @@ class RequestService:
         await self.session.refresh(req)
 
         await self._notify_admin(req)
+        if req.type == RequestType.NEW_ENROLLMENT:
+            # In-dashboard "request a free trial" — no lang carried on
+            # RequestCreate today, so this defaults to English. req.details
+            # is whatever they typed in the comment field for this request.
+            await self._send_trial_confirmation(req, lang="en", message=req.details)
         return req
 
     async def create_public_trial_request(self, data: PublicTrialRequestCreate) -> PlatformRequest:
@@ -99,6 +105,7 @@ class RequestService:
         await self.session.refresh(req)
 
         await self._notify_admin(req)
+        await self._send_trial_confirmation(req, lang=data.lang, message=data.message)
         return req
 
     async def _notify_admin(self, req: PlatformRequest) -> None:
@@ -131,6 +138,36 @@ class RequestService:
             body += f"\nGuest phone: {req.guest_phone}\n"
         notify_email = settings.contact_notification_email or settings.admin_email
         await send_email(notify_email, subject, body)
+
+    async def _send_trial_confirmation(
+        self, req: PlatformRequest, *, lang: str = "en", message: str | None = None
+    ) -> None:
+        """Best-effort welcome/confirmation email to whoever filed a
+        free-trial request — guest or an already-registered student —
+        with what they submitted and a reassurance we'll be in touch.
+        Never raises (send_email itself never raises)."""
+        if req.user_id:
+            filer = await self.session.get(User, req.user_id)
+            if not filer or not filer.email:
+                return
+            to_email = filer.email
+            name = f"{filer.first_name} {filer.last_name}".strip() or filer.email
+            phone = filer.phone_number
+        else:
+            if not req.guest_email:
+                return
+            to_email = req.guest_email
+            name = req.guest_name or "there"
+            phone = req.guest_phone
+
+        subject, text_body, html_body = build_trial_confirmation_email(
+            name=name,
+            program=req.requested_plan,
+            phone=phone,
+            message=message,
+            lang=lang if lang in ("en", "ar") else "en",  # type: ignore[arg-type]
+        )
+        await send_email(to_email, subject, text_body, html_body=html_body)
 
     async def update_status(
         self, request_id: uuid.UUID, status: RequestStatus, admin_note: str | None

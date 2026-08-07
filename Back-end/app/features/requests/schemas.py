@@ -2,7 +2,7 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from app.features.requests.models import (
     RequestStatus,
@@ -74,6 +74,10 @@ class PublicTrialRequestCreate(BaseModel):
     # Only the note is optional — matches the form (name/email/program/phone
     # required, message optional).
     message: Optional[str] = Field(default=None, max_length=2000)
+    # Which language the landing page was in when submitted — used only to
+    # pick the confirmation email's language (app/core/email_templates.py),
+    # not stored on the request itself.
+    lang: Literal["en", "ar"] = "en"
 
     @field_validator("phone")
     @classmethod
