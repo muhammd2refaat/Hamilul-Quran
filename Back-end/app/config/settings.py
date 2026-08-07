@@ -84,6 +84,14 @@ class Settings(BaseSettings):
     # Envelope From address — falls back to smtp_username if unset.
     smtp_from_email: str = ""
 
+    # Where student/teacher Contact Us messages and platform requests (free
+    # trial, reschedule, change-teacher, ...) get emailed — see
+    # RequestService._notify_admin(). Deliberately separate from admin_email
+    # above: that one is the seed *login* account for full_seed.py, this one
+    # is just an inbox and the two don't have to be the same address. Falls
+    # back to admin_email if left unset.
+    contact_notification_email: str = ""
+
     @model_validator(mode="after")
     def _reject_placeholder_secrets_in_production(self) -> "Settings":
         if self.app_env != "production":

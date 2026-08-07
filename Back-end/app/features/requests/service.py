@@ -81,7 +81,8 @@ class RequestService:
             body += f"\nPreferred teacher: {req.requested_teacher}\n"
         if req.requested_plan:
             body += f"\nRequested plan: {req.requested_plan}\n"
-        await send_email(settings.admin_email, subject, body)
+        notify_email = settings.contact_notification_email or settings.admin_email
+        await send_email(notify_email, subject, body)
 
     async def update_status(
         self, request_id: uuid.UUID, status: RequestStatus, admin_note: str | None
