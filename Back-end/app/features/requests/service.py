@@ -6,8 +6,13 @@ from fastapi import HTTPException
 
 from app.config.settings import settings
 from app.core.email import send_email
-from app.features.requests.models import PlatformRequest, RequestFromRole, RequestStatus
-from app.features.requests.schemas import RequestCreate
+from app.features.requests.models import (
+    PlatformRequest,
+    RequestFromRole,
+    RequestStatus,
+    RequestType,
+)
+from app.features.requests.schemas import PublicTrialRequestCreate, RequestCreate
 from app.features.users.models import User, UserRole
 
 _FROM_ROLE_BY_USER_ROLE = {
@@ -30,9 +35,11 @@ class RequestService:
         return result.all()
 
     async def get_all_requests(self) -> list[dict]:
+        # isouter=True: GUEST requests (public trial form) have no user_id,
+        # so an inner join would silently drop them from the admin list.
         query = (
             select(PlatformRequest, User)
-            .join(User, PlatformRequest.user_id == User.id)
+            .join(User, PlatformRequest.user_id == User.id, isouter=True)
             .order_by(PlatformRequest.created_at.desc())
         )
         result = await self.session.exec(query)
@@ -41,7 +48,10 @@ class RequestService:
         out = []
         for req, filer in rows:
             r_dict = req.model_dump()
-            r_dict["from_name"] = f"{filer.first_name} {filer.last_name}".strip() or filer.email
+            if filer:
+                r_dict["from_name"] = f"{filer.first_name} {filer.last_name}".strip() or filer.email
+            else:
+                r_dict["from_name"] = req.guest_name or req.guest_email or "Guest"
             out.append(r_dict)
         return out
 
@@ -62,14 +72,48 @@ class RequestService:
         await self.session.commit()
         await self.session.refresh(req)
 
-        await self._notify_admin(req, user_id)
+        await self._notify_admin(req)
         return req
 
-    async def _notify_admin(self, req: PlatformRequest, user_id: uuid.UUID) -> None:
+    async def create_public_trial_request(self, data: PublicTrialRequestCreate) -> PlatformRequest:
+        """Public, unauthenticated "Free trial" form on the landing page
+        (components/landing/LandingPage.tsx). No account exists yet — contact
+        details are stored directly on the request (guest_*) rather than
+        resolved from a User row, and from_role is GUEST, not trusted input."""
+        details = f"Program: {data.program}"
+        if data.message:
+            details += f"\nMessage: {data.message}"
+
+        req = PlatformRequest(
+            user_id=None,
+            from_role=RequestFromRole.GUEST,
+            type=RequestType.NEW_ENROLLMENT,
+            details=details,
+            requested_plan=data.program,
+            guest_name=data.full_name,
+            guest_email=data.email,
+            guest_phone=data.phone,
+        )
+        self.session.add(req)
+        await self.session.commit()
+        await self.session.refresh(req)
+
+        await self._notify_admin(req)
+        return req
+
+    async def _notify_admin(self, req: PlatformRequest) -> None:
         """Best-effort email to the admin inbox — never raises, so a mail
         outage can't fail the request submission itself."""
-        filer = await self.session.get(User, user_id)
-        filer_label = f"{filer.first_name} {filer.last_name}".strip() or filer.email if filer else str(user_id)
+        if req.user_id:
+            filer = await self.session.get(User, req.user_id)
+            filer_label = (
+                f"{filer.first_name} {filer.last_name}".strip() or filer.email
+                if filer
+                else str(req.user_id)
+            )
+        else:
+            filer_label = f"{req.guest_name} (guest, not yet registered)"
+
         subject = f"[Elhafazah] New {req.type.value.replace('_', ' ')} request from {filer_label}"
         body = (
             f"From: {filer_label} ({req.from_role.value})\n"
@@ -81,6 +125,10 @@ class RequestService:
             body += f"\nPreferred teacher: {req.requested_teacher}\n"
         if req.requested_plan:
             body += f"\nRequested plan: {req.requested_plan}\n"
+        if req.guest_email:
+            body += f"\nGuest email: {req.guest_email}\n"
+        if req.guest_phone:
+            body += f"\nGuest phone: {req.guest_phone}\n"
         notify_email = settings.contact_notification_email or settings.admin_email
         await send_email(notify_email, subject, body)
 

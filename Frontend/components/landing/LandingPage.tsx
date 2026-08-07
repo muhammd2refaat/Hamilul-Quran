@@ -27,8 +27,14 @@ const S = {
     fName: 'Full name', phName: 'Your name', fEmail: 'Email', fProgram: 'Program',
     fWhatsapp: 'WhatsApp number', phWhatsapp: '+1 555 000 0000',
     fMessage: 'Your message', phMessage: 'Tell us about your goals (optional)',
-    trialBtn: 'Claim my free lesson',
+    trialBtn: 'Claim my free lesson', trialBtnSubmitting: 'Sending…',
     successTitle: 'JazakAllahu khairan!', successDesc: 'We’ll email you within 24 hours to book your free trial.',
+    errRequired: 'This field is required.',
+    errEmail: 'Enter a valid email address.',
+    errPhone: 'Enter a valid phone number.',
+    errProgram: 'Please choose a program.',
+    errSubmitRate: 'Too many attempts — please wait a minute and try again.',
+    errSubmitGeneric: 'Something went wrong. Please try again in a moment.',
     googleContinue: 'Continue with Google', googleSignup: 'Sign up with Google',
     loginNote: 'Sign in securely with your Google account.',
     chooseRole: 'I am joining as a…', roleStudent: 'Student', roleStudentDesc: 'I want to learn & memorize the Qur’an',
@@ -60,8 +66,14 @@ const S = {
     fName: 'الاسم الكامل', phName: 'اسمك', fEmail: 'البريد الإلكتروني', fProgram: 'البرنامج',
     fWhatsapp: 'رقم الواتساب', phWhatsapp: '‫+٢٠ ١٠٠ ٠٠٠ ٠٠٠٠‬',
     fMessage: 'رسالتك', phMessage: 'أخبرنا عن أهدافك (اختياري)',
-    trialBtn: 'احجز حصتي المجانية',
+    trialBtn: 'احجز حصتي المجانية', trialBtnSubmitting: 'جارٍ الإرسال…',
     successTitle: 'جزاك الله خيرًا!', successDesc: 'سنراسلك خلال ٢٤ ساعة لحجز حصتك التجريبية.',
+    errRequired: 'هذا الحقل مطلوب.',
+    errEmail: 'أدخل بريدًا إلكترونيًا صحيحًا.',
+    errPhone: 'أدخل رقم هاتف صحيحًا.',
+    errProgram: 'يرجى اختيار برنامج.',
+    errSubmitRate: 'محاولات كثيرة جدًا — يرجى الانتظار دقيقة والمحاولة مرة أخرى.',
+    errSubmitGeneric: 'حدث خطأ ما. يرجى المحاولة مرة أخرى بعد قليل.',
     googleContinue: 'المتابعة عبر جوجل', googleSignup: 'التسجيل عبر جوجل',
     loginNote: 'سجّل الدخول بأمان عبر حساب جوجل الخاص بك.',
     chooseRole: 'أنضمّ بصفتي…', roleStudent: 'طالب', roleStudentDesc: 'أريد أن أتعلّم وأحفظ القرآن',
@@ -141,6 +153,11 @@ const ARCH_PATTERN = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org
 export function LandingPage({ initialLang = 'en' }: { initialLang?: Lang }) {
   const [lang, setLang] = useState<Lang>(initialLang);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [trialErrors, setTrialErrors] = useState<{
+    name?: string; email?: string; program?: string; whatsapp?: string;
+  }>({});
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [program, setProgram] = useState('');
@@ -213,6 +230,58 @@ export function LandingPage({ initialLang = 'en' }: { initialLang?: Lang }) {
     window.location.href = `${API_BASE}/auth/google/login?${params.toString()}`;
   }
 
+  // Mirrors the backend's leniency (app/features/requests/schemas.py) —
+  // just enough shape-checking to catch obvious typos/garbage, not full
+  // deliverability validation.
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const PHONE_RE = /^[0-9+\-\s()]{6,30}$/;
+
+  function validateTrialForm() {
+    const errors: typeof trialErrors = {};
+    if (!name.trim()) errors.name = t.errRequired;
+    if (!email.trim()) errors.email = t.errRequired;
+    else if (!EMAIL_RE.test(email.trim())) errors.email = t.errEmail;
+    if (!program) errors.program = t.errProgram;
+    if (!whatsapp.trim()) errors.whatsapp = t.errRequired;
+    else if (!PHONE_RE.test(whatsapp.trim())) errors.whatsapp = t.errPhone;
+    return errors;
+  }
+
+  async function submitTrialForm() {
+    const errors = validateTrialForm();
+    setTrialErrors(errors);
+    setSubmitError(null);
+    if (Object.keys(errors).length > 0) return;
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/requests/public/trial`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: name.trim(),
+          email: email.trim(),
+          phone: whatsapp.trim(),
+          program,
+          message: message.trim() || undefined,
+        }),
+      });
+      if (res.status === 429) {
+        setSubmitError(t.errSubmitRate);
+        return;
+      }
+      if (!res.ok) {
+        setSubmitError(t.errSubmitGeneric);
+        return;
+      }
+      setSubmitted(true);
+    } catch {
+      setSubmitError(t.errSubmitGeneric);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   // ── Input style ──────────────────────────────────────────────────────────
   const inputDark: React.CSSProperties = {
     width: '100%', padding: '13px 14px',
@@ -236,6 +305,9 @@ export function LandingPage({ initialLang = 'en' }: { initialLang?: Lang }) {
   const labelLight: React.CSSProperties = {
     display: 'block', fontSize: 12, fontWeight: 600,
     color: '#5C6B5F', marginBottom: 6,
+  };
+  const errTextDark: React.CSSProperties = {
+    color: '#E38A8A', fontSize: 12, margin: '0 0 14px', lineHeight: 1.4,
   };
 
   return (
@@ -480,21 +552,56 @@ export function LandingPage({ initialLang = 'en' }: { initialLang?: Lang }) {
               </div>
             ) : (
               <div>
-                <label style={labelDark}>{t.fName}</label>
-                <input value={name} onChange={e => setName(e.target.value)} placeholder={t.phName} style={inputDark} />
-                <label style={labelDark}>{t.fEmail}</label>
-                <input value={email} onChange={e => setEmail(e.target.value)} placeholder="you@email.com" style={inputDark} />
-                <label style={labelDark}>{t.fProgram}</label>
-                <select value={program} onChange={e => setProgram(e.target.value)} style={{ ...inputDark, background: DARK, marginBottom: 22 }}>
+                <label style={labelDark}>{t.fName} *</label>
+                <input
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder={t.phName}
+                  style={{ ...inputDark, marginBottom: trialErrors.name ? 4 : 16, ...(trialErrors.name ? { borderColor: '#E38A8A' } : {}) }}
+                />
+                {trialErrors.name && <p style={errTextDark}>{trialErrors.name}</p>}
+
+                <label style={labelDark}>{t.fEmail} *</label>
+                <input
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@email.com"
+                  style={{ ...inputDark, marginBottom: trialErrors.email ? 4 : 16, ...(trialErrors.email ? { borderColor: '#E38A8A' } : {}) }}
+                />
+                {trialErrors.email && <p style={errTextDark}>{trialErrors.email}</p>}
+
+                <label style={labelDark}>{t.fProgram} *</label>
+                <select
+                  value={program}
+                  onChange={e => setProgram(e.target.value)}
+                  style={{ ...inputDark, background: DARK, marginBottom: trialErrors.program ? 4 : 22, ...(trialErrors.program ? { borderColor: '#E38A8A' } : {}) }}
+                >
                   <option value="" />
                   {programOptions.map(o => <option key={o}>{o}</option>)}
                 </select>
-                <label style={labelDark}>{t.fWhatsapp}</label>
-                <input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder={t.phWhatsapp} style={inputDark} />
+                {trialErrors.program && <p style={errTextDark}>{trialErrors.program}</p>}
+
+                <label style={labelDark}>{t.fWhatsapp} *</label>
+                <input
+                  value={whatsapp}
+                  onChange={e => setWhatsapp(e.target.value)}
+                  placeholder={t.phWhatsapp}
+                  style={{ ...inputDark, marginBottom: trialErrors.whatsapp ? 4 : 16, ...(trialErrors.whatsapp ? { borderColor: '#E38A8A' } : {}) }}
+                />
+                {trialErrors.whatsapp && <p style={errTextDark}>{trialErrors.whatsapp}</p>}
+
                 <label style={labelDark}>{t.fMessage}</label>
                 <textarea value={message} onChange={e => setMessage(e.target.value)} placeholder={t.phMessage} rows={3} style={{ ...inputDark, resize: 'vertical', marginBottom: 22 }} />
-                <button onClick={() => setSubmitted(true)} className="ee-btn" style={{ width: '100%', background: '#D9B45F', color: DARK, border: 'none', padding: 14, borderRadius: 8, fontSize: 15, fontWeight: 600, fontFamily: "'Space Grotesk','Reem Kufi',sans-serif", cursor: 'pointer', transition: 'transform .2s' }}>
-                  {t.trialBtn}
+
+                {submitError && <p style={{ ...errTextDark, marginBottom: 14 }}>{submitError}</p>}
+
+                <button
+                  onClick={submitTrialForm}
+                  disabled={submitting}
+                  className="ee-btn"
+                  style={{ width: '100%', background: '#D9B45F', color: DARK, border: 'none', padding: 14, borderRadius: 8, fontSize: 15, fontWeight: 600, fontFamily: "'Space Grotesk','Reem Kufi',sans-serif", cursor: submitting ? 'default' : 'pointer', opacity: submitting ? .7 : 1, transition: 'transform .2s' }}
+                >
+                  {submitting ? t.trialBtnSubmitting : t.trialBtn}
                 </button>
               </div>
             )}

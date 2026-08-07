@@ -17,6 +17,9 @@ class RequestFromRole(str, Enum):
     STUDENT = "student"
     TEACHER = "teacher"
     GUARDIAN = "guardian"
+    # Anonymous visitor submitting the public landing-page "Free trial" form
+    # — no account exists yet, see guest_name/guest_email/guest_phone below.
+    GUEST = "guest"
 
 
 class RequestType(str, Enum):
@@ -36,13 +39,21 @@ class PlatformRequest(SQLModel, table=True):
         index=True,
         nullable=False,
     )
-    # The account that filed the request.
-    user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    # The account that filed the request. Null for a GUEST submission (the
+    # public landing-page trial form) — no account exists at submit time,
+    # see guest_name/guest_email/guest_phone below instead.
+    user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
 
     from_role: RequestFromRole
     type: RequestType
 
     details: str
+
+    # Guest contact info (GUEST requests only — public trial form has no
+    # authenticated user to pull this from).
+    guest_name: Optional[str] = Field(default=None, max_length=200)
+    guest_email: Optional[str] = Field(default=None, max_length=255)
+    guest_phone: Optional[str] = Field(default=None, max_length=30)
 
     # Reschedule-specific (free text so the UI can show "Tuesday 10:00 AM").
     current_day: Optional[str] = Field(default=None, max_length=50)
