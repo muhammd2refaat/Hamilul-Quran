@@ -1,10 +1,9 @@
 /**
- * Dashboard — real platform metrics from GET /dashboard/metrics.
- *
- * Per-teacher session scores / ratings / leaderboard sections were dropped
- * from here until the Subscriptions feature (teacher reviews, session score
- * write path) lands — see Admin-CMS/PROGRESS.md. Showing them from mock
- * data alongside real counts would be misleading.
+ * Dashboard — real platform metrics from GET /dashboard/metrics, including
+ * session-score, attendance, and subscription aggregates. Subscription
+ * figures are counts by status/plan — there's no price field anywhere in
+ * the schema, so this deliberately doesn't show a $ revenue number (see
+ * DashboardService in the backend for the full reasoning).
  */
 
 import { useEffect } from 'react';
@@ -20,6 +19,10 @@ import {
   AlertCircle,
   Activity,
   Loader2,
+  Award,
+  Video,
+  Trophy,
+  CreditCard,
 } from 'lucide-react';
 import {
   PieChart,
@@ -113,13 +116,18 @@ const STATUS_COLORS: Record<string, string> = {
   PENDING: COLORS.pending,
 };
 
+const MONTH_OPTIONS = [3, 6, 12, 24];
+
+const PLAN_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#0ea5e9', '#8b5cf6'];
+
 export function DashboardPage() {
   const { t } = useTranslation();
-  const { metrics, isLoading, error, fetchDashboardData } = useDashboardStore();
+  const { metrics, isLoading, error, months, setMonths, fetchDashboardData } = useDashboardStore();
 
   useEffect(() => {
     fetchDashboardData();
-  }, [fetchDashboardData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (isLoading && !metrics) {
     return (
@@ -148,19 +156,50 @@ export function DashboardPage() {
     value: count,
   }));
 
+  const subsStatusPie = Object.entries(metrics.subscriptionsByStatus).map(([status, count]) => ({
+    name: status.charAt(0) + status.slice(1).toLowerCase(),
+    value: count,
+    fill: STATUS_COLORS[status.toUpperCase()] ?? '#9ca3af',
+  }));
+
+  const subsPlanBar = Object.entries(metrics.subscriptionsByPlan)
+    .sort((a, b) => b[1] - a[1])
+    .map(([plan, count], i) => ({ label: plan, value: count, fill: PLAN_COLORS[i % PLAN_COLORS.length] }));
+
+  const teacherLeaderboardBar = metrics.topTeachersByScore.map((row) => ({
+    label: row.teacherName,
+    value: row.avgPct,
+    sessions: row.sessionCount,
+  }));
+
   return (
     <div className="space-y-8 pb-8">
       {/* ── Page header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-extrabold text-gray-900">{t('dashboard.title')}</h1>
           <p className="text-gray-500 mt-1 text-sm">
             {t('dashboard.subtitle')}
           </p>
         </div>
-        <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1.5 rounded-full flex items-center gap-1">
-          <Activity className="h-3 w-3" /> {t('dashboard.liveData')}
-        </span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
+            {MONTH_OPTIONS.map((m) => (
+              <button
+                key={m}
+                onClick={() => setMonths(m)}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
+                  m === months ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {t('dashboard.monthsRange', { count: m })}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1.5 rounded-full flex items-center gap-1">
+            <Activity className="h-3 w-3" /> {t('dashboard.liveData')}
+          </span>
+        </div>
       </div>
 
       {/* ── KPI stat cards ───────────────────────────────────────────────────── */}
@@ -171,6 +210,24 @@ export function DashboardPage() {
         <StatCard label={t('dashboard.admins')} value={metrics.totalAdmins} icon={ShieldCheck} color="bg-slate-100 text-slate-700" />
         <StatCard label={t('dashboard.allocations')} value={metrics.totalAllocations} icon={ClipboardList} color="bg-emerald-100 text-emerald-700" />
         <StatCard label={t('dashboard.countries')} value={metrics.totalCountries} icon={Globe2} color="bg-amber-100 text-amber-700" />
+      </div>
+
+      {/* ── KPI stat cards: scores + attendance ─────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 gap-4">
+        <StatCard
+          label={t('dashboard.avgSessionScore')}
+          value={metrics.avgSessionScorePct != null ? `${metrics.avgSessionScorePct}%` : '—'}
+          sub={t('dashboard.avgSessionScoreSub')}
+          icon={Award}
+          color="bg-amber-100 text-amber-700"
+        />
+        <StatCard
+          label={t('dashboard.attendanceRate')}
+          value={metrics.attendanceBothJoinedRatePct != null ? `${metrics.attendanceBothJoinedRatePct}%` : '—'}
+          sub={t('dashboard.attendanceRateSub')}
+          icon={Video}
+          color="bg-sky-100 text-sky-700"
+        />
       </div>
 
       {/* ── Row 1: Status pie + Signups by month ────────────────────────────── */}
@@ -257,6 +314,95 @@ export function DashboardPage() {
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Row 3: Score trend + Top teachers by score ──────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <SectionHead icon={Award} title={t('dashboard.scoreTrend')} desc={t('dashboard.scoreTrendDesc')} />
+          {metrics.scoreTrendByMonth.length === 0 ? (
+            <p className="text-sm text-gray-400 py-8 text-center">{t('dashboard.noScores')}</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={metrics.scoreTrendByMonth} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} domain={[0, 100]} unit="%" />
+                <Tooltip content={<ChartTooltip />} />
+                <Bar dataKey="avgPct" name={t('dashboard.avgScore')} fill={COLORS.primary} radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <SectionHead icon={Trophy} title={t('dashboard.topTeachers')} desc={t('dashboard.topTeachersDesc')} />
+          {teacherLeaderboardBar.length === 0 ? (
+            <p className="text-sm text-gray-400 py-8 text-center">{t('dashboard.noScores')}</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={teacherLeaderboardBar} layout="vertical" margin={{ top: 4, right: 20, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 11 }} />
+                <YAxis type="category" dataKey="label" tick={{ fontSize: 12 }} width={110} />
+                <Tooltip content={<ChartTooltip />} />
+                <Bar dataKey="value" name={t('dashboard.avgScore')} fill={COLORS.active} radius={[0, 6, 6, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+
+      {/* ── Row 4: Subscriptions by status + by plan ────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <SectionHead icon={CreditCard} title={t('dashboard.subsByStatus')} desc={t('dashboard.subsByStatusDesc')} />
+          {subsStatusPie.length === 0 ? (
+            <p className="text-sm text-gray-400 py-8 text-center">{t('dashboard.noSubscriptions')}</p>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie data={subsStatusPie} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={4} dataKey="value" label={({ name, value }) => `${name}: ${value}`} labelLine={false}>
+                    {subsStatusPie.map((entry) => (
+                      <Cell key={entry.name} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<ChartTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex justify-center gap-5 mt-2 flex-wrap">
+                {subsStatusPie.map((e) => (
+                  <div key={e.name} className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
+                    <span className="w-3 h-3 rounded-full" style={{ background: e.fill }} />
+                    {e.name} ({e.value})
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+          <SectionHead icon={ClipboardList} title={t('dashboard.subsByPlan')} desc={t('dashboard.subsByPlanDesc')} />
+          {subsPlanBar.length === 0 ? (
+            <p className="text-sm text-gray-400 py-8 text-center">{t('dashboard.noSubscriptions')}</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={subsPlanBar} layout="vertical" margin={{ top: 4, right: 20, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
+                <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={140} />
+                <Tooltip content={<ChartTooltip />} />
+                <Bar dataKey="value" name={t('dashboard.count')} radius={[0, 6, 6, 0]}>
+                  {subsPlanBar.map((entry) => (
+                    <Cell key={entry.label} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           )}
         </div>
       </div>

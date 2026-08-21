@@ -2,9 +2,6 @@
  * Dashboard feature barrel export
  */
 
-// Components
-export * from './components';
-
 // Pages
 export * from './pages';
 
