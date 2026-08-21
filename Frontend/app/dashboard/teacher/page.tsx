@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Users, CalendarDays, Award, Clock, Video } from 'lucide-react';
 import { apiClient } from '@/lib/api';
-import { type AttendanceSummary, type TeacherStudent } from '@/types/dashboard';
+import { type TeacherStats, type TeacherStudent } from '@/types/dashboard';
 import { useLang } from '@/lib/dashboard/i18n';
 import { useDashboardUser } from '@/lib/dashboard/UserContext';
 import { EE } from '@/lib/dashboard/theme';
@@ -26,7 +26,7 @@ export default function TeacherOverviewPage() {
   const user = useDashboardUser();
   const [students, setStudents] = useState<TeacherStudent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [attendance, setAttendance] = useState<AttendanceSummary | null>(null);
+  const [stats, setStats] = useState<TeacherStats | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,14 +44,17 @@ export default function TeacherOverviewPage() {
   }, []);
 
   useEffect(() => {
+    // Backend-computed roster + score + attendance aggregates — cheaper
+    // than reducing the full student list client-side, and reusable as the
+    // roster grows.
     let cancelled = false;
     apiClient
-      .get<AttendanceSummary>('/sessions/attendance/summary')
+      .get<TeacherStats>('/teachers/me/stats')
       .then(({ data }) => {
-        if (!cancelled) setAttendance(data);
+        if (!cancelled) setStats(data);
       })
       .catch(() => {
-        // Non-critical stat — leave the card showing "—" on failure.
+        // Non-critical stats — leave the cards showing "—" on failure.
       });
     return () => {
       cancelled = true;
@@ -78,15 +81,6 @@ export default function TeacherOverviewPage() {
         }))
     );
   }, [students, todayId]);
-
-  const totalSessionsPerWeek = students.reduce((sum, s) => sum + s.sessions_per_week, 0);
-  const scoresWithValues = students.filter((s) => s.last_score != null && s.last_max_score);
-  const avgScorePct = scoresWithValues.length
-    ? Math.round(
-        (scoresWithValues.reduce((sum, s) => sum + (s.last_score! / s.last_max_score!) * 100, 0) /
-          scoresWithValues.length)
-      )
-    : null;
 
   return (
     <div>
@@ -186,10 +180,10 @@ export default function TeacherOverviewPage() {
           {t.quickStats}
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
-          <StatCard label={t.statStudents} value={students.length} icon={Users} />
-          <StatCard label={t.statSessionsWeek} value={totalSessionsPerWeek} icon={CalendarDays} />
-          <StatCard label={t.statAvgScore} value={avgScorePct != null ? `${avgScorePct}%` : '—'} icon={Award} />
-          <StatCard label={t.statSessionsAttended} value={attendance?.total_sessions ?? '—'} icon={Video} />
+          <StatCard label={t.statStudents} value={stats?.student_count ?? students.length} icon={Users} />
+          <StatCard label={t.statSessionsWeek} value={stats?.sessions_per_week_total ?? '—'} icon={CalendarDays} />
+          <StatCard label={t.statAvgScore} value={stats?.avg_score_pct != null ? `${stats.avg_score_pct}%` : '—'} icon={Award} />
+          <StatCard label={t.statSessionsAttended} value={stats?.sessions_attended_total ?? '—'} icon={Video} />
         </div>
       </div>
 

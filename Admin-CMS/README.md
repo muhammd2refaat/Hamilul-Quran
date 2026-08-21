@@ -11,7 +11,7 @@ This is the central Admin CMS for the Hamilul-Quran platform. Built with React, 
 
 - **Users**: Complete CRUD for Students and Teachers, with live backend integration. Includes nested backend data for **Complaints**, **Teacher History**, and **Session Scores**.
 - **Auth**: Live backend integration for JWT-based login and session persistence.
-- **Dashboard**: Metrics and charts (Currently using mock data).
+- **Dashboard**: Metrics and charts, live backend integration — user/complaint/allocation counts, session-score and attendance aggregates, and subscription counts by status/plan, with a date-range selector.
 - **Complaints**: Platform-wide complaints board (Currently using mock data).
 - **Plans & Subscriptions**: Subscription management (Currently using mock data).
 - **Allocations**: Teacher/Student allocations (Currently using mock data).
@@ -19,8 +19,8 @@ This is the central Admin CMS for the Hamilul-Quran platform. Built with React, 
 ## Current Integration Status
 
 The Admin CMS is currently in a hybrid state:
-- **Fully Integrated (Live Backend)**: `auth`, `users` (Students, Teachers, and their sub-tables).
-- **Mock Data (Frontend only)**: `dashboard`, `complaints` (general page), `plans`, `subscriptions`, `admins`, `allocations`, `requests`.
+- **Fully Integrated (Live Backend)**: `auth`, `users` (Students, Teachers, and their sub-tables), `dashboard`, `attendance`.
+- **Mock Data (Frontend only)**: `complaints` (general page), `plans`, `subscriptions`, `admins`, `allocations`, `requests`.
 
 ## How to Run
 

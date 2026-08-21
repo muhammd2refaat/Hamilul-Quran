@@ -75,6 +75,13 @@ export interface Allocation {
   created_at: string;
 }
 
+export interface TeacherStats {
+  student_count: number;
+  sessions_per_week_total: number;
+  avg_score_pct: number | null;
+  sessions_attended_total: number;
+}
+
 export interface TeacherStudent {
   allocation_id: string;
   student_id: string;

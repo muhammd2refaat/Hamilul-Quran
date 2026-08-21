@@ -188,3 +188,48 @@ async def test_teacher_student_session_scores(client, admin_headers, teacher_hea
     assert r.status_code == 200
     assert len(r.json()) == 1
     assert r.json()[0]["score"] == 19
+
+
+# ─── /teachers/me/stats ─────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_teacher_stats_requires_teacher(client, student_headers):
+    r = await client.get("/teachers/me/stats", headers=student_headers)
+    assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_teacher_stats_empty_roster(client, teacher_headers):
+    r = await client.get("/teachers/me/stats", headers=teacher_headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert body == {
+        "student_count": 0,
+        "sessions_per_week_total": 0,
+        "avg_score_pct": None,
+        "sessions_attended_total": 0,
+    }
+
+
+@pytest.mark.asyncio
+async def test_teacher_stats_reflects_roster_and_scores(
+    client, admin_headers, teacher_headers, teacher_user, student_user
+):
+    await client.post(
+        "/allocations", headers=admin_headers,
+        json={
+            "teacher_id": str(teacher_user.id), "student_id": str(student_user.id),
+            "sessions_per_week": 3, "duration": 30, "schedule": [],
+        },
+    )
+    await client.post(
+        "/session-scores", headers=teacher_headers,
+        json={"student_id": str(student_user.id), "score": 15, "max_score": 20},
+    )
+
+    r = await client.get("/teachers/me/stats", headers=teacher_headers)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["student_count"] == 1
+    assert body["sessions_per_week_total"] == 3
+    assert body["avg_score_pct"] == pytest.approx(75.0)

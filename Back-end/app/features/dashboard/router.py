@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.core.database import get_session
 from app.core.dependencies import AdminDep
@@ -18,5 +18,11 @@ SvcDep = Annotated[DashboardService, Depends(_get_svc)]
 
 
 @router.get("/metrics", response_model=DashboardMetrics, summary="Get platform metrics (ADMIN)")
-async def get_metrics(_: AdminDep, svc: SvcDep):
-    return await svc.get_metrics()
+async def get_metrics(
+    _: AdminDep,
+    svc: SvcDep,
+    months: Annotated[
+        int, Query(ge=1, le=24, description="Window for signups/score trend charts")
+    ] = 6,
+):
+    return await svc.get_metrics(months=months)

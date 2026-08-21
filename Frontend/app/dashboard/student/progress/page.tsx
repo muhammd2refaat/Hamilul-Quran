@@ -8,6 +8,7 @@ import { useLang } from '@/lib/dashboard/i18n';
 import { EE, scoreColor } from '@/lib/dashboard/theme';
 import { SectionHeader } from '@/components/dashboard/SectionHeader';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+import { ScoreTrendChart } from '@/components/dashboard/ScoreTrendChart';
 
 export default function StudentProgressPage() {
   const { t } = useLang();
@@ -58,6 +59,7 @@ export default function StudentProgressPage() {
               <EmptyState icon={Award} text={t.noProgress} />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <ScoreTrendChart scores={[...scores].reverse()} />
                 {scores.map((s) => {
                   const colors = scoreColor(s.score, s.max_score);
                   return (

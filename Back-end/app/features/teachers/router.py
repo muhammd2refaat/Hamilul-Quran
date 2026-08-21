@@ -13,6 +13,7 @@ from app.features.teachers.schemas import (
     TeacherPublicResponse,
     TeacherReviewCreate,
     TeacherReviewResponse,
+    TeacherStatsResponse,
     TeacherStudentResponse,
 )
 from app.features.teachers.service import ReviewService, TeacherService
@@ -74,6 +75,16 @@ async def list_teachers(
 async def list_my_students(current_user: CurrentUserDep, svc: TeacherSvcDep):
     _require_teacher(current_user)
     return await svc.list_my_students(current_user.id)
+
+
+@router.get(
+    "/me/stats",
+    response_model=TeacherStatsResponse,
+    summary="Backend-computed stats for the current teacher's Overview page",
+)
+async def get_my_stats(current_user: CurrentUserDep, svc: TeacherSvcDep):
+    _require_teacher(current_user)
+    return await svc.get_my_stats(current_user.id)
 
 
 @router.get(

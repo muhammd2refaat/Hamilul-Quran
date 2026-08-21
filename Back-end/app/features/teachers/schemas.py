@@ -87,3 +87,12 @@ class PaginatedTeachers(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class TeacherStatsResponse(BaseModel):
+    """Backend-computed summary for the teacher's own Overview page — avoids
+    the client fetching the full student roster just to reduce it in JS."""
+    student_count: int
+    sessions_per_week_total: int
+    avg_score_pct: Optional[float] = None
+    sessions_attended_total: int
