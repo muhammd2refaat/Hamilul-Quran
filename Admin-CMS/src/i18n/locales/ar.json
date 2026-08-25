@@ -180,6 +180,8 @@
     "stepOf": "الخطوة {{step}} من 3",
     "confirm": "تأكيد التخصيص",
     "nextStep": "الخطوة التالية",
+    "saving": "جارٍ الحفظ…",
+    "syncingCalendar": "جارٍ المزامنة مع تقويم جوجل…",
     "selectTeacher": "اختر المعلم",
     "selectStudent": "اختر الطالب",
     "sessionsPerWeek": "عدد الجلسات أسبوعياً",

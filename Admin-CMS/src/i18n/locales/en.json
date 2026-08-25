@@ -180,6 +180,8 @@
     "stepOf": "Step {{step}} of 3",
     "confirm": "Confirm Allocation",
     "nextStep": "Next Step",
+    "saving": "Saving…",
+    "syncingCalendar": "Syncing with Google Calendar…",
     "selectTeacher": "Select Teacher",
     "selectStudent": "Select Student",
     "sessionsPerWeek": "Sessions Per Week",

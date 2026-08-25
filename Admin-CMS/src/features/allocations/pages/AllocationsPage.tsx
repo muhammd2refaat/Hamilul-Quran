@@ -56,6 +56,7 @@ export function AllocationsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingAlloc, setDeletingAlloc] = useState<Allocation | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { allocations, fetchAllocations, createAllocation, updateAllocation, deleteAllocation } =
     useAllocationsStore();
   const { users, fetchUsers } = useUsersStore();
@@ -80,7 +81,15 @@ export function AllocationsPage() {
     setIsModalOpen(false);
     setStep(1);
     setEditingId(null);
+    setIsSubmitting(false);
     setState({ teacherId: '', studentId: '', sessionsPerWeek: 2, duration: 30, schedule: [] });
+  };
+
+  // Only intercepts the user closing the modal themselves (backdrop/X/Esc) —
+  // resetModal() itself still runs unguarded after a successful submit.
+  const handleModalClose = () => {
+    if (isSubmitting) return; // don't let the modal close while a save is in flight
+    resetModal();
   };
 
   const handleNext = () => {
@@ -88,6 +97,7 @@ export function AllocationsPage() {
       setStep((s) => (s + 1) as 1 | 2 | 3);
       return;
     }
+    if (isSubmitting) return; // already in flight — ignore a double-click
     const payload = {
       teacher_id: state.teacherId,
       student_id: state.studentId,
@@ -95,6 +105,11 @@ export function AllocationsPage() {
       duration: state.duration,
       schedule: state.schedule,
     };
+    // The backend synchronously syncs each schedule slot to Google Calendar
+    // before responding (AllocationService._try_create_calendar_events) —
+    // this can take a few seconds, so surface that as a real loading state
+    // rather than leaving the button looking frozen/clickable.
+    setIsSubmitting(true);
     const submit = editingId
       ? updateAllocation(editingId, payload)
       : createAllocation(payload);
@@ -105,7 +120,8 @@ export function AllocationsPage() {
       })
       .catch((error: any) => {
         toast.error(error?.response?.data?.detail || 'Failed to save allocation');
-      });
+      })
+      .finally(() => setIsSubmitting(false));
   };
 
   const handleBack = () => {
@@ -241,29 +257,34 @@ export function AllocationsPage() {
 
       <Modal
         isOpen={isModalOpen}
-        onClose={resetModal}
+        onClose={handleModalClose}
         title={editingId ? t('allocations.editTitle') : t('allocations.createTitle')}
         size="xl"
         footer={
           <div className="flex items-center justify-between w-full">
             <div className="text-sm font-medium text-gray-500">
-              {t('allocations.stepOf', { step })}
+              {isSubmitting
+                ? t('allocations.syncingCalendar')
+                : t('allocations.stepOf', { step })}
             </div>
             <div className="flex gap-3">
               {step > 1 && (
-                <Button variant="outline" onClick={handleBack}>
+                <Button variant="outline" onClick={handleBack} disabled={isSubmitting}>
                   <ChevronLeft className="h-4 w-4 me-2" /> {t('common.back')}
                 </Button>
               )}
               <Button
                 onClick={handleNext}
+                isLoading={step === 3 && isSubmitting}
                 disabled={
                   (step === 1 && !isStep1Valid) ||
                   (step === 2 && !isStep2Valid) ||
                   (step === 3 && !isStep3Valid)
                 }
               >
-                {step === 3 ? step3ButtonLabel : t('allocations.nextStep')}
+                {step === 3
+                  ? (isSubmitting ? t('allocations.saving') : step3ButtonLabel)
+                  : t('allocations.nextStep')}
                 {step < 3 && <ChevronRight className="h-4 w-4 ms-2" />}
               </Button>
             </div>
