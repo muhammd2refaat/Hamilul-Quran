@@ -11,6 +11,7 @@ from app.features.calendar.google_calendar_client import (
     delete_event,
     get_valid_access_token,
 )
+from app.features.sessions.models import SessionAttendance
 from app.features.sessions.service import SessionService
 from app.features.users.models import User
 
@@ -98,6 +99,24 @@ class AllocationService:
     async def delete(self, allocation_id: uuid.UUID) -> None:
         allocation = await self.get_by_id(allocation_id)
         await self._try_delete_calendar_events(allocation.teacher_id, allocation.schedule)
+
+        # session_attendance.allocation_id is a foreign key with no cascade —
+        # any recorded Join-button click for this allocation would otherwise
+        # block the delete below with a 23503 foreign_key_violation. Scoped
+        # to this allocation_id only, so other allocations' attendance
+        # history is untouched.
+        attendance_result = await self.session.exec(
+            select(SessionAttendance).where(SessionAttendance.allocation_id == allocation_id)
+        )
+        for record in attendance_result.all():
+            await self.session.delete(record)
+        # Flush now, separately from the allocation delete below: SQLModel
+        # declares this as a plain foreign_key with no ORM relationship(), so
+        # SQLAlchemy's flush has no dependency graph telling it these rows
+        # must go first — without this, both deletes can land in the same
+        # flush in the wrong order and still hit the FK constraint.
+        await self.session.flush()
+
         await self.session.delete(allocation)
         await self.session.commit()
 
