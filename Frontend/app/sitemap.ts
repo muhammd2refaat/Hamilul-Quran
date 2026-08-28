@@ -31,12 +31,28 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: 'yearly',
       priority: 0.2,
+      alternates: { languages: { en: `${SITE_URL}/privacy`, ar: `${SITE_URL}/ar/privacy` } },
+    },
+    {
+      url: `${SITE_URL}/ar/privacy`,
+      lastModified: now,
+      changeFrequency: 'yearly',
+      priority: 0.2,
+      alternates: { languages: { en: `${SITE_URL}/privacy`, ar: `${SITE_URL}/ar/privacy` } },
     },
     {
       url: `${SITE_URL}/terms`,
       lastModified: now,
       changeFrequency: 'yearly',
       priority: 0.2,
+      alternates: { languages: { en: `${SITE_URL}/terms`, ar: `${SITE_URL}/ar/terms` } },
+    },
+    {
+      url: `${SITE_URL}/ar/terms`,
+      lastModified: now,
+      changeFrequency: 'yearly',
+      priority: 0.2,
+      alternates: { languages: { en: `${SITE_URL}/terms`, ar: `${SITE_URL}/ar/terms` } },
     },
   ];
 }

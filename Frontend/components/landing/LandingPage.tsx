@@ -624,8 +624,8 @@ export function LandingPage({ initialLang = 'en' }: { initialLang?: Lang }) {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 18, fontSize: 12.5, color: '#6E8472' }}>
             <span>{t.copyright}</span>
-            <a href="/privacy" style={{ color: 'inherit', textDecoration: 'underline' }}>{lang === 'ar' ? 'سياسة الخصوصية' : 'Privacy Policy'}</a>
-            <a href="/terms" style={{ color: 'inherit', textDecoration: 'underline' }}>{lang === 'ar' ? 'شروط الخدمة' : 'Terms of Service'}</a>
+            <a href={lang === 'ar' ? '/ar/privacy' : '/privacy'} style={{ color: 'inherit', textDecoration: 'underline' }}>{lang === 'ar' ? 'سياسة الخصوصية' : 'Privacy Policy'}</a>
+            <a href={lang === 'ar' ? '/ar/terms' : '/terms'} style={{ color: 'inherit', textDecoration: 'underline' }}>{lang === 'ar' ? 'شروط الخدمة' : 'Terms of Service'}</a>
           </div>
         </div>
       </footer>

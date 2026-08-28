@@ -3,9 +3,9 @@ import { PrivacyContent } from '@/components/legal/PrivacyContent';
 import { SITE_URL } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy',
+  title: 'سياسة الخصوصية',
   alternates: {
-    canonical: `${SITE_URL}/privacy`,
+    canonical: `${SITE_URL}/ar/privacy`,
     languages: {
       en: `${SITE_URL}/privacy`,
       ar: `${SITE_URL}/ar/privacy`,
@@ -14,6 +14,6 @@ export const metadata: Metadata = {
   },
 };
 
-export default function PrivacyPolicyPage() {
-  return <PrivacyContent initialLang="en" />;
+export default function PrivacyPolicyPageArabic() {
+  return <PrivacyContent initialLang="ar" />;
 }

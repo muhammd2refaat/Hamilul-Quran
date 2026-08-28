@@ -3,9 +3,9 @@ import { TermsContent } from '@/components/legal/TermsContent';
 import { SITE_URL } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service',
+  title: 'شروط الخدمة',
   alternates: {
-    canonical: `${SITE_URL}/terms`,
+    canonical: `${SITE_URL}/ar/terms`,
     languages: {
       en: `${SITE_URL}/terms`,
       ar: `${SITE_URL}/ar/terms`,
@@ -14,6 +14,6 @@ export const metadata: Metadata = {
   },
 };
 
-export default function TermsOfServicePage() {
-  return <TermsContent initialLang="en" />;
+export default function TermsOfServicePageArabic() {
+  return <TermsContent initialLang="ar" />;
 }
