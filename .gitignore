@@ -2,6 +2,7 @@
 
 # Staging / production secrets — NEVER commit these
 .env.staging
+.env.staging-instance
 .env.production
 *.env.local
 
