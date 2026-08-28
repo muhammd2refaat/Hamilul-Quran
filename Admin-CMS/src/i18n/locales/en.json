@@ -190,6 +190,7 @@
     "sessionDurationDesc": "How long is each session?",
     "selectSchedule": "Select Schedule",
     "selectedSlots": "Selected {{selected}} of {{total}} slots",
+    "slotLocked": "Already booked for this teacher",
     "enrolledStudents": "Enrolled Students ({{count}})",
     "noEnrolledStudents": "No students enrolled yet."
   },

@@ -190,6 +190,7 @@
     "sessionDurationDesc": "كم تستغرق كل جلسة؟",
     "selectSchedule": "اختر الجدول",
     "selectedSlots": "تم اختيار {{selected}} من {{total}} مواعيد",
+    "slotLocked": "محجوز بالفعل لهذا المعلم",
     "enrolledStudents": "الطلاب المسجلون ({{count}})",
     "noEnrolledStudents": "لا يوجد طلاب مسجلون بعد."
   },

@@ -2,7 +2,7 @@
  * Allocations Page — manage teacher/student session allocations
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   PieChart,
   Plus,
@@ -17,6 +17,7 @@ import {
   Pencil,
   Trash2,
   Users,
+  Lock,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -35,11 +36,17 @@ const DAYS_OF_WEEK = [
   { id: 'sat', label: 'Saturday' },
 ];
 
-const TIME_SLOTS = [
-  '08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM',
-  '02:00 PM', '03:00 PM', '04:00 PM', '05:00 PM',
-  '06:00 PM', '07:00 PM', '08:00 PM'
-];
+// Full 24-hour range, hourly slots — "12:00 AM" .. "11:00 PM" — same
+// "HH:MM AM/PM" string format the backend expects (parse_time_str,
+// google_calendar_client.py). Generated rather than hardcoded so it can't
+// drift out of a partial range again.
+const TIME_SLOTS = Array.from({ length: 24 }, (_, hour) => {
+  const period = hour < 12 ? 'AM' : 'PM';
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${String(displayHour).padStart(2, '0')}:00 ${period}`;
+});
+
+const slotKey = (day: string, time: string) => `${day}|${time}`;
 
 interface AllocationState {
   teacherId: string;
@@ -160,6 +167,21 @@ export function AllocationsPage() {
   const isStep1Valid = state.teacherId && state.studentId;
   const isStep2Valid = state.sessionsPerWeek > 0;
   const isStep3Valid = state.schedule.length === state.sessionsPerWeek;
+
+  // Every day+time slot already booked for the currently selected teacher,
+  // across their OTHER allocations (any student) — a teacher can't be in two
+  // places at once. Excludes the allocation being edited itself, so editing
+  // an allocation doesn't lock out its own already-selected slots.
+  const teacherBookedSlots = useMemo(() => {
+    const booked = new Set<string>();
+    if (!state.teacherId) return booked;
+    for (const alloc of allocations) {
+      if (alloc.teacher_id !== state.teacherId) continue;
+      if (alloc.id === editingId) continue;
+      for (const s of alloc.schedule) booked.add(slotKey(s.day, s.time));
+    }
+    return booked;
+  }, [allocations, state.teacherId, editingId]);
 
   const getDaySchedules = (dayId: string) => state.schedule.filter(s => s.day === dayId);
 
@@ -494,21 +516,27 @@ export function AllocationsPage() {
                       <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1">
                         {TIME_SLOTS.map((time) => {
                           const isSlotSelected = state.schedule.some(s => s.day === day.id && s.time === time);
-                          const isDisabled = !isSlotSelected && state.schedule.length >= state.sessionsPerWeek;
+                          const isLocked = teacherBookedSlots.has(slotKey(day.id, time));
+                          const isLimitReached = !isSlotSelected && state.schedule.length >= state.sessionsPerWeek;
+                          const isDisabled = isLocked || isLimitReached;
 
                           return (
                             <button
                               key={time}
                               disabled={isDisabled}
                               onClick={() => toggleSchedule(day.id, time)}
-                              className={`text-xs py-2 px-1 rounded-lg border font-medium transition-all ${
+                              title={isLocked ? t('allocations.slotLocked') : undefined}
+                              className={`flex items-center justify-center gap-1 text-xs py-2 px-1 rounded-lg border font-medium transition-all ${
                                 isSlotSelected
                                   ? 'bg-primary-600 border-primary-600 text-white shadow-sm'
-                                  : isDisabled
-                                    ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed opacity-50'
-                                    : 'bg-white border-gray-200 text-gray-600 hover:border-primary-300 hover:bg-primary-50'
+                                  : isLocked
+                                    ? 'bg-red-50 border-red-100 text-red-300 cursor-not-allowed'
+                                    : isLimitReached
+                                      ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed opacity-50'
+                                      : 'bg-white border-gray-200 text-gray-600 hover:border-primary-300 hover:bg-primary-50'
                               }`}
                             >
+                              {isLocked && <Lock className="h-3 w-3 flex-shrink-0" />}
                               {time}
                             </button>
                           );
