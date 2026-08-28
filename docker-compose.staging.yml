@@ -1,0 +1,235 @@
+# ─── docker-compose.staging.yml ────────────────────────────────────────────────
+# Hamilul-Quran — TEST/STAGING deployment, isolated from production.
+#
+# `name:` below pins this to its own Compose project ("hamilul-staging"),
+# distinct from production's ("hamilul-quran", inferred from the directory
+# name). Without this, both compose files run from the same directory would
+# share one inferred project name — Compose already warned about this once
+# ("orphan containers" listing production's own containers) before this was
+# added. Never remove this line: it's what keeps `docker compose -f
+# docker-compose.staging.yml down` (or --remove-orphans) from being able to
+# touch production's containers at all, by construction, not by care taken
+# each time.
+name: hamilul-staging
+#
+# Deploys the `staging` branch (checked out separately via `git worktree` at
+# ../Hamilul-Quran-staging — see STAGING.md) into its own containers, own
+# Postgres, own Redis, own secrets (.env.staging-instance). Shares only the
+# already-running Traefik instance (for TLS + routing) with production —
+# nothing else is shared, so testing here can never touch production data.
+#
+# Services:
+#   staging-postgres  — PostgreSQL 16       (isolated network, no prod access)
+#   staging-redis     — Redis 7             (isolated network, no prod access)
+#   staging-backend   — FastAPI / Uvicorn   → staging-api.elhafazah-academy.com
+#   staging-admin     — Vite SPA / serve    → staging-admin.elhafazah-academy.com
+#   staging-frontend  — Next.js standalone  → staging.elhafazah-academy.com
+#
+# Usage (see STAGING.md for the full workflow):
+#   cd /root/Hamilul-Quran-staging && git pull   # pull latest `staging` branch
+#   cd /root/Hamilul-Quran
+#   docker compose -f docker-compose.staging.yml --env-file .env.staging-instance build
+#   docker compose -f docker-compose.staging.yml --env-file .env.staging-instance up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+
+  # ─── PostgreSQL (staging-only, separate from production's) ────────────────────
+  staging-postgres:
+    image: postgres:16-alpine
+    container_name: staging-postgres
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.5
+    logging: *default-logging
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - staging_postgres_data:/var/lib/postgresql/data
+    networks:
+      - staging-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ─── Redis (staging-only) ───────────────────────────────────────────────────
+  staging-redis:
+    image: redis:7-alpine
+    container_name: staging-redis
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: 0.25
+    logging: *default-logging
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - staging_redis_data:/data
+    networks:
+      - staging-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ─── Backend (FastAPI) ──────────────────────────────────────────────────────
+  staging-backend:
+    build:
+      context: /root/Hamilul-Quran-staging/Back-end
+      dockerfile: Dockerfile
+    container_name: staging-backend
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 1.0
+    logging: *default-logging
+    env_file:
+      - .env.staging-instance
+    environment:
+      POSTGRES_HOST: staging-postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@staging-postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://staging-redis:6379/0
+    volumes:
+      - staging_uploads_data:/app/uploads
+    depends_on:
+      staging-postgres:
+        condition: service_healthy
+      staging-redis:
+        condition: service_healthy
+    networks:
+      - staging-net
+      - hamilul-net   # external, shared with production's already-running Traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=hamilul-quran_hamilul-net"
+      - "traefik.http.routers.staging-backend.rule=Host(`staging-api.elhafazah-academy.com`)"
+      - "traefik.http.routers.staging-backend.entrypoints=web"
+      - "traefik.http.routers.staging-backend-secure.rule=Host(`staging-api.elhafazah-academy.com`)"
+      - "traefik.http.routers.staging-backend-secure.entrypoints=websecure"
+      - "traefik.http.routers.staging-backend-secure.tls=true"
+      - "traefik.http.routers.staging-backend-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.staging-backend.loadbalancer.server.port=8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ─── Admin CMS ───────────────────────────────────────────────────────────────
+  staging-admin:
+    build:
+      context: /root/Hamilul-Quran-staging/Admin-CMS
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+        VITE_API_ORIGIN: ${VITE_API_ORIGIN}
+        VITE_API_TIMEOUT: "30000"
+        VITE_SESSION_TIMEOUT: "1800000"
+        VITE_ENABLE_LOGGING: "false"
+        VITE_ENABLE_2FA: "true"
+    container_name: staging-admin
+    restart: unless-stopped
+    mem_limit: 192m
+    cpus: 0.25
+    logging: *default-logging
+    networks:
+      - hamilul-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=hamilul-quran_hamilul-net"
+      - "traefik.http.routers.staging-admin.rule=Host(`staging-admin.elhafazah-academy.com`)"
+      - "traefik.http.routers.staging-admin.entrypoints=web"
+      - "traefik.http.routers.staging-admin-secure.rule=Host(`staging-admin.elhafazah-academy.com`)"
+      - "traefik.http.routers.staging-admin-secure.entrypoints=websecure"
+      - "traefik.http.routers.staging-admin-secure.tls=true"
+      - "traefik.http.routers.staging-admin-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.staging-admin.loadbalancer.server.port=4173"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4173/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ─── Frontend (Next.js standalone) ──────────────────────────────────────────
+  staging-frontend:
+    build:
+      context: /root/Hamilul-Quran-staging/Frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    container_name: staging-frontend
+    restart: unless-stopped
+    mem_limit: 384m
+    cpus: 0.5
+    logging: *default-logging
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    networks:
+      - hamilul-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=hamilul-quran_hamilul-net"
+      - "traefik.http.routers.staging-frontend.rule=Host(`staging.elhafazah-academy.com`)"
+      - "traefik.http.routers.staging-frontend.entrypoints=web"
+      - "traefik.http.routers.staging-frontend-secure.rule=Host(`staging.elhafazah-academy.com`)"
+      - "traefik.http.routers.staging-frontend-secure.entrypoints=websecure"
+      - "traefik.http.routers.staging-frontend-secure.tls=true"
+      - "traefik.http.routers.staging-frontend-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.staging-frontend.loadbalancer.server.port=3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+# ─── Networks ────────────────────────────────────────────────────────────────
+networks:
+  # Isolated — staging-postgres/staging-redis/staging-backend only. No route
+  # to production's network or containers.
+  staging-net:
+    driver: bridge
+  # The network production's docker-compose.yml already created (named
+  # "<project>_hamilul-net" by Compose) — external because it must already
+  # exist (created when the main stack was brought up) and is owned by that
+  # stack, not this one. Joined solely so the existing Traefik instance can
+  # route to staging-backend/-admin/-frontend by container name.
+  #
+  # Honest isolation note: production's own postgres/redis containers are
+  # also on this network, so staging-backend has *network* reachability to
+  # them (can resolve hamilul-postgres/hamilul-redis and open a TCP
+  # connection) — isolation here comes from staging-backend never being
+  # configured with production's credentials (a different POSTGRES_PASSWORD,
+  # set only in .env.staging, not .env.staging-instance), not from network
+  # segmentation. The real data isolation is staging-net above, which
+  # production's containers are never joined to at all.
+  hamilul-net:
+    name: hamilul-quran_hamilul-net
+    external: true
+
+# ─── Volumes ─────────────────────────────────────────────────────────────────
+volumes:
+  staging_postgres_data:
+    driver: local
+  staging_redis_data:
+    driver: local
+  staging_uploads_data:
+    driver: local
