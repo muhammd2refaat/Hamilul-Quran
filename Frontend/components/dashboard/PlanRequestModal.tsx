@@ -9,11 +9,14 @@ import { getPlanDisplayName } from '@/lib/dashboard/planDisplay';
 import { type TeacherOption, type ScheduleSlot, type PlatformRequest, type Plan } from '@/types/dashboard';
 
 const DAY_IDS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-const TIME_SLOTS = [
-  '08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM',
-  '02:00 PM', '03:00 PM', '04:00 PM', '05:00 PM',
-  '06:00 PM', '07:00 PM', '08:00 PM',
-];
+// Full 24-hour range in the "HH:MM AM/PM" format the backend expects
+// (parse_time_str, google_calendar_client.py) — mirrors Admin-CMS's
+// AllocationsPage so students can request any hour, not just 8 AM-8 PM.
+const TIME_SLOTS = Array.from({ length: 24 }, (_, hour) => {
+  const period = hour < 12 ? 'AM' : 'PM';
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${String(displayHour).padStart(2, '0')}:00 ${period}`;
+});
 
 interface PlanRequestModalProps {
   open: boolean;
@@ -25,6 +28,14 @@ interface PlanRequestModalProps {
    * one — pre-fills the picker from its stored values and PATCHes
    * /requests/{id} on save instead of POSTing a new request. */
   editRequest?: PlatformRequest;
+  /**
+   * 'trial' (a brand-new student's free trial): locked to exactly one
+   * 30-minute session — no plan catalog, no price, just a single time-slot
+   * pick from the same full day/time grid. 'change' (default, an existing
+   * student changing/upgrading their plan): the real plan catalog, plus a
+   * "Custom" option for a request that doesn't match any of them.
+   */
+  mode?: 'trial' | 'change';
 }
 
 /**
@@ -50,11 +61,18 @@ export function PlanRequestModal({
   title,
   description,
   editRequest,
+  mode = 'change',
 }: PlanRequestModalProps) {
+  const isTrial = mode === 'trial';
   const { t, lang, dir } = useLang();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [plansLoading, setPlansLoading] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState('');
+  // 'change' mode only: a request that doesn't match any real catalog plan
+  // — reveals the free sessions/duration pickers below the plan cards.
+  const [customMode, setCustomMode] = useState(false);
+  const [customSessions, setCustomSessions] = useState(2);
+  const [customDuration, setCustomDuration] = useState<30 | 45 | 60>(30);
   const [schedule, setSchedule] = useState<ScheduleSlot[]>([]);
   const [preferredTeacher, setPreferredTeacher] = useState('');
   const [notes, setNotes] = useState('');
@@ -66,8 +84,8 @@ export function PlanRequestModal({
   const selectedPlan = plans.find((p) => p.id === selectedPlanId) ?? null;
   // The schedule-slot grid needs a target count/duration even before a plan
   // has loaded/been picked — fall back to sane defaults so it doesn't crash.
-  const sessionsPerWeek = selectedPlan?.sessions_per_week ?? 1;
-  const duration = selectedPlan?.session_duration_minutes ?? 30;
+  const sessionsPerWeek = isTrial ? 1 : customMode ? customSessions : (selectedPlan?.sessions_per_week ?? 1);
+  const duration = isTrial ? 30 : customMode ? customDuration : (selectedPlan?.session_duration_minutes ?? 30);
 
   useEffect(() => {
     if (!open) return;
@@ -92,7 +110,7 @@ export function PlanRequestModal({
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || isTrial) return; // trial mode never shows the catalog — no need to fetch it
     let cancelled = false;
     async function loadPlans() {
       setPlansLoading(true);
@@ -109,7 +127,7 @@ export function PlanRequestModal({
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, isTrial]);
 
   // Pre-fill from the request being edited (or reset to defaults for a new
   // request) each time the modal opens for a *different* target — adjusted
@@ -124,20 +142,32 @@ export function PlanRequestModal({
     setPrefilledFor(openKey);
     // requested_plan_id is only present on requests filed since this plan
     // picker existed — older requests being edited fall back to matching an
-    // active plan by shape (sessions/duration), and if even that fails
-    // (a plan since deactivated), the picker just opens with nothing
-    // selected rather than guessing wrong.
-    if (editRequest?.requested_plan_id) {
-      setSelectedPlanId(editRequest.requested_plan_id);
-    } else if (editRequest?.requested_sessions_per_week && editRequest?.requested_duration) {
-      const match = plans.find(
-        (p) =>
-          p.sessions_per_week === editRequest.requested_sessions_per_week &&
-          p.session_duration_minutes === editRequest.requested_duration
-      );
-      setSelectedPlanId(match?.id ?? '');
-    } else {
-      setSelectedPlanId('');
+    // active plan by shape (sessions/duration); if even that fails, treat it
+    // as a custom request rather than guessing wrong. Trial mode never has
+    // any of this — sessions/duration are always locked, nothing to pre-fill.
+    if (!isTrial) {
+      if (editRequest?.requested_plan_id) {
+        setSelectedPlanId(editRequest.requested_plan_id);
+        setCustomMode(false);
+      } else if (editRequest?.requested_sessions_per_week && editRequest?.requested_duration) {
+        const match = plans.find(
+          (p) =>
+            p.sessions_per_week === editRequest.requested_sessions_per_week &&
+            p.session_duration_minutes === editRequest.requested_duration
+        );
+        if (match) {
+          setSelectedPlanId(match.id);
+          setCustomMode(false);
+        } else {
+          setSelectedPlanId('');
+          setCustomMode(true);
+          setCustomSessions(editRequest.requested_sessions_per_week);
+          setCustomDuration(editRequest.requested_duration as 30 | 45 | 60);
+        }
+      } else {
+        setSelectedPlanId('');
+        setCustomMode(false);
+      }
     }
     setSchedule(editRequest?.requested_schedule ?? []);
     setPreferredTeacher(editRequest?.requested_teacher ?? '');
@@ -152,19 +182,32 @@ export function PlanRequestModal({
 
   function selectPlan(planId: string) {
     setSelectedPlanId(planId);
+    setCustomMode(false);
     setSchedule([]); // slot count must match the new plan's sessions/week — reset like Admin's own picker does
+  }
+
+  function selectCustom() {
+    setSelectedPlanId('');
+    setCustomMode(true);
+    setSchedule([]);
   }
 
   function toggleSlot(day: string, time: string) {
     const idx = schedule.findIndex((s) => s.day === day && s.time === time);
     if (idx >= 0) {
       setSchedule(schedule.filter((_, i) => i !== idx));
+    } else if (isTrial) {
+      // Trial is locked to a single session — picking a new slot swaps the
+      // previous pick instead of requiring it to be deselected first.
+      setSchedule([{ day, time }]);
     } else if (schedule.length < sessionsPerWeek) {
       setSchedule([...schedule, { day, time }]);
     }
   }
 
-  const isValid = !!selectedPlanId && schedule.length === sessionsPerWeek;
+  const isValid = isTrial
+    ? schedule.length === 1
+    : (!!selectedPlanId || customMode) && schedule.length === sessionsPerWeek;
 
   async function handleSubmit() {
     if (!isValid) return;
@@ -182,14 +225,21 @@ export function PlanRequestModal({
         `${t.timeSlotsLabel}: ${slotsText}` +
         (notes.trim() ? `\n\n${t.additionalNotesLabel}: ${notes.trim()}` : '');
 
+      // English, regardless of the site's current language — this is the
+      // summary Admin-CMS shows, a separate (English-first) app from this
+      // one. requested_plan_id is the source of truth for a real plan
+      // either way; this string is just a readable fallback for trial/
+      // custom requests, which have no catalog row to point to.
+      const requestedPlanSummary = isTrial
+        ? 'Free trial — 1 session / 30 min'
+        : selectedPlan
+          ? selectedPlan.name
+          : `${sessionsPerWeek}×/week, ${duration} min (custom)`;
+
       const payload = {
         details,
-        // English name, regardless of the site's current language — this is
-        // the summary Admin-CMS shows, a separate (English-first) app from
-        // this one. requested_plan_id is the source of truth either way;
-        // this string is just a readable fallback.
-        requested_plan: selectedPlan ? selectedPlan.name : `${sessionsPerWeek}×/week, ${duration} min`,
-        requested_plan_id: selectedPlan?.id,
+        requested_plan: requestedPlanSummary,
+        requested_plan_id: !isTrial ? selectedPlan?.id : undefined,
         requested_teacher: preferredTeacher || undefined,
         requested_sessions_per_week: sessionsPerWeek,
         requested_duration: duration,
@@ -263,21 +313,53 @@ export function PlanRequestModal({
         </h2>
         {description && <p style={{ fontSize: 13, color: EE.sageMuted, marginBottom: 22 }}>{description}</p>}
 
-        {/* Plan */}
-        <SectionLabel icon={Layers} title={t.choosePlanLabel} desc={t.choosePlanDesc} />
-        {plansLoading ? (
-          <p style={{ fontSize: 13, color: EE.sageMuted, marginBottom: 22 }}>{t.loadingTeachers}</p>
-        ) : plans.length === 0 ? (
-          <p style={{ fontSize: 13, color: EE.sageMuted, marginBottom: 22 }}>{t.noPlansAvailable}</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 22 }}>
-            {plans.map((plan) => {
-              const active = plan.id === selectedPlanId;
-              return (
+        {/* Plan — skipped entirely for a trial: always exactly one 30-minute
+            session, no catalog, no price. */}
+        {!isTrial && (
+          <>
+            <SectionLabel icon={Layers} title={t.choosePlanLabel} desc={t.choosePlanDesc} />
+            {plansLoading ? (
+              <p style={{ fontSize: 13, color: EE.sageMuted, marginBottom: 22 }}>{t.loadingTeachers}</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: customMode ? 14 : 22 }}>
+                {plans.length === 0 && (
+                  <p style={{ fontSize: 13, color: EE.sageMuted }}>{t.noPlansAvailable}</p>
+                )}
+                {plans.map((plan) => {
+                  const active = !customMode && plan.id === selectedPlanId;
+                  return (
+                    <button
+                      key={plan.id}
+                      type="button"
+                      onClick={() => selectPlan(plan.id)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        padding: '12px 14px',
+                        borderRadius: 10,
+                        border: `2px solid ${active ? EE.emerald : EE.border}`,
+                        background: active ? 'rgba(15,122,61,.08)' : '#fff',
+                        cursor: 'pointer',
+                        textAlign: 'start' as const,
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      <span style={{ fontSize: 13.5, fontWeight: 600, color: EE.ink }}>
+                        {getPlanDisplayName(plan, lang)}
+                      </span>
+                      <span style={{ fontSize: 13.5, fontWeight: 700, color: active ? EE.emerald : EE.goldDeep, flexShrink: 0 }}>
+                        {plan.price} {plan.currency}
+                      </span>
+                    </button>
+                  );
+                })}
+                {/* Not one of the priced plans — a fully custom request an
+                    admin reviews and follows up on manually. */}
                 <button
-                  key={plan.id}
                   type="button"
-                  onClick={() => selectPlan(plan.id)}
+                  onClick={selectCustom}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -285,23 +367,54 @@ export function PlanRequestModal({
                     gap: 12,
                     padding: '12px 14px',
                     borderRadius: 10,
-                    border: `2px solid ${active ? EE.emerald : EE.border}`,
-                    background: active ? 'rgba(15,122,61,.08)' : '#fff',
+                    border: `2px dashed ${customMode ? EE.emerald : EE.border}`,
+                    background: customMode ? 'rgba(15,122,61,.08)' : '#fff',
                     cursor: 'pointer',
                     textAlign: 'start' as const,
                     fontFamily: 'inherit',
                   }}
                 >
-                  <span style={{ fontSize: 13.5, fontWeight: 600, color: EE.ink }}>
-                    {getPlanDisplayName(plan, lang)}
-                  </span>
-                  <span style={{ fontSize: 13.5, fontWeight: 700, color: active ? EE.emerald : EE.goldDeep, flexShrink: 0 }}>
-                    {plan.price} {plan.currency}
-                  </span>
+                  <span style={{ fontSize: 13.5, fontWeight: 600, color: EE.ink }}>{t.customPlanLabel}</span>
                 </button>
-              );
-            })}
-          </div>
+              </div>
+            )}
+
+            {customMode && (
+              <div style={{ marginBottom: 22, paddingLeft: 4 }}>
+                <FormField label={t.sessionsPerWeekLabel}>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => {
+                          setCustomSessions(n);
+                          setSchedule([]);
+                        }}
+                        style={smallPillStyle(customSessions === n)}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </FormField>
+                <FormField label={t.durationLabel}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {([30, 45, 60] as const).map((mins) => (
+                      <button
+                        key={mins}
+                        type="button"
+                        onClick={() => setCustomDuration(mins)}
+                        style={{ ...smallPillStyle(customDuration === mins), padding: '8px 14px', width: 'auto' }}
+                      >
+                        {mins} min
+                      </button>
+                    ))}
+                  </div>
+                </FormField>
+              </div>
+            )}
+          </>
         )}
 
         {/* Time slots */}
@@ -460,6 +573,21 @@ const inputStyle: React.CSSProperties = {
   color: EE.ink,
   outline: 'none',
 };
+
+function smallPillStyle(active: boolean): React.CSSProperties {
+  return {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    fontSize: 13,
+    fontWeight: 700,
+    fontFamily: 'inherit',
+    border: `2px solid ${active ? EE.emerald : EE.border}`,
+    background: active ? EE.emerald : '#fff',
+    color: active ? EE.parchment : EE.sageMuted,
+    cursor: 'pointer',
+  };
+}
 
 const secondaryBtnStyle: React.CSSProperties = {
   flex: 1,

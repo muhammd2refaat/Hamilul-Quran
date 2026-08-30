@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Sparkles, CalendarClock, Award, ClipboardList } from 'lucide-react';
 import { apiClient } from '@/lib/api';
-import { type AttendanceSummary } from '@/types/dashboard';
+import { type AttendanceSummary, type Subscription } from '@/types/dashboard';
 import { useLang } from '@/lib/dashboard/i18n';
 import { useDashboardUser } from '@/lib/dashboard/UserContext';
 import { useStudentStatus } from '@/lib/dashboard/StudentStatusContext';
@@ -21,6 +21,11 @@ export default function StudentOverviewPage() {
   const [trialOpen, setTrialOpen] = useState(false);
   const [trialSent, setTrialSent] = useState(false);
   const [attendance, setAttendance] = useState<AttendanceSummary | null>(null);
+  // Once a student already has a plan/subscription, the free-trial offer no
+  // longer applies to them — checked separately from `isNew` (which only
+  // reflects allocations) because a student can be subscribed to a real
+  // plan before an admin has scheduled their first allocation for it.
+  const [hasSubscription, setHasSubscription] = useState(false);
 
   useEffect(() => {
     if (isNew) return;
@@ -32,6 +37,22 @@ export default function StudentOverviewPage() {
       })
       .catch(() => {
         // Non-critical stat — leave the card showing "—" on failure.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isNew]);
+
+  useEffect(() => {
+    if (!isNew) return;
+    let cancelled = false;
+    apiClient
+      .get<Subscription>('/subscriptions/me')
+      .then(({ data }) => {
+        if (!cancelled) setHasSubscription(data.status !== 'withdrawn');
+      })
+      .catch(() => {
+        // 404 = no subscription yet — trial offer stays visible.
       });
     return () => {
       cancelled = true;
@@ -61,7 +82,7 @@ export default function StudentOverviewPage() {
           </p>
           {trialSent ? (
             <p style={{ fontSize: 14, color: EE.gold, fontWeight: 600, margin: 0 }}>{t.trialRequested}</p>
-          ) : (
+          ) : hasSubscription ? null : (
             <button
               onClick={() => setTrialOpen(true)}
               style={{
@@ -117,6 +138,7 @@ export default function StudentOverviewPage() {
         onSuccess={() => setTrialSent(true)}
         title={t.requestTrialBtn}
         description={t.newStudentDesc}
+        mode="trial"
       />
     </div>
   );
