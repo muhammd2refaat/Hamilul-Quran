@@ -61,7 +61,7 @@ export const useReceiptsStore = create<ReceiptsState>((set) => ({
       set({ receipts, unreadCount: countNew(receipts), isLoading: false });
     } catch (error: any) {
       set({
-        error: error.response?.data?.detail || 'Failed to fetch receipts',
+        error: error.response?.data?.message || 'Failed to fetch receipts',
         isLoading: false,
       });
     }

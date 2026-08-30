@@ -47,7 +47,10 @@ async def download_receipt_file(receipt_id: uuid.UUID, current_user: CurrentUser
     receipt = await svc.get_for_download(receipt_id, current_user)
     file_path = Path(settings.upload_dir) / receipt.file_path
     if not file_path.is_file():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Receipt file not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="This receipt's file is no longer available on the server.",
+        )
     return FileResponse(
         path=file_path,
         media_type=receipt.content_type,

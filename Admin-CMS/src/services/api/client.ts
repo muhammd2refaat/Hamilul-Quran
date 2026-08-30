@@ -74,9 +74,28 @@ apiClient.interceptors.response.use(
     } else if (status === 401) {
       window.location.href = '/auth/login';
     } else if (status >= 400) {
-      import('react-hot-toast').then(({ default: toast }) => {
-        toast.error(data?.message || `Error ${status}`);
-      });
+      const rawData: unknown = error.response?.data;
+      if (typeof Blob !== 'undefined' && rawData instanceof Blob) {
+        // A request made with responseType: 'blob' (e.g. downloading a
+        // receipt file) gets its ERROR body delivered as a Blob too, not
+        // parsed JSON — data?.message above is always undefined for these,
+        // so every failure silently fell back to the generic "Error 404"
+        // instead of the backend's actual message. Decode it by hand.
+        rawData.text().then((text) => {
+          let message = `Error ${status}`;
+          try {
+            const parsed = JSON.parse(text);
+            if (parsed?.message) message = parsed.message;
+          } catch {
+            // Body wasn't JSON — keep the generic fallback.
+          }
+          import('react-hot-toast').then(({ default: toast }) => toast.error(message));
+        });
+      } else {
+        import('react-hot-toast').then(({ default: toast }) => {
+          toast.error(data?.message || `Error ${status}`);
+        });
+      }
     }
 
     return Promise.reject(error);

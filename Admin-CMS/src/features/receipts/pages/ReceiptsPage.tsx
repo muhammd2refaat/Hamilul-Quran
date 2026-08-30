@@ -7,7 +7,6 @@
 import { useEffect, useState } from 'react';
 import { Receipt as ReceiptIcon, Eye, Download, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import toast from 'react-hot-toast';
 import { Card, Modal } from '@/shared/components';
 import { useReceiptsStore, type Receipt } from '../store/receiptsStore';
 import { format } from 'date-fns';
@@ -38,8 +37,10 @@ export function ReceiptsPage() {
     try {
       const blob = await fetchReceiptBlob(receipt.id);
       setBlobUrl(URL.createObjectURL(blob));
-    } catch (error: any) {
-      toast.error(error?.response?.data?.detail || 'Failed to load receipt');
+    } catch {
+      // apiClient's response interceptor already toasts the backend's real
+      // message (e.g. "This receipt's file is no longer available") — a
+      // second toast here would just duplicate it with a less specific one.
       setViewing(null);
     } finally {
       setIsLoadingBlob(false);
@@ -70,8 +71,8 @@ export function ReceiptsPage() {
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-    } catch (error: any) {
-      toast.error(error?.response?.data?.detail || 'Failed to download receipt');
+    } catch {
+      // Same as openViewer above — the interceptor already shows the real message.
     } finally {
       setDownloadingId(null);
     }
