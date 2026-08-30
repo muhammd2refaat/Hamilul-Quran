@@ -3,14 +3,21 @@
  * normalizes it into a single shape the signup form can rely on.
  *
  * The JSON file's exact key names aren't dictated by this app (it's a
- * generic dataset dropped into public/), so this accepts several common
- * aliases seen in the popular "countries.json" datasets floating around
- * (name/name_en, name_ar, dial_code/phone_code/calling_code,
+ * generic dataset dropped into public/ — currently the dr5hn/
+ * countries-states-cities-database export), so this accepts several common
+ * aliases seen in popular "countries.json" datasets (name/name_en,
+ * name_ar/translations.ar, dial_code/phone_code/calling_code,
  * code/iso2/alpha2/cca2) and normalizes whatever's present. The flag is
  * always computed from the ISO alpha-2 code via Unicode regional-indicator
- * symbols rather than trusting a possibly-missing `flag` field, so a flag
- * renders correctly regardless of what the source file provides.
+ * symbols rather than trusting a possibly-missing `flag`/`emoji` field, so a
+ * flag renders correctly regardless of what the source file provides.
+ *
+ * The current dataset doesn't ship an Arabic translation at all (its
+ * `translations` object covers other languages but not `ar`), so when a row
+ * has none, ARABIC_NAMES_BY_ISO2 supplies one by ISO code instead of
+ * silently falling back to the English name in Arabic mode.
  */
+import { ARABIC_NAMES_BY_ISO2 } from './countryArabicNames';
 
 export interface CountryOption {
   /** ISO 3166-1 alpha-2 code, upper-cased (e.g. "EG"). */
@@ -32,10 +39,15 @@ function flagEmoji(iso2: string): string {
     .replace(/./g, (c) => String.fromCodePoint(127397 + c.charCodeAt(0)));
 }
 
+// Some datasets encode a territory's dial code as "+1-684" (country code
+// plus a NANP-style area code) or "+1-809 and 1-829" (multiple area
+// codes) rather than a plain "+93". We only want the leading calling
+// code as the phone field's prefix — the rest is part of the national
+// number the student types themselves.
 function normalizeDialCode(raw: unknown): string {
   const str = String(raw ?? '').trim();
-  if (!str) return '';
-  return str.startsWith('+') ? str : `+${str}`;
+  const match = str.match(/\+?(\d+)/);
+  return match ? `+${match[1]}` : '';
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -51,12 +63,12 @@ function normalizeRow(row: any): CountryOption | null {
   const code = String(pick(row, ['code', 'iso2', 'alpha2', 'cca2', 'country_code']) ?? '').toUpperCase();
   const name = String(pick(row, ['name', 'name_en', 'nameEn', 'en']) ?? '').trim();
   if (!code || !name) return null;
-  const nameArRaw = pick(row, ['name_ar', 'nameAr', 'ar']);
+  const nameArRaw = pick(row, ['name_ar', 'nameAr', 'ar']) ?? row?.translations?.ar ?? row?.translations?.['ar-SA'];
   const dialCode = normalizeDialCode(pick(row, ['dial_code', 'dialCode', 'phone_code', 'phoneCode', 'calling_code']));
   return {
     code,
     name,
-    nameAr: nameArRaw ? String(nameArRaw).trim() : name,
+    nameAr: (nameArRaw ? String(nameArRaw).trim() : '') || ARABIC_NAMES_BY_ISO2[code] || name,
     dialCode,
     flag: flagEmoji(code),
   };
