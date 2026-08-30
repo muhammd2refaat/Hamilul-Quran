@@ -29,6 +29,11 @@ class Plan(SQLModel, table=True):
         nullable=False,
     )
     name: str = Field(max_length=200)
+    # Optional Arabic display name — falls back to a name computed from
+    # sessions_per_week/session_duration_minutes on the (bilingual) Frontend
+    # when left blank, so a plan an admin creates without bothering to set
+    # this still displays sensibly in Arabic rather than showing raw English.
+    name_ar: Optional[str] = Field(default=None, max_length=200)
     sessions_per_week: int = Field(ge=1)
     session_duration_minutes: int = Field(ge=1)
     price: Decimal = Field(sa_column=Column(Numeric(10, 2), nullable=False))

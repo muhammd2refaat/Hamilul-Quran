@@ -10,6 +10,7 @@ import { SectionHeader } from '@/components/dashboard/SectionHeader';
 import { Placeholder } from '@/components/dashboard/Placeholder';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { PlanRequestModal } from '@/components/dashboard/PlanRequestModal';
+import { getPlanDisplayName } from '@/lib/dashboard/planDisplay';
 import type { PlatformRequest, Subscription, SubscriptionStatus } from '@/types/dashboard';
 
 const STATUS_COLORS: Record<SubscriptionStatus, { bg: string; fg: string }> = {
@@ -121,7 +122,13 @@ export default function StudentPlanPage() {
             </div>
             <div>
               <div style={{ fontFamily: EE.fontHead, fontSize: 16, fontWeight: 600, color: EE.ink }}>
-                {subscription ? subscription.plan_name : isNew ? t.planStatusPending : t.currentPlanSnapshot}
+                {subscription
+                  ? subscription.plan
+                    ? getPlanDisplayName(subscription.plan, lang)
+                    : subscription.plan_name
+                  : isNew
+                    ? t.planStatusPending
+                    : t.currentPlanSnapshot}
               </div>
               {!isNew && alloc && (
                 <div style={{ fontSize: 12.5, color: EE.sageMuted }}>

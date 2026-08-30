@@ -28,6 +28,7 @@ class RequestResponse(BaseModel):
     requested_day: Optional[str] = None
     requested_time: Optional[str] = None
     requested_plan: Optional[str] = None
+    requested_plan_id: Optional[uuid.UUID] = None
     requested_teacher: Optional[str] = None
     requested_sessions_per_week: Optional[int] = None
     requested_duration: Optional[int] = None
@@ -56,6 +57,7 @@ class RequestCreate(BaseModel):
     requested_day: Optional[str] = None
     requested_time: Optional[str] = None
     requested_plan: Optional[str] = None
+    requested_plan_id: Optional[uuid.UUID] = None
     requested_teacher: Optional[str] = None
     requested_sessions_per_week: Optional[int] = None
     requested_duration: Optional[int] = None
@@ -73,6 +75,7 @@ class RequestUpdate(BaseModel):
     requested_day: Optional[str] = None
     requested_time: Optional[str] = None
     requested_plan: Optional[str] = None
+    requested_plan_id: Optional[uuid.UUID] = None
     requested_teacher: Optional[str] = None
     requested_sessions_per_week: Optional[int] = None
     requested_duration: Optional[int] = None

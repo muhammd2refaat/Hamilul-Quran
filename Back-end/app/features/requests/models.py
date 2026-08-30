@@ -61,8 +61,14 @@ class PlatformRequest(SQLModel, table=True):
     requested_day: Optional[str] = Field(default=None, max_length=50)
     requested_time: Optional[str] = Field(default=None, max_length=50)
 
-    # Enrollment / change-teacher specific.
+    # Enrollment / change-teacher specific. requested_plan stays the
+    # human-readable summary (shown as-is in Admin-CMS's request list, and
+    # the only field a GUEST/public-trial submission ever sets); requested_plan_id
+    # links to the real Plan catalog row when the student picked one from
+    # PlanRequestModal — lets an admin resolve exactly which plan was meant
+    # instead of re-parsing free text.
     requested_plan: Optional[str] = Field(default=None, max_length=255)
+    requested_plan_id: Optional[uuid.UUID] = Field(default=None, foreign_key="plans.id", index=True)
     requested_teacher: Optional[str] = Field(default=None, max_length=255)
 
     # Structured plan-request picks (PlanRequestModal — sessions/week,

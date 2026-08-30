@@ -11,6 +11,7 @@ from app.features.subscriptions.models import SubscriptionStatus
 
 class PlanCreate(BaseModel):
     name: str
+    name_ar: Optional[str] = None
     sessions_per_week: int
     session_duration_minutes: int
     price: Decimal
@@ -19,6 +20,7 @@ class PlanCreate(BaseModel):
 
 class PlanUpdate(BaseModel):
     name: Optional[str] = None
+    name_ar: Optional[str] = None
     sessions_per_week: Optional[int] = None
     session_duration_minutes: Optional[int] = None
     price: Optional[Decimal] = None
@@ -29,6 +31,7 @@ class PlanUpdate(BaseModel):
 class PlanResponse(BaseModel):
     id: uuid.UUID
     name: str
+    name_ar: Optional[str] = None
     sessions_per_week: int
     session_duration_minutes: int
     price: Decimal

@@ -7,6 +7,7 @@ import { get, post, patch, del } from '@/services/api/client';
 export interface Plan {
   id: string;
   name: string;
+  nameAr?: string;
   sessionsPerWeek: number;
   sessionDurationMinutes: number;
   price: string;
@@ -18,6 +19,7 @@ export interface Plan {
 
 export interface PlanCreateInput {
   name: string;
+  name_ar?: string;
   sessions_per_week: number;
   session_duration_minutes: number;
   price: number;
@@ -31,6 +33,7 @@ export interface PlanUpdateInput extends Partial<PlanCreateInput> {
 const mapPlan = (item: any): Plan => ({
   id: item.id,
   name: item.name,
+  nameAr: item.name_ar ?? undefined,
   sessionsPerWeek: item.sessions_per_week,
   sessionDurationMinutes: item.session_duration_minutes,
   price: item.price,
@@ -39,6 +42,32 @@ const mapPlan = (item: any): Plan => ({
   createdAt: item.created_at,
   updatedAt: item.updated_at,
 });
+
+// Localized display name for a plan — Plan.name is always the English name
+// an admin typed; nameAr is optional, so a plan without one still shows
+// something sensible in Arabic rather than falling back to raw English.
+function arabicSessionsPhrase(sessionsPerWeek: number): string {
+  if (sessionsPerWeek === 1) return 'حلقه واحده اسبوعيا';
+  if (sessionsPerWeek === 2) return 'حلقتين اسبوعيا';
+  return `${sessionsPerWeek} حلقات اسبوعيا`;
+}
+
+// Structural (not the exact Plan type) so this also accepts subscriptions'
+// nested SubscriptionPlan, which has the same shape minus a couple of
+// timestamp fields it has no use for.
+interface DisplayNameable {
+  name: string;
+  nameAr?: string;
+  sessionsPerWeek: number;
+  sessionDurationMinutes: number;
+}
+
+export function getPlanDisplayName(plan: DisplayNameable, lang: string): string {
+  if (lang === 'ar') {
+    return plan.nameAr || `${arabicSessionsPhrase(plan.sessionsPerWeek)} - ${plan.sessionDurationMinutes} دقيقة`;
+  }
+  return plan.name;
+}
 
 interface PlansState {
   plans: Plan[];

@@ -13,6 +13,7 @@ import { usePlansStore, type Plan } from '../store/plansStore';
 
 interface FormState {
   name: string;
+  nameAr: string;
   sessionsPerWeek: string;
   sessionDurationMinutes: string;
   price: string;
@@ -21,6 +22,7 @@ interface FormState {
 
 const EMPTY_FORM: FormState = {
   name: '',
+  nameAr: '',
   sessionsPerWeek: '1',
   sessionDurationMinutes: '30',
   price: '',
@@ -57,6 +59,7 @@ export function PlansPage() {
     setEditingPlan(plan);
     setForm({
       name: plan.name,
+      nameAr: plan.nameAr ?? '',
       sessionsPerWeek: String(plan.sessionsPerWeek),
       sessionDurationMinutes: String(plan.sessionDurationMinutes),
       price: plan.price,
@@ -77,6 +80,7 @@ export function PlansPage() {
     try {
       const payload = {
         name: form.name.trim(),
+        name_ar: form.nameAr.trim() || undefined,
         sessions_per_week: Number(form.sessionsPerWeek),
         session_duration_minutes: Number(form.sessionDurationMinutes),
         price: Number(form.price),
@@ -154,7 +158,10 @@ export function PlansPage() {
               }`}
             >
               <div className="flex items-start justify-between gap-2">
-                <h3 className="font-bold text-gray-900 leading-snug">{plan.name}</h3>
+                <div>
+                  <h3 className="font-bold text-gray-900 leading-snug">{plan.name}</h3>
+                  {plan.nameAr && <p className="text-xs text-gray-400 mt-0.5" dir="rtl">{plan.nameAr}</p>}
+                </div>
                 {!plan.isActive && (
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 flex-shrink-0">
                     {t('plans.inactive')}
@@ -224,6 +231,14 @@ export function PlansPage() {
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             placeholder={t('plans.namePlaceholder')}
             required
+          />
+          <Input
+            label={t('plans.nameAr')}
+            value={form.nameAr}
+            onChange={(e) => setForm((f) => ({ ...f, nameAr: e.target.value }))}
+            placeholder={t('plans.nameArPlaceholder')}
+            helperText={t('plans.nameArHelp')}
+            dir="rtl"
           />
           <div className="grid grid-cols-2 gap-4">
             <Input

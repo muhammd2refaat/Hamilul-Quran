@@ -103,6 +103,7 @@ export interface PlatformRequest {
   requested_day?: string;
   requested_time?: string;
   requested_plan?: string;
+  requested_plan_id?: string | null;
   requested_teacher?: string;
   // Structured PlanRequestModal picks — present for plan requests filed
   // since this was added; older requests may have these as null/undefined
@@ -140,12 +141,20 @@ export type SubscriptionStatus = 'active' | 'paused' | 'withdrawn';
 export interface SubscriptionPlan {
   id: string;
   name: string;
+  // Optional Arabic display name — falls back to a computed label (see
+  // lib/dashboard/planDisplay.ts) when unset, so a plan without one still
+  // shows sensibly rather than falling back to raw English.
+  name_ar?: string | null;
   sessions_per_week: number;
   session_duration_minutes: number;
   price: string;
   currency: string;
   is_active: boolean;
 }
+
+// Same shape as SubscriptionPlan — used for the standalone plan catalog
+// (GET /plans) rather than a subscription's nested plan detail.
+export type Plan = SubscriptionPlan;
 
 export interface Subscription {
   id: string;

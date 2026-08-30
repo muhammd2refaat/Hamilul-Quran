@@ -20,7 +20,7 @@ import {
   type Subscription,
   type SubscriptionStatus,
 } from '../store/subscriptionsStore';
-import { usePlansStore } from '@/features/plans/store/plansStore';
+import { usePlansStore, getPlanDisplayName } from '@/features/plans/store/plansStore';
 import { useUsersStore } from '@/features/users/store/usersStore';
 import { format } from 'date-fns';
 
@@ -61,7 +61,7 @@ interface FormState {
 }
 
 export function SubscriptionsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { subscriptions, fetchSubscriptions, upsertSubscription } = useSubscriptionsStore();
   const { plans, fetchPlans } = usePlansStore();
   const { users, fetchUsers } = useUsersStore();
@@ -86,8 +86,12 @@ export function SubscriptionsPage() {
 
   const activePlans = useMemo(() => plans.filter((p) => p.isActive), [plans]);
   const planOptions = useMemo(
-    () => activePlans.map((p) => ({ value: p.id, label: `${p.name} — ${p.price} ${p.currency}` })),
-    [activePlans]
+    () =>
+      activePlans.map((p) => ({
+        value: p.id,
+        label: `${getPlanDisplayName(p, i18n.language)} — ${p.price} ${p.currency}`,
+      })),
+    [activePlans, i18n.language]
   );
 
   const students = useMemo(() => users.filter((u) => u.role === 'STUDENT'), [users]);
@@ -243,7 +247,11 @@ export function SubscriptionsPage() {
               </div>
 
               <div className="text-sm text-gray-700 sm:w-44 truncate">
-                {row.subscription?.planName || t('subscriptions.noPlan')}
+                {row.subscription
+                  ? row.subscription.plan
+                    ? getPlanDisplayName(row.subscription.plan, i18n.language)
+                    : row.subscription.planName
+                  : t('subscriptions.noPlan')}
                 {row.subscription?.sessionsRemaining !== undefined && row.subscription.status !== 'paused' && (
                   <div className="text-[11px] text-gray-400 flex items-center gap-1">
                     <Layers className="h-3 w-3" />

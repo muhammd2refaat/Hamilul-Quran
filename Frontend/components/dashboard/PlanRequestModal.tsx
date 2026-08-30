@@ -1,15 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, CalendarDays, Clock, CalendarCheck } from 'lucide-react';
+import { X, CalendarCheck, Layers } from 'lucide-react';
 import { EE } from '@/lib/dashboard/theme';
 import { useLang } from '@/lib/dashboard/i18n';
 import { apiClient } from '@/lib/api';
-import { type TeacherOption, type ScheduleSlot, type PlatformRequest } from '@/types/dashboard';
+import { getPlanDisplayName } from '@/lib/dashboard/planDisplay';
+import { type TeacherOption, type ScheduleSlot, type PlatformRequest, type Plan } from '@/types/dashboard';
 
 const DAY_IDS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-const SESSIONS_OPTIONS = [1, 2, 3, 4, 5, 6, 7] as const;
-const DURATION_OPTIONS = [30, 45, 60] as const;
 const TIME_SLOTS = [
   '08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM',
   '02:00 PM', '03:00 PM', '04:00 PM', '05:00 PM',
@@ -52,9 +51,10 @@ export function PlanRequestModal({
   description,
   editRequest,
 }: PlanRequestModalProps) {
-  const { t, dir } = useLang();
-  const [sessionsPerWeek, setSessionsPerWeek] = useState(2);
-  const [duration, setDuration] = useState<30 | 45 | 60>(30);
+  const { t, lang, dir } = useLang();
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState('');
   const [schedule, setSchedule] = useState<ScheduleSlot[]>([]);
   const [preferredTeacher, setPreferredTeacher] = useState('');
   const [notes, setNotes] = useState('');
@@ -62,6 +62,12 @@ export function PlanRequestModal({
   const [teachersLoading, setTeachersLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedPlan = plans.find((p) => p.id === selectedPlanId) ?? null;
+  // The schedule-slot grid needs a target count/duration even before a plan
+  // has loaded/been picked — fall back to sane defaults so it doesn't crash.
+  const sessionsPerWeek = selectedPlan?.sessions_per_week ?? 1;
+  const duration = selectedPlan?.session_duration_minutes ?? 30;
 
   useEffect(() => {
     if (!open) return;
@@ -85,6 +91,26 @@ export function PlanRequestModal({
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    async function loadPlans() {
+      setPlansLoading(true);
+      try {
+        const { data } = await apiClient.get<Plan[]>('/plans', { params: { include_inactive: false } });
+        if (!cancelled) setPlans(data);
+      } catch {
+        if (!cancelled) setPlans([]);
+      } finally {
+        if (!cancelled) setPlansLoading(false);
+      }
+    }
+    loadPlans();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
   // Pre-fill from the request being edited (or reset to defaults for a new
   // request) each time the modal opens for a *different* target — adjusted
   // during render rather than in an effect, per React's own guidance for
@@ -96,8 +122,23 @@ export function PlanRequestModal({
   const [prefilledFor, setPrefilledFor] = useState<string | null>(null);
   if (open && openKey !== prefilledFor) {
     setPrefilledFor(openKey);
-    setSessionsPerWeek(editRequest?.requested_sessions_per_week ?? 2);
-    setDuration((editRequest?.requested_duration as 30 | 45 | 60) ?? 30);
+    // requested_plan_id is only present on requests filed since this plan
+    // picker existed — older requests being edited fall back to matching an
+    // active plan by shape (sessions/duration), and if even that fails
+    // (a plan since deactivated), the picker just opens with nothing
+    // selected rather than guessing wrong.
+    if (editRequest?.requested_plan_id) {
+      setSelectedPlanId(editRequest.requested_plan_id);
+    } else if (editRequest?.requested_sessions_per_week && editRequest?.requested_duration) {
+      const match = plans.find(
+        (p) =>
+          p.sessions_per_week === editRequest.requested_sessions_per_week &&
+          p.session_duration_minutes === editRequest.requested_duration
+      );
+      setSelectedPlanId(match?.id ?? '');
+    } else {
+      setSelectedPlanId('');
+    }
     setSchedule(editRequest?.requested_schedule ?? []);
     setPreferredTeacher(editRequest?.requested_teacher ?? '');
     // The free-text note isn't stored as its own field — it's folded into
@@ -109,9 +150,9 @@ export function PlanRequestModal({
 
   if (!open) return null;
 
-  function chooseSessionsPerWeek(n: number) {
-    setSessionsPerWeek(n);
-    setSchedule([]); // slot count must match — reset like Admin's own picker does
+  function selectPlan(planId: string) {
+    setSelectedPlanId(planId);
+    setSchedule([]); // slot count must match the new plan's sessions/week — reset like Admin's own picker does
   }
 
   function toggleSlot(day: string, time: string) {
@@ -123,7 +164,7 @@ export function PlanRequestModal({
     }
   }
 
-  const isValid = schedule.length === sessionsPerWeek;
+  const isValid = !!selectedPlanId && schedule.length === sessionsPerWeek;
 
   async function handleSubmit() {
     if (!isValid) return;
@@ -143,7 +184,12 @@ export function PlanRequestModal({
 
       const payload = {
         details,
-        requested_plan: `${sessionsPerWeek}×/week, ${duration} min`,
+        // English name, regardless of the site's current language — this is
+        // the summary Admin-CMS shows, a separate (English-first) app from
+        // this one. requested_plan_id is the source of truth either way;
+        // this string is just a readable fallback.
+        requested_plan: selectedPlan ? selectedPlan.name : `${sessionsPerWeek}×/week, ${duration} min`,
+        requested_plan_id: selectedPlan?.id,
         requested_teacher: preferredTeacher || undefined,
         requested_sessions_per_week: sessionsPerWeek,
         requested_duration: duration,
@@ -217,35 +263,46 @@ export function PlanRequestModal({
         </h2>
         {description && <p style={{ fontSize: 13, color: EE.sageMuted, marginBottom: 22 }}>{description}</p>}
 
-        {/* Sessions per week */}
-        <SectionLabel icon={CalendarDays} title={t.sessionsPerWeekLabel} desc={t.sessionsPerWeekDesc} />
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 22 }}>
-          {SESSIONS_OPTIONS.map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => chooseSessionsPerWeek(n)}
-              style={pillStyle(sessionsPerWeek === n)}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
-
-        {/* Duration */}
-        <SectionLabel icon={Clock} title={t.durationLabel} desc={t.durationDesc} />
-        <div style={{ display: 'flex', gap: 8, marginBottom: 22 }}>
-          {DURATION_OPTIONS.map((mins) => (
-            <button
-              key={mins}
-              type="button"
-              onClick={() => setDuration(mins)}
-              style={pillStyle(duration === mins, true)}
-            >
-              {mins} min
-            </button>
-          ))}
-        </div>
+        {/* Plan */}
+        <SectionLabel icon={Layers} title={t.choosePlanLabel} desc={t.choosePlanDesc} />
+        {plansLoading ? (
+          <p style={{ fontSize: 13, color: EE.sageMuted, marginBottom: 22 }}>{t.loadingTeachers}</p>
+        ) : plans.length === 0 ? (
+          <p style={{ fontSize: 13, color: EE.sageMuted, marginBottom: 22 }}>{t.noPlansAvailable}</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 22 }}>
+            {plans.map((plan) => {
+              const active = plan.id === selectedPlanId;
+              return (
+                <button
+                  key={plan.id}
+                  type="button"
+                  onClick={() => selectPlan(plan.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    padding: '12px 14px',
+                    borderRadius: 10,
+                    border: `2px solid ${active ? EE.emerald : EE.border}`,
+                    background: active ? 'rgba(15,122,61,.08)' : '#fff',
+                    cursor: 'pointer',
+                    textAlign: 'start' as const,
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <span style={{ fontSize: 13.5, fontWeight: 600, color: EE.ink }}>
+                    {getPlanDisplayName(plan, lang)}
+                  </span>
+                  <span style={{ fontSize: 13.5, fontWeight: 700, color: active ? EE.emerald : EE.goldDeep, flexShrink: 0 }}>
+                    {plan.price} {plan.currency}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Time slots */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -391,22 +448,6 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-function pillStyle(active: boolean, wide = false): React.CSSProperties {
-  return {
-    width: wide ? undefined : 40,
-    padding: wide ? '10px 16px' : undefined,
-    height: wide ? undefined : 40,
-    borderRadius: 10,
-    fontSize: 14,
-    fontWeight: 700,
-    fontFamily: 'inherit',
-    border: `2px solid ${active ? EE.emerald : EE.border}`,
-    background: active ? EE.emerald : '#fff',
-    color: active ? EE.parchment : EE.sageMuted,
-    cursor: 'pointer',
-    transition: 'all .15s',
-  };
-}
 
 const inputStyle: React.CSSProperties = {
   width: '100%',

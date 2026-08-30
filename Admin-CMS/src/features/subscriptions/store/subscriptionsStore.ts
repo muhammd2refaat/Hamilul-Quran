@@ -9,6 +9,7 @@ export type SubscriptionStatus = 'active' | 'paused' | 'withdrawn';
 export interface SubscriptionPlan {
   id: string;
   name: string;
+  nameAr?: string;
   sessionsPerWeek: number;
   sessionDurationMinutes: number;
   price: string;
@@ -44,6 +45,7 @@ export interface SubscriptionUpsertInput {
 const mapPlan = (item: any): SubscriptionPlan => ({
   id: item.id,
   name: item.name,
+  nameAr: item.name_ar ?? undefined,
   sessionsPerWeek: item.sessions_per_week,
   sessionDurationMinutes: item.session_duration_minutes,
   price: item.price,
