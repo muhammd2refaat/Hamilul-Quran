@@ -153,6 +153,26 @@ export default function StudentPlanPage() {
               <span style={{ color: EE.sageMuted }}>{t.planStartDateLabel}: </span>
               {new Date(subscription.start_date).toLocaleDateString(lang === 'ar' ? 'ar' : 'en-US')}
             </div>
+            {subscription.plan && (
+              <div>
+                <span style={{ color: EE.sageMuted }}>{t.planPriceLabel}: </span>
+                {subscription.plan.price} {subscription.plan.currency}
+              </div>
+            )}
+            {subscription.sessions_remaining != null && (
+              <div>
+                <span style={{ color: EE.sageMuted }}>{t.planSessionsRemainingLabel}: </span>
+                <strong>{subscription.sessions_remaining}</strong>
+              </div>
+            )}
+            {subscription.status === 'paused' && subscription.paused_at && (
+              <div style={{ color: EE.goldDeep, fontWeight: 600 }}>
+                {t.planPausedSince.replace(
+                  '{date}',
+                  new Date(subscription.paused_at).toLocaleDateString(lang === 'ar' ? 'ar' : 'en-US')
+                )}
+              </div>
+            )}
             {subscription.notes && (
               <div>
                 <span style={{ color: EE.sageMuted }}>{t.planNotesLabel}: </span>

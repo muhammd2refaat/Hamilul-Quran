@@ -10,15 +10,17 @@ import {
   GraduationCap,
   Search,
   Pencil,
+  Layers,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { Card, Button, Modal, Input } from '@/shared/components';
+import { Card, Button, Modal, Input, Select } from '@/shared/components';
 import {
   useSubscriptionsStore,
   type Subscription,
   type SubscriptionStatus,
 } from '../store/subscriptionsStore';
+import { usePlansStore } from '@/features/plans/store/plansStore';
 import { useUsersStore } from '@/features/users/store/usersStore';
 import { format } from 'date-fns';
 
@@ -51,32 +53,42 @@ function StatusBadge({ status }: { status: SubscriptionStatus }) {
 }
 
 interface FormState {
-  planName: string;
+  planId: string;
   status: SubscriptionStatus;
   startDate: string;
   notes: string;
+  sessionsRemaining: string;
 }
 
 export function SubscriptionsPage() {
   const { t } = useTranslation();
   const { subscriptions, fetchSubscriptions, upsertSubscription } = useSubscriptionsStore();
+  const { plans, fetchPlans } = usePlansStore();
   const { users, fetchUsers } = useUsersStore();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<SubscriptionStatus | ''>('');
   const [editingRow, setEditingRow] = useState<Row | null>(null);
   const [form, setForm] = useState<FormState>({
-    planName: '',
+    planId: '',
     status: 'active',
     startDate: format(new Date(), 'yyyy-MM-dd'),
     notes: '',
+    sessionsRemaining: '',
   });
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     fetchSubscriptions();
     fetchUsers();
-  }, [fetchSubscriptions, fetchUsers]);
+    fetchPlans();
+  }, [fetchSubscriptions, fetchUsers, fetchPlans]);
+
+  const activePlans = useMemo(() => plans.filter((p) => p.isActive), [plans]);
+  const planOptions = useMemo(
+    () => activePlans.map((p) => ({ value: p.id, label: `${p.name} — ${p.price} ${p.currency}` })),
+    [activePlans]
+  );
 
   const students = useMemo(() => users.filter((u) => u.role === 'STUDENT'), [users]);
 
@@ -114,30 +126,49 @@ export function SubscriptionsPage() {
   const openEditModal = (row: Row) => {
     setEditingRow(row);
     setForm({
-      planName: row.subscription?.planName ?? '',
+      planId: row.subscription?.planId ?? '',
       status: row.subscription?.status ?? 'active',
       startDate: row.subscription?.startDate ?? format(new Date(), 'yyyy-MM-dd'),
       notes: row.subscription?.notes ?? '',
+      sessionsRemaining:
+        row.subscription?.sessionsRemaining !== undefined ? String(row.subscription.sessionsRemaining) : '',
     });
   };
 
+  // A plan must be picked for a brand-new subscription; an existing one can
+  // be edited (status/notes/sessions) without necessarily changing its plan.
+  const isFormValid = editingRow?.subscription ? true : !!form.planId;
+
   const handleSave = async () => {
-    if (!editingRow || !form.planName.trim()) return;
+    if (!editingRow || !isFormValid) return;
     setIsSaving(true);
     try {
       await upsertSubscription(editingRow.studentId, {
-        plan_name: form.planName.trim(),
+        plan_id: form.planId || undefined,
         status: form.status,
         start_date: form.startDate,
         notes: form.notes.trim() || undefined,
+        sessions_remaining: form.sessionsRemaining !== '' ? Number(form.sessionsRemaining) : undefined,
       });
       toast.success(t('subscriptions.saved'));
       setEditingRow(null);
     } catch (error: any) {
-      toast.error(error?.response?.data?.detail || t('subscriptions.saveFailed'));
+      toast.error(error?.response?.data?.message || t('subscriptions.saveFailed'));
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const pausedDetail = (sub: Subscription) => {
+    if (sub.status !== 'paused') return null;
+    const since = sub.pausedAt ? format(new Date(sub.pausedAt), 'MMM d, yyyy') : null;
+    const remaining = sub.sessionsRemaining;
+    return (
+      <span className="text-[11px] text-amber-700">
+        {since && t('subscriptions.pausedSince', { date: since })}
+        {remaining !== undefined && (since ? ' · ' : '') + t('subscriptions.sessionsLeft', { count: remaining })}
+      </span>
+    );
   };
 
   return (
@@ -211,13 +242,22 @@ export function SubscriptionsPage() {
                 </div>
               </div>
 
-              <div className="text-sm text-gray-700 sm:w-40 truncate">
+              <div className="text-sm text-gray-700 sm:w-44 truncate">
                 {row.subscription?.planName || t('subscriptions.noPlan')}
+                {row.subscription?.sessionsRemaining !== undefined && row.subscription.status !== 'paused' && (
+                  <div className="text-[11px] text-gray-400 flex items-center gap-1">
+                    <Layers className="h-3 w-3" />
+                    {t('subscriptions.sessionsLeft', { count: row.subscription.sessionsRemaining })}
+                  </div>
+                )}
               </div>
 
-              <div className="sm:w-32">
+              <div className="sm:w-40">
                 {row.subscription ? (
-                  <StatusBadge status={row.subscription.status} />
+                  <div className="flex flex-col gap-0.5">
+                    <StatusBadge status={row.subscription.status} />
+                    {pausedDetail(row.subscription)}
+                  </div>
                 ) : (
                   <span className="text-xs text-gray-400 italic">{t('subscriptions.noSubscription')}</span>
                 )}
@@ -248,7 +288,7 @@ export function SubscriptionsPage() {
             <Button variant="outline" onClick={() => setEditingRow(null)}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleSave} disabled={!form.planName.trim() || isSaving} isLoading={isSaving}>
+            <Button onClick={handleSave} disabled={!isFormValid || isSaving} isLoading={isSaving}>
               {t('common.save')}
             </Button>
           </div>
@@ -259,12 +299,13 @@ export function SubscriptionsPage() {
             <p className="text-sm text-gray-500">
               {t('subscriptions.editingFor', { name: editingRow.studentName })}
             </p>
-            <Input
+            <Select
               label={t('subscriptions.planName')}
-              value={form.planName}
-              onChange={(e) => setForm((f) => ({ ...f, planName: e.target.value }))}
-              placeholder={t('subscriptions.planNamePlaceholder')}
-              required
+              options={planOptions}
+              value={form.planId}
+              onChange={(e) => setForm((f) => ({ ...f, planId: e.target.value }))}
+              placeholder={t('subscriptions.selectPlan')}
+              required={!editingRow.subscription}
             />
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -286,6 +327,15 @@ export function SubscriptionsPage() {
               value={form.startDate}
               onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
               required
+            />
+            <Input
+              label={t('subscriptions.sessionsRemaining')}
+              type="number"
+              min={0}
+              value={form.sessionsRemaining}
+              onChange={(e) => setForm((f) => ({ ...f, sessionsRemaining: e.target.value }))}
+              placeholder={t('subscriptions.sessionsRemainingPlaceholder')}
+              helperText={t('subscriptions.sessionsRemainingHelp')}
             />
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">

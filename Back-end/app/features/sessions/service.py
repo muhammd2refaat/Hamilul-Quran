@@ -20,6 +20,7 @@ from app.features.sessions.schemas import (
     AttendanceSummaryResponse,
     SessionScoreCreate,
 )
+from app.features.subscriptions.models import Subscription
 from app.features.users.models import User, UserRole
 
 
@@ -156,9 +157,29 @@ class SessionService:
             scheduled_time=data.scheduled_time,
         )
         self.session.add(record)
+
+        if role == AttendeeRole.STUDENT:
+            await self._consume_session(allocation.student_id)
+
         await self.session.commit()
         await self.session.refresh(record)
         return record
+
+    async def _consume_session(self, student_id: uuid.UUID) -> None:
+        """Best-effort: decrement the student's subscription session count
+        by one, floored at 0, when their attendance is newly recorded. A
+        student with no subscription, or a legacy subscription with no
+        linked plan (sessions_remaining is None), is left untouched rather
+        than treated as an error — attendance tracking must never fail
+        because billing/plan data happens to be incomplete for this student."""
+        result = await self.session.exec(
+            select(Subscription).where(Subscription.student_id == student_id)
+        )
+        subscription = result.first()
+        if subscription is None or subscription.sessions_remaining is None:
+            return
+        subscription.sessions_remaining = max(0, subscription.sessions_remaining - 1)
+        self.session.add(subscription)
 
     async def get_attendance_summary(
         self, user_id: uuid.UUID, role: UserRole

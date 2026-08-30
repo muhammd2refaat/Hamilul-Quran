@@ -137,15 +137,30 @@ export interface TeacherOption {
 
 export type SubscriptionStatus = 'active' | 'paused' | 'withdrawn';
 
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  sessions_per_week: number;
+  session_duration_minutes: number;
+  price: string;
+  currency: string;
+  is_active: boolean;
+}
+
 export interface Subscription {
   id: string;
   student_id: string;
+  plan_id?: string | null;
   plan_name: string;
   status: SubscriptionStatus;
   start_date: string;
   notes?: string | null;
+  sessions_remaining?: number | null;
+  paused_at?: string | null;
   created_at: string;
   updated_at: string;
+  // Full plan detail (sessions/week, duration, price) when plan_id is set.
+  plan?: SubscriptionPlan | null;
 }
 
 export interface Receipt {

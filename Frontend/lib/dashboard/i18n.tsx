@@ -99,6 +99,9 @@ export interface DashboardStrings {
   fieldPlan: string;
   planStartDateLabel: string;
   planNotesLabel: string;
+  planSessionsRemainingLabel: string;
+  planPausedSince: string;
+  planPriceLabel: string;
   sessionsPerWeekLabel: string;
   sessionsPerWeekDesc: string;
   durationLabel: string;
@@ -254,6 +257,9 @@ const DICT: Record<Lang, DashboardStrings> = {
     fieldPlan: 'Requested plan',
     planStartDateLabel: 'Start date',
     planNotesLabel: 'Notes',
+    planSessionsRemainingLabel: 'Sessions remaining',
+    planPausedSince: 'Paused since {date}',
+    planPriceLabel: 'Price',
     sessionsPerWeekLabel: 'Sessions per week',
     sessionsPerWeekDesc: 'How many lessons would you like each week?',
     durationLabel: 'Session length',
@@ -408,6 +414,9 @@ const DICT: Record<Lang, DashboardStrings> = {
     fieldPlan: 'الخطة المطلوبة',
     planStartDateLabel: 'تاريخ البدء',
     planNotesLabel: 'ملاحظات',
+    planSessionsRemainingLabel: 'الجلسات المتبقية',
+    planPausedSince: 'متوقف منذ {date}',
+    planPriceLabel: 'السعر',
     sessionsPerWeekLabel: 'عدد الحصص أسبوعيًا',
     sessionsPerWeekDesc: 'كم عدد الحصص التي ترغب بها كل أسبوع؟',
     durationLabel: 'مدة الحصة',

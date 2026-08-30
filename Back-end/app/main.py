@@ -117,9 +117,10 @@ def _register_routers(app: FastAPI) -> None:
     from app.features.calendar.router import router as calendar_router
     app.include_router(calendar_router, prefix=prefix, tags=["Calendar"])
 
-    # Subscriptions (per-student plan/status)
-    from app.features.subscriptions.router import router as subscriptions_router
+    # Subscriptions (per-student plan/status) + Plans (the plan catalog itself)
+    from app.features.subscriptions.router import router as subscriptions_router, plans_router
     app.include_router(subscriptions_router, prefix=prefix, tags=["Subscriptions"])
+    app.include_router(plans_router, prefix=prefix, tags=["Plans"])
 
     # Receipts (student payment-screenshot uploads, 30-day retention)
     from app.features.receipts.router import router as receipts_router

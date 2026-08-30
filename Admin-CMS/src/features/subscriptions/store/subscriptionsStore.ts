@@ -6,24 +6,66 @@ import { get, put } from '@/services/api/client';
 
 export type SubscriptionStatus = 'active' | 'paused' | 'withdrawn';
 
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  sessionsPerWeek: number;
+  sessionDurationMinutes: number;
+  price: string;
+  currency: string;
+  isActive: boolean;
+}
+
 export interface Subscription {
   id: string;
   studentId: string;
   studentName: string;
+  planId?: string;
   planName: string;
+  plan?: SubscriptionPlan;
   status: SubscriptionStatus;
   startDate: string;
   notes?: string;
+  sessionsRemaining?: number;
+  pausedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface SubscriptionUpsertInput {
-  plan_name: string;
+  plan_id?: string;
+  plan_name?: string;
   status: SubscriptionStatus;
   start_date: string;
   notes?: string;
+  sessions_remaining?: number;
 }
+
+const mapPlan = (item: any): SubscriptionPlan => ({
+  id: item.id,
+  name: item.name,
+  sessionsPerWeek: item.sessions_per_week,
+  sessionDurationMinutes: item.session_duration_minutes,
+  price: item.price,
+  currency: item.currency,
+  isActive: item.is_active,
+});
+
+const mapSubscription = (item: any): Subscription => ({
+  id: item.id,
+  studentId: item.student_id,
+  studentName: item.student_name,
+  planId: item.plan_id ?? undefined,
+  planName: item.plan_name,
+  plan: item.plan ? mapPlan(item.plan) : undefined,
+  status: item.status,
+  startDate: item.start_date,
+  notes: item.notes ?? undefined,
+  sessionsRemaining: item.sessions_remaining ?? undefined,
+  pausedAt: item.paused_at ?? undefined,
+  createdAt: item.created_at,
+  updatedAt: item.updated_at,
+});
 
 interface SubscriptionsState {
   subscriptions: Subscription[];
@@ -32,18 +74,6 @@ interface SubscriptionsState {
   fetchSubscriptions: () => Promise<void>;
   upsertSubscription: (studentId: string, data: SubscriptionUpsertInput) => Promise<void>;
 }
-
-const mapSubscription = (item: any): Subscription => ({
-  id: item.id,
-  studentId: item.student_id,
-  studentName: item.student_name,
-  planName: item.plan_name,
-  status: item.status,
-  startDate: item.start_date,
-  notes: item.notes ?? undefined,
-  createdAt: item.created_at,
-  updatedAt: item.updated_at,
-});
 
 export const useSubscriptionsStore = create<SubscriptionsState>((set) => ({
   subscriptions: [],
@@ -57,7 +87,7 @@ export const useSubscriptionsStore = create<SubscriptionsState>((set) => ({
       set({ subscriptions: response.map(mapSubscription), isLoading: false });
     } catch (error: any) {
       set({
-        error: error.response?.data?.detail || 'Failed to fetch subscriptions',
+        error: error.response?.data?.message || 'Failed to fetch subscriptions',
         isLoading: false,
       });
     }
