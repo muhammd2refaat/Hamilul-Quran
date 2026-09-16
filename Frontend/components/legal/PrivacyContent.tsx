@@ -24,7 +24,7 @@ export function PrivacyContent({ initialLang = 'en' }: { initialLang?: Lang }) {
           <Link href={lang === 'ar' ? '/ar' : '/'} className="flex items-center gap-2 text-emerald-800">
             <BookOpen className="h-7 w-7 text-emerald-600" />
             <span className="font-bold text-2xl tracking-tight">
-              {lang === 'ar' ? 'أكاديمية الحفظة' : 'Hamilul-Quran'}
+              {lang === 'ar' ? 'أكاديمية الحفظة' : 'Elhafazah Academy'}
             </span>
           </Link>
           <a
