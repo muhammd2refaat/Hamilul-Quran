@@ -3,6 +3,7 @@ import uuid
 from fastapi import HTTPException, status
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from app.config.settings import settings
 from app.features.allocations.models import Allocation
 from app.features.allocations.schemas import AllocationCreate, AllocationUpdate
 from app.features.auth.models import GoogleCredential
@@ -232,11 +233,23 @@ class AllocationService:
         time_str: str,
     ) -> dict | None:
         try:
+            attendee_emails = [teacher.email, student.email]
+            # Optional third attendee so the academy's own account sees every
+            # lesson too — the teacher's connected Google account still owns
+            # the event; this only adds a guest. Skipped when unset (e.g. on
+            # staging, so test allocations don't spam the real inbox) or when
+            # it's already one of the two (a teacher/student account happens
+            # to be the notify address itself — avoids a duplicate-attendee
+            # entry Google may reject).
+            notify_email = settings.calendar_notify_email.strip().lower()
+            if notify_email and notify_email not in {e.lower() for e in attendee_emails}:
+                attendee_emails.append(settings.calendar_notify_email)
+
             return await create_weekly_event(
                 access_token=access_token,
                 summary=f"Qur'an session — {student_name} with {teacher_name}",
-                description="Hamilul-Quran recurring lesson, scheduled via the platform.",
-                attendee_emails=[teacher.email, student.email],
+                description="Elhafazah Academy recurring lesson, scheduled via the platform.",
+                attendee_emails=attendee_emails,
                 day=day,
                 time_str=time_str,
                 duration_minutes=allocation.duration,

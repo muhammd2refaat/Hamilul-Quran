@@ -63,6 +63,14 @@ class Settings(BaseSettings):
     # Local filesystem directory for uploaded teacher certificates.
     upload_dir: str = "uploads"
 
+    # Added as an extra attendee on every lesson's Google Calendar event
+    # (alongside the teacher and student) so the academy's own account sees
+    # every lesson too — the event is still owned by the teacher's own
+    # connected Google account, this only adds a guest. Empty string (the
+    # default) skips this — set only where the academy actually wants the
+    # noise, e.g. not on staging's test data.
+    calendar_notify_email: str = ""
+
     allowed_origins: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
 
     # Error tracking (Sentry). Empty string = disabled — see
