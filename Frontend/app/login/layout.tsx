@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Login',
-  description: 'Sign in to the Hamilul-Quran platform to access your dashboard.',
+  description: 'Sign in to Elhafazah Academy to access your dashboard.',
 };
 
 export default function LoginLayout({

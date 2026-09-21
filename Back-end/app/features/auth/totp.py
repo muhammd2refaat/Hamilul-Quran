@@ -10,7 +10,10 @@ Thin pyotp wrapper for TOTP (RFC 6238) 2FA.
 """
 import pyotp
 
-APP_NAME = "Hamilul-Quran"
+# Issuer shown in the admin's authenticator app (Google Authenticator etc.).
+# Safe to change only while no admin has an active enrollment — a rename
+# would otherwise leave their existing entry labelled with the old name.
+APP_NAME = "Elhafazah Academy"
 
 
 def generate_secret() -> str:

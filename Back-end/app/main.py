@@ -33,7 +33,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         description=(
-            "Backend API for Hamilul-Quran platform."
+            "Backend API for the Elhafazah Academy platform."
         ),
         version="1.0.0",
         docs_url=None if is_production else f"{settings.api_prefix}/docs",

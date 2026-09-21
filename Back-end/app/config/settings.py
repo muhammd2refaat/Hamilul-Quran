@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     )
 
     # Application
-    app_name: str = "Hamilul-Quran"
+    app_name: str = "Elhafazah Academy"
     app_env: str = "development"
     debug: bool = True
     api_prefix: str = "/api/v1"

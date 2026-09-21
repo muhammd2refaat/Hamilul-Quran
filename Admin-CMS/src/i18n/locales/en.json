@@ -58,7 +58,7 @@
   },
   "dashboard": {
     "title": "Dashboard & Statistics",
-    "subtitle": "Live analytics — Hamilul-Quran platform overview",
+    "subtitle": "Live analytics — Elhafazah Academy platform overview",
     "liveData": "Live data",
     "loading": "Loading dashboard…",
     "loadError": "Failed to load dashboard metrics.",
