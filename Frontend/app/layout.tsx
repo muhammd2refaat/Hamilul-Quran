@@ -15,10 +15,16 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true, "max-image-preview": "large" },
   },
-  // No explicit icons entry: Next.js picks up app/icon.png automatically and
-  // emits a hashed <link rel="icon">. Pointing at /favicon.ico here would
-  // 404 — the Next.js default icon that used to live there (a black circle
-  // with a white triangle, not our brand) has been removed.
+  // Next.js emits a hashed <link rel="icon"> for app/icon.png on its own, but
+  // Safari prefers a stable /favicon.* path and caches whatever it finds there
+  // very aggressively — so public/favicon.png is served at a fixed URL too and
+  // declared explicitly. Both files are the same brand mark (gold ح on
+  // emerald), matching the Admin-CMS favicon and the OAuth consent-screen logo.
+  icons: {
+    icon: [
+      { url: "/favicon.png", type: "image/png", sizes: "512x512" },
+    ],
+  },
 };
 
 export default async function RootLayout({
