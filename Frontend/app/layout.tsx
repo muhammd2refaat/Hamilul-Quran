@@ -15,9 +15,10 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true, "max-image-preview": "large" },
   },
-  icons: {
-    icon: "/favicon.ico",
-  },
+  // No explicit icons entry: Next.js picks up app/icon.png automatically and
+  // emits a hashed <link rel="icon">. Pointing at /favicon.ico here would
+  // 404 — the Next.js default icon that used to live there (a black circle
+  // with a white triangle, not our brand) has been removed.
 };
 
 export default async function RootLayout({

@@ -178,7 +178,7 @@ function LoginFormPanel({
               <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-gray-400 pointer-events-none h-[18px] w-[18px]" />
               <input
                 type="email"
-                placeholder="admin@qrkareem.com"
+                placeholder="admin@elhafazah-academy.com"
                 {...register('email')}
                 className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm bg-white transition-all
                   focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500
