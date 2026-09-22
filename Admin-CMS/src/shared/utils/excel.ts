@@ -27,7 +27,7 @@ export async function exportToExcel({
   sheetName = 'Sheet1',
   columns,
   data,
-  author = 'QV Admin Panel',
+  author = 'Elhafazah Academy',
   title,
 }: ExcelExportOptions): Promise<void> {
   // Create a new workbook

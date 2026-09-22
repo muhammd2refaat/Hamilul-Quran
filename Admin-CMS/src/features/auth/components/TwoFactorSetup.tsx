@@ -63,7 +63,7 @@ export function TwoFactorSetup({ onSuccess, onSkip }: TwoFactorSetupProps) {
     };
 
     const secret = generateSecret();
-    const issuer = 'QV Admin Panel';
+    const issuer = 'Elhafazah Academy Admin';
     const email = user?.email || 'admin@example.com';
 
     // Generate a placeholder QR code URL (in real app, use a QR code library)

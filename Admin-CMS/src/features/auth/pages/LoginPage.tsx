@@ -63,10 +63,10 @@ function BrandPanel() {
       <div className="relative z-10">
         <div className="flex items-center gap-3 mb-12">
           <div className="w-11 h-11 bg-white/15 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/20">
-            <span className="text-white font-extrabold text-lg tracking-tight">QR</span>
+            <span className="text-white font-extrabold text-lg tracking-tight">ح</span>
           </div>
           <div>
-            <p className="font-bold text-lg leading-none">Quran Kareem</p>
+            <p className="font-bold text-lg leading-none">Elhafazah Academy</p>
             <p className="text-primary-300 text-xs mt-0.5">Admin Portal</p>
           </div>
         </div>
@@ -153,10 +153,10 @@ function LoginFormPanel({
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center gap-3 mb-10">
           <div className="w-10 h-10 bg-primary-600 rounded-2xl flex items-center justify-center">
-            <span className="text-white font-extrabold text-sm">QR</span>
+            <span className="text-white font-extrabold text-sm">ح</span>
           </div>
           <div>
-            <p className="font-bold text-gray-900">Quran Kareem</p>
+            <p className="font-bold text-gray-900">Elhafazah Academy</p>
             <p className="text-gray-400 text-xs">Admin Portal</p>
           </div>
         </div>
@@ -266,7 +266,7 @@ function LoginFormPanel({
 
         {/* Footer note */}
         <p className="text-center text-xs text-gray-400 mt-8">
-          Protected admin portal · Quran Kareem Platform © 2025
+          Protected admin portal · Elhafazah Academy © 2026
         </p>
       </div>
     </div>
