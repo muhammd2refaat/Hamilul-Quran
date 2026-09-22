@@ -15,15 +15,18 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true, "max-image-preview": "large" },
   },
-  // Next.js emits a hashed <link rel="icon"> for app/icon.png on its own, but
-  // Safari prefers a stable /favicon.* path and caches whatever it finds there
-  // very aggressively — so public/favicon.png is served at a fixed URL too and
-  // declared explicitly. Both files are the same brand mark (gold ح on
-  // emerald), matching the Admin-CMS favicon and the OAuth consent-screen logo.
+  // Served from public/ at stable paths rather than app/icon.png, whose hashed
+  // URL Safari largely ignores. Safari probes /favicon.ico first and a 404
+  // there sent it back to its cached default, so a real multi-size .ico is
+  // shipped alongside the PNGs. All are the same brand mark (gold ح on
+  // emerald), matching the Admin-CMS favicon and the consent-screen logo.
   icons: {
     icon: [
+      { url: "/favicon.ico", sizes: "32x32 64x64" },
+      { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
       { url: "/favicon.png", type: "image/png", sizes: "512x512" },
     ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
   },
 };
 
