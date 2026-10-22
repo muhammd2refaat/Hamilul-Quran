@@ -238,3 +238,42 @@ async def test_backfill_only_syncs_allocations_without_an_event(db_session, teac
 
     assert count == 1
     assert synced_ids == [pending.id]
+
+
+# ─── Callback errors (Cancel on Google's screen, stale state) ────────────────
+
+def _mock_exchange_error(monkeypatch, exc):
+    async def _fail(_request):
+        raise exc
+    monkeypatch.setattr(gs_module, "exchange_code", _fail)
+
+
+@pytest.mark.asyncio
+async def test_cancel_on_connect_screen_returns_to_dashboard(google_service, make_user, monkeypatch):
+    from authlib.integrations.base_client.errors import OAuthError
+    teacher = await _google_teacher(make_user)
+    _mock_exchange_error(monkeypatch, OAuthError(error="access_denied"))
+
+    resp = await google_service.handle_callback(
+        FakeRequest({"oauth_intent": "connect_calendar", "oauth_connect_user": str(teacher.id)})
+    )
+
+    assert _outcome(resp) == "denied"
+
+
+@pytest.mark.asyncio
+async def test_stale_state_on_signin_redirects_to_login_not_500(google_service, monkeypatch):
+    from authlib.integrations.base_client.errors import MismatchingStateError
+    _mock_exchange_error(monkeypatch, MismatchingStateError())
+
+    resp = await google_service.handle_callback(FakeRequest({}))
+
+    assert resp.status_code == 302
+    assert "/login?error=google_identity_unavailable" in resp.headers["location"]
+
+
+@pytest.mark.asyncio
+async def test_callback_opened_directly_does_not_500(client):
+    r = await client.get("/auth/google/callback", follow_redirects=False)
+    assert r.status_code == 302
+    assert "error=google_identity_unavailable" in r.headers["location"]

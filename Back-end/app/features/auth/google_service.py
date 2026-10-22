@@ -8,6 +8,7 @@ from typing import Any, Optional, Sequence
 from urllib.parse import urlencode
 
 import redis.asyncio as aioredis
+from authlib.integrations.base_client.errors import OAuthError
 from fastapi import HTTPException, UploadFile, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
@@ -65,7 +66,20 @@ class GoogleAuthService:
           • new (signup)        → stash a pending registration in Redis, redirect
                                    to the profile-completion page
         """
-        token = await exchange_code(request)
+        try:
+            token = await exchange_code(request)
+        except OAuthError as exc:
+            # The user pressed Cancel on Google's screen (error=access_denied),
+            # the state didn't match (a stale tab, the back button, or the
+            # callback URL opened by hand), or the code exchange failed.
+            # Send them back to the app instead of a raw 500.
+            intent = request.session.pop("oauth_intent", "login")
+            for key in ("oauth_role", "oauth_lang", "oauth_connect_user"):
+                request.session.pop(key, None)
+            logger.info("Google OAuth callback rejected (%s): %s", intent, exc.error)
+            if intent == "connect_calendar":
+                return self._calendar_result("denied" if exc.error == "access_denied" else "error")
+            return self._frontend_error("google_identity_unavailable")
         userinfo: dict[str, Any] = token.get("userinfo") or {}
         google_sub = userinfo.get("sub")
         email = (userinfo.get("email") or "").lower()
