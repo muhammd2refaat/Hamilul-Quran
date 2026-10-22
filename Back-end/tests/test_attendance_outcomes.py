@@ -336,3 +336,19 @@ async def test_lesson_running_past_midnight_is_still_joinable(db_session, teache
     resp = await SessionService(db_session)._join_at(student_user, allocation, tuesday_0010)
 
     assert resp.recorded
+
+
+@pytest.mark.asyncio
+async def test_old_joins_before_the_start_date_show_their_result_not_pending(client, admin_headers, db_session, teacher_user, student_user, monkeypatch):
+    monkeypatch.setattr(settings, "attendance_outcomes_start_date", date(2030, 1, 1))  # nothing finalized
+    allocation, _ = await _setup(db_session, teacher_user, student_user)
+    db_session.add(SessionAttendance(
+        allocation_id=allocation.id, user_id=teacher_user.id, role=AttendeeRole.TEACHER,
+        session_date=date(2026, 9, 7), scheduled_day="mon", scheduled_time="10:00 AM",
+    ))
+    await db_session.commit()
+
+    r = await client.get("/sessions/attendance", headers=admin_headers)
+
+    row = next(x for x in r.json() if x["allocation_id"] == str(allocation.id))
+    assert row["status"] == "teacher_only" and row["outcome_id"] is None and row["session_charge"] == 0

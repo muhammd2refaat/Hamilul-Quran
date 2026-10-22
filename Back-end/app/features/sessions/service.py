@@ -319,6 +319,11 @@ class SessionService:
 
         out: list[AdminAttendanceItem] = []
 
+        from app.features.calendar.google_calendar_client import CAIRO_TZ
+        from app.features.sessions.outcomes import classify
+
+        today = datetime.now(CAIRO_TZ).date()
+
         async def _row(aid, session_date, day, time, outcome: Optional[SessionOutcome]):
             allocation = await _alloc(aid)
             if not allocation:
@@ -338,7 +343,15 @@ class SessionService:
                     teacher_id=allocation.teacher_id,
                     teacher_name=_name(await _user(allocation.teacher_id)),
                     teacher_joined_at=teacher_rec.joined_at if teacher_rec else None,
-                    status=outcome.status if outcome else "pending",
+                    status=(
+                        outcome.status if outcome
+                        # Past joins never finalized (from before
+                        # attendance_outcomes_start_date): show what happened,
+                        # without an outcome, so no charge and no Excuse.
+                        else classify(teacher_rec is not None, student_rec is not None).value
+                        if session_date < today
+                        else "pending"
+                    ),
                     outcome_id=outcome.id if outcome else None,
                     session_charge=outcome.session_charge if outcome else 0,
                     note=outcome.note if outcome else None,
