@@ -186,31 +186,41 @@ class SessionService:
         if user.id not in (allocation.teacher_id, allocation.student_id):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not part of this lesson")
 
-        now = datetime.now(CAIRO_TZ)
-        today_id = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")[now.weekday()]
-        for slot in allocation.schedule or []:
-            if not isinstance(slot, dict) or slot.get("day") != today_id or not slot.get("time"):
-                continue
-            try:
-                starts = datetime.combine(now.date(), parse_time_str(slot["time"]), tzinfo=CAIRO_TZ)
-            except ValueError:
-                continue
-            opens = starts - timedelta(minutes=JOIN_OPENS_MINUTES_BEFORE)
-            ends = starts + timedelta(minutes=allocation.duration)
-            if not (opens <= now <= ends):
-                continue
-            if not slot.get("meet_link"):
-                return JoinResponse(recorded=False, reason="no_meet_link")
-            await self.record_attendance(
-                user,
-                AttendanceRecordCreate(
-                    allocation_id=allocation.id,
-                    session_date=now.date(),
-                    scheduled_day=today_id,
-                    scheduled_time=slot["time"],
-                ),
-            )
-            return JoinResponse(recorded=True, meet_link=slot["meet_link"])
+        return await self._join_at(user, allocation, datetime.now(CAIRO_TZ))
+
+    async def _join_at(self, user: User, allocation: Allocation, now: datetime) -> "JoinResponse":
+        from app.features.calendar.google_calendar_client import CAIRO_TZ, parse_time_str
+        from app.features.sessions.schemas import JoinResponse
+
+        day_ids = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+        # Yesterday/tomorrow too: a midnight lesson opens at 11:45 PM the day
+        # before, and a late lesson can run past midnight into the next day.
+        for offset in (0, 1, -1):
+            lesson_date = now.date() + timedelta(days=offset)
+            day_id = day_ids[lesson_date.weekday()]
+            for slot in allocation.schedule or []:
+                if not isinstance(slot, dict) or slot.get("day") != day_id or not slot.get("time"):
+                    continue
+                try:
+                    starts = datetime.combine(lesson_date, parse_time_str(slot["time"]), tzinfo=CAIRO_TZ)
+                except ValueError:
+                    continue
+                opens = starts - timedelta(minutes=JOIN_OPENS_MINUTES_BEFORE)
+                ends = starts + timedelta(minutes=allocation.duration)
+                if not (opens <= now <= ends):
+                    continue
+                if not slot.get("meet_link"):
+                    return JoinResponse(recorded=False, reason="no_meet_link")
+                await self.record_attendance(
+                    user,
+                    AttendanceRecordCreate(
+                        allocation_id=allocation.id,
+                        session_date=lesson_date,
+                        scheduled_day=day_id,
+                        scheduled_time=slot["time"],
+                    ),
+                )
+                return JoinResponse(recorded=True, meet_link=slot["meet_link"])
         return JoinResponse(recorded=False, reason="not_open")
 
     async def _consume_session(self, student_id: uuid.UUID) -> bool:

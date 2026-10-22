@@ -306,3 +306,33 @@ async def test_join_link_rejects_someone_outside_the_lesson(client, db_session, 
     r = await client.post(f"/sessions/attendance/join/{allocation.id}", headers=auth_headers_for(stranger))
 
     assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_midnight_lesson_can_be_joined_from_1145pm_the_day_before(db_session, teacher_user, student_user):
+    from app.features.sessions.service import SessionService
+    allocation = Allocation(teacher_id=teacher_user.id, student_id=student_user.id, duration=30,
+                            schedule=[{"day": "tue", "time": "12:00 AM", "meet_link": "https://meet.google.com/mid"}])
+    db_session.add(allocation)
+    await db_session.commit()
+    monday_2350 = datetime(2026, 11, 2, 23, 50, tzinfo=CAIRO_TZ)  # Monday 11:50 PM → Tuesday's lesson
+
+    resp = await SessionService(db_session)._join_at(student_user, allocation, monday_2350)
+
+    assert resp.recorded and resp.meet_link == "https://meet.google.com/mid"
+    row = (await db_session.exec(select(SessionAttendance).where(SessionAttendance.allocation_id == allocation.id))).first()
+    assert row.session_date == date(2026, 11, 3) and row.scheduled_day == "tue"
+
+
+@pytest.mark.asyncio
+async def test_lesson_running_past_midnight_is_still_joinable(db_session, teacher_user, student_user):
+    from app.features.sessions.service import SessionService
+    allocation = Allocation(teacher_id=teacher_user.id, student_id=student_user.id, duration=60,
+                            schedule=[{"day": "mon", "time": "11:30 PM", "meet_link": "https://meet.google.com/late"}])
+    db_session.add(allocation)
+    await db_session.commit()
+    tuesday_0010 = datetime(2026, 11, 3, 0, 10, tzinfo=CAIRO_TZ)
+
+    resp = await SessionService(db_session)._join_at(student_user, allocation, tuesday_0010)
+
+    assert resp.recorded
