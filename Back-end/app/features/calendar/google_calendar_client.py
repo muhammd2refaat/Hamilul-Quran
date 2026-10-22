@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 import httpx
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.config.settings import settings
 from app.core.crypto import decrypt_secret
 from app.features.auth.google import refresh_google_access_token, token_expiry_from
 from app.features.auth.models import GoogleCredential
@@ -28,6 +29,19 @@ GOOGLE_CALENDAR_EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/p
 # wall-clock time across Egypt's DST transitions (Egypt observes DST,
 # late-April to late-October).
 CAIRO_TZ = ZoneInfo("Africa/Cairo")
+
+def has_calendar_access(credential: Optional[GoogleCredential]) -> bool:
+    """
+    True when the credential can actually call the Calendar API: it holds a
+    refresh token AND that grant included the calendar scope. Since sign-in
+    stopped requesting Calendar, a credential can exist with only basic
+    identity scopes (every student, and a teacher who hasn't connected yet).
+    """
+    if credential is None or not credential.refresh_token:
+        return False
+    granted = (credential.scopes or "").split()
+    return settings.google_calendar_scope in granted
+
 
 DAY_TO_ICAL = {
     "mon": "MO", "tue": "TU", "wed": "WE", "thu": "TH",

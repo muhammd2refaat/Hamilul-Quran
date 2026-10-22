@@ -14,6 +14,7 @@ import { ArchPanel } from '@/components/dashboard/ArchPanel';
 import { SectionHeader } from '@/components/dashboard/SectionHeader';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { EmptyState } from '@/components/dashboard/EmptyState';
+import { CalendarConnectCard } from '@/components/dashboard/CalendarConnectCard';
 
 const DAY_IDS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
@@ -91,6 +92,8 @@ export default function TeacherOverviewPage() {
   return (
     <div>
       <SectionHeader title={`${t.welcomeBack}, ${user.first_name}`} desc={t.teacherWelcomeDesc} />
+
+      <CalendarConnectCard />
 
       <ArchPanel>
         <div style={{ fontFamily: EE.fontHead, fontSize: 15, letterSpacing: '1px', color: EE.gold, textTransform: 'uppercase', marginBottom: 6 }}>

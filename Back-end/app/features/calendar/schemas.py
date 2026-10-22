@@ -17,3 +17,13 @@ class CalendarEvent(BaseModel):
     student_id: uuid.UUID
     student_name: str
     meet_link: Optional[str] = None
+
+
+class CalendarConnectionStatus(BaseModel):
+    """Whether the calling user has granted the app Calendar access."""
+    connected: bool
+
+
+class TeacherCalendarConnection(BaseModel):
+    teacher_id: uuid.UUID
+    connected: bool

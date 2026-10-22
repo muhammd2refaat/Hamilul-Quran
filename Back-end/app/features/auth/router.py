@@ -7,9 +7,9 @@ from fastapi.security import OAuth2PasswordRequestForm
 from app.core.database import get_session
 from app.core.redis_client import get_redis
 from app.core.cookies import REFRESH_TOKEN_COOKIE, clear_auth_cookies, set_auth_cookies
-from app.core.dependencies import AdminDep, CurrentUserDep
+from app.core.dependencies import AdminDep, CurrentUserDep, TeacherDep
 from app.core.rate_limit import limiter
-from app.features.auth.google import build_authorize_redirect
+from app.features.auth.google import build_authorize_redirect, build_calendar_connect_redirect
 from app.features.auth.google_service import GoogleAuthService
 from app.features.auth.schemas import (
     LoginRequest,
@@ -144,13 +144,32 @@ async def google_login(
     Redirect the browser to Google's consent screen. `intent=signup` with a
     `role` collects the role so the callback can route new users to profile
     completion. `lang` is only used to pick the welcome email's language on
-    a successful signup. Requests Calendar scope so lessons can be scheduled
-    later.
+    a successful signup.
+
+    Only basic identity is requested (no Calendar), so neither students nor
+    teachers see Google's unverified-app warning here. Teachers grant Calendar
+    separately via /auth/google/calendar/connect.
     """
     request.session["oauth_intent"] = intent
     request.session["oauth_role"] = role
     request.session["oauth_lang"] = lang
     return await build_authorize_redirect(request)
+
+
+@router.get(
+    "/google/calendar/connect",
+    summary="Teacher: connect Google Calendar (one time) — redirects to Google",
+)
+async def google_calendar_connect(request: Request, teacher: TeacherDep):
+    """
+    Start the one-time Calendar grant for a signed-in teacher. Google returns
+    to the shared /google/callback, which recognises this intent, stores the
+    offline refresh token, backfills events for existing allocations and
+    redirects to /dashboard/teacher?calendar=<connected|denied|wrong_account|error>.
+    """
+    request.session["oauth_intent"] = "connect_calendar"
+    request.session["oauth_connect_user"] = str(teacher.id)
+    return await build_calendar_connect_redirect(request, login_hint=teacher.email)
 
 
 @router.get(

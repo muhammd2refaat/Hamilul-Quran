@@ -24,6 +24,7 @@ import toast from 'react-hot-toast';
 import { Button, Modal, ConfirmDialog } from '@/shared/components';
 import { useAllocationsStore, type Allocation } from '../store/allocationsStore';
 import { useUsersStore } from '@/features/users/store/usersStore';
+import { get } from '@/services/api/client';
 import { useEffect } from 'react';
 
 const DAYS_OF_WEEK = [
@@ -58,6 +59,8 @@ interface AllocationState {
 
 export function AllocationsPage() {
   const { t } = useTranslation();
+  // The teacher picker below maps with `t` as the item, shadowing this.
+  const tr = t;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -72,6 +75,18 @@ export function AllocationsPage() {
     fetchAllocations();
     fetchUsers();
   }, [fetchAllocations, fetchUsers]);
+
+  // Which teachers have granted Google Calendar access. A teacher who hasn't
+  // connected yet can still be allocated, but the lesson gets no Meet link
+  // until they connect from their dashboard (events are backfilled then).
+  const [calendarConnected, setCalendarConnected] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    get<{ teacher_id: string; connected: boolean }[]>('/calendar/connections')
+      .then((rows) => setCalendarConnected(Object.fromEntries(rows.map((r) => [r.teacher_id, r.connected]))))
+      .catch(() => {
+        // Non-critical — the badge is simply omitted if this fails.
+      });
+  }, []);
 
   const teachers = users.filter(u => u.role === 'TEACHER');
   const students = users.filter(u => u.role === 'STUDENT');
@@ -355,6 +370,17 @@ export function AllocationsPage() {
                     >
                       <p className="font-bold text-gray-900">{t.firstName} {t.lastName}</p>
                       <p className="text-xs text-gray-500 mt-1">{t.email}</p>
+                      {t.id in calendarConnected && (
+                        calendarConnected[t.id] ? (
+                          <p className="text-xs font-medium text-green-700 mt-2 flex items-center gap-1">
+                            <CheckCircle2 className="h-3.5 w-3.5" /> {tr('allocations.calendarConnected')}
+                          </p>
+                        ) : (
+                          <p className="text-xs font-medium text-amber-700 mt-2 flex items-center gap-1">
+                            <CalendarIcon className="h-3.5 w-3.5" /> {tr('allocations.calendarNotConnected')}
+                          </p>
+                        )
+                      )}
                     </div>
                   ))}
                 </div>

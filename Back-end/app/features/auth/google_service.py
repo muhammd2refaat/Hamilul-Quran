@@ -76,6 +76,12 @@ class GoogleAuthService:
         role = request.session.pop("oauth_role", None)
         intent = request.session.pop("oauth_intent", "login")
         lang = request.session.pop("oauth_lang", "en")
+        connect_user_id = request.session.pop("oauth_connect_user", None)
+
+        if intent == "connect_calendar":
+            return await self._finish_calendar_connect(
+                connect_user_id, google_sub, email, email_verified, token
+            )
 
         user = await self._find_user(google_sub, email, email_verified)
 
@@ -92,7 +98,7 @@ class GoogleAuthService:
                 user.google_id = google_sub
                 user.auth_provider = AuthProvider.GOOGLE
                 self.session.add(user)
-            await self._upsert_credential(user.id, google_sub, token)
+            await self._record_login_credential(user.id, google_sub, token)
             await self.session.commit()
             tokens = await self.auth.issue_tokens_for_user(user)
             return self._frontend_success(request, tokens, user.role.value)
@@ -250,7 +256,7 @@ class GoogleAuthService:
             "refresh_token": encrypt_secret(refresh_token) if refresh_token else None,
             "access_token": token.get("access_token"),
             "token_expiry": expiry.isoformat() if expiry else None,
-            "scopes": token.get("scope") or settings.google_oauth_scopes,
+            "scopes": token.get("scope") or settings.google_login_scopes,
             # Language the landing page was in at signup — only used to pick
             # the welcome email's language once the account is created.
             "lang": lang if lang in ("en", "ar") else "en",
@@ -304,28 +310,117 @@ class GoogleAuthService:
             )
         )
 
-    async def _upsert_credential(
-        self, user_id: uuid.UUID, google_sub: str, token: dict[str, Any]
-    ) -> None:
+    async def _get_credential(self, user_id: uuid.UUID) -> Optional[GoogleCredential]:
         result = await self.session.exec(
             select(GoogleCredential).where(GoogleCredential.user_id == user_id)
         )
-        cred = result.first()
-        refresh_token = token.get("refresh_token")
-        expiry = token_expiry_from(token)
-        scopes = token.get("scope") or settings.google_oauth_scopes
+        return result.first()
 
+    async def _record_login_credential(
+        self, user_id: uuid.UUID, google_sub: str, token: dict[str, Any]
+    ) -> None:
+        """
+        Sign-in only asks for basic identity, so its token must never replace
+        a teacher's Calendar grant — doing so would silently stop lesson
+        scheduling. An existing credential only has its identity refreshed;
+        a brand-new one records the basic token (no refresh token).
+        """
+        cred = await self._get_credential(user_id)
+        if cred is not None:
+            cred.google_sub = google_sub
+            self.session.add(cred)
+            return
+        self.session.add(
+            GoogleCredential(
+                user_id=user_id,
+                google_sub=google_sub,
+                access_token=token.get("access_token"),
+                token_expiry=token_expiry_from(token),
+                scopes=token.get("scope") or settings.google_login_scopes,
+            )
+        )
+
+    async def _store_calendar_credential(
+        self, user_id: uuid.UUID, google_sub: str, token: dict[str, Any]
+    ) -> None:
+        """Persist the grant from the Calendar-connect flow — this one carries
+        the offline refresh token and the calendar scope."""
+        cred = await self._get_credential(user_id)
         if cred is None:
             cred = GoogleCredential(user_id=user_id, google_sub=google_sub)
-
-        # Google omits the refresh token on some repeat consents — keep the old one.
+        refresh_token = token.get("refresh_token")
+        # Google can omit the refresh token on a repeat consent — keep the old one.
         if refresh_token:
             cred.refresh_token = encrypt_secret(refresh_token)
         cred.access_token = token.get("access_token")
-        cred.token_expiry = expiry
-        cred.scopes = scopes
+        cred.token_expiry = token_expiry_from(token)
+        cred.scopes = token.get("scope") or cred.scopes
         cred.google_sub = google_sub
         self.session.add(cred)
+
+    # ─── Calendar connect ────────────────────────────────────────────────────
+    async def _finish_calendar_connect(
+        self,
+        connect_user_id: Optional[str],
+        google_sub: str,
+        email: str,
+        email_verified: bool,
+        token: dict[str, Any],
+    ) -> RedirectResponse:
+        """
+        Complete a teacher's "Connect Google Calendar" grant, then create
+        Meet events for any allocations they were given before connecting.
+
+        The Google account must be the teacher's own: lessons are written to
+        the connected account's calendar and invite the teacher's registered
+        email, so a different account would split the two.
+        """
+        from app.features.allocations.service import AllocationService
+        from app.features.calendar.google_calendar_client import has_calendar_access
+
+        user = None
+        if connect_user_id:
+            try:
+                user = await self.session.get(User, uuid.UUID(connect_user_id))
+            except ValueError:
+                user = None
+        if user is None or user.role != UserRole.TEACHER or user.status != UserStatus.ACTIVE:
+            return self._calendar_result("error")
+
+        same_identity = (
+            user.google_id == google_sub
+            if user.google_id
+            else (email_verified and email == (user.email or "").lower())
+        )
+        if not same_identity:
+            return self._calendar_result("wrong_account")
+
+        # Google's consent screen lets the user untick the Calendar box.
+        if settings.google_calendar_scope not in (token.get("scope") or "").split():
+            return self._calendar_result("denied")
+
+        if not user.google_id:
+            user.google_id = google_sub
+            self.session.add(user)
+        await self._store_calendar_credential(user.id, google_sub, token)
+        await self.session.commit()
+
+        if not has_calendar_access(await self._get_credential(user.id)):
+            # No refresh token at all — scheduling couldn't work offline.
+            return self._calendar_result("error")
+
+        try:
+            await AllocationService(self.session).backfill_calendar_events(user.id)
+        except Exception:
+            # Connection itself succeeded; a backfill hiccup must not hide that.
+            logger.warning("Calendar backfill failed for teacher %s", user.id, exc_info=True)
+        return self._calendar_result("connected")
+
+    def _calendar_result(self, outcome: str) -> RedirectResponse:
+        return RedirectResponse(
+            url=f"{settings.frontend_url}/dashboard/teacher?calendar={outcome}",
+            status_code=status.HTTP_302_FOUND,
+        )
 
     async def _unique_username(self, email: str) -> str:
         base = re.sub(r"[^a-zA-Z0-9_.-]", "", email.split("@")[0]) or "user"

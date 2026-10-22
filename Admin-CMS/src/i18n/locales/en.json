@@ -191,6 +191,8 @@
     "selectSchedule": "Select Schedule",
     "selectedSlots": "Selected {{selected}} of {{total}} slots",
     "slotLocked": "Already booked for this teacher",
+    "calendarConnected": "Google Calendar connected",
+    "calendarNotConnected": "Calendar not connected — no Meet link until the teacher connects",
     "enrolledStudents": "Enrolled Students ({{count}})",
     "noEnrolledStudents": "No students enrolled yet."
   },

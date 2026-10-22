@@ -11,6 +11,7 @@ from app.features.calendar.google_calendar_client import (
     create_weekly_event,
     delete_event,
     get_valid_access_token,
+    has_calendar_access,
 )
 from app.features.sessions.models import SessionAttendance
 from app.features.sessions.service import SessionService
@@ -186,9 +187,31 @@ class AllocationService:
             select(GoogleCredential).where(GoogleCredential.user_id == teacher_id)
         )
         credential = cred_result.first()
-        if credential is None:
+        # A teacher who signed in but hasn't clicked "Connect Google Calendar"
+        # has a basic-identity credential only — skip rather than call the
+        # Calendar API and log a 403.
+        if not has_calendar_access(credential):
             return None
         return await get_valid_access_token(self.session, credential)
+
+    async def backfill_calendar_events(self, teacher_id: uuid.UUID) -> int:
+        """
+        Create Google Calendar events for this teacher's allocations that were
+        made before they connected their calendar. Allocations that already
+        have an event are left alone, so running this twice never duplicates.
+        Returns how many allocations were synced.
+        """
+        result = await self.session.exec(
+            select(Allocation).where(Allocation.teacher_id == teacher_id)
+        )
+        synced = 0
+        for allocation in result.all():
+            slots = allocation.schedule or []
+            if any(isinstance(s, dict) and s.get("google_event_id") for s in slots):
+                continue
+            await self._try_create_calendar_events(allocation)
+            synced += 1
+        return synced
 
     async def _load_allocation_users(
         self, allocation: Allocation

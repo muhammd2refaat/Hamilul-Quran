@@ -3,9 +3,13 @@ features/auth/google.py
 =======================
 Google OAuth client setup (Authlib) and helpers.
 
-The backend runs the authorization-code flow so it can obtain an offline
-refresh token (access_type=offline + prompt=consent) and store it server-side
-for future Google Calendar scheduling.
+Two separate authorization requests (incremental authorization):
+
+  • Sign-in / sign-up — basic identity only (openid email profile). These are
+    non-sensitive scopes, so Google shows no "unverified app" warning.
+  • Calendar connect — a teacher, already signed in, grants calendar.events
+    from their dashboard. This one asks for an offline refresh token, stored
+    encrypted server-side and used whenever an admin schedules a lesson.
 """
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
@@ -26,23 +30,41 @@ oauth.register(
     client_id=settings.google_client_id,
     client_secret=settings.google_client_secret,
     server_metadata_url=GOOGLE_DISCOVERY_URL,
-    client_kwargs={"scope": settings.google_oauth_scopes},
+    client_kwargs={"scope": settings.google_login_scopes},
 )
 
 
 async def build_authorize_redirect(request: Request) -> RedirectResponse:
     """
-    Build the redirect to Google's consent screen.
-
-    access_type=offline + prompt=consent forces Google to return a refresh
-    token (needed for Calendar access) even on repeat logins.
+    Sign-in / sign-up redirect: basic identity only, so no unverified-app
+    warning. No offline access is needed here — the Calendar refresh token
+    comes from build_calendar_connect_redirect instead.
     """
     return await oauth.google.authorize_redirect(
         request,
         settings.google_redirect_uri,
+        scope=settings.google_login_scopes,
+        prompt="select_account",
+    )
+
+
+async def build_calendar_connect_redirect(request: Request, login_hint: str) -> RedirectResponse:
+    """
+    Teacher-only "Connect Google Calendar" redirect.
+
+    access_type=offline + prompt=consent forces a refresh token, so the
+    teacher connects once and lessons keep scheduling without them. Uses the
+    same registered redirect URI as sign-in — the callback tells the two apart
+    by the session intent. login_hint pre-selects the teacher's own account.
+    """
+    return await oauth.google.authorize_redirect(
+        request,
+        settings.google_redirect_uri,
+        scope=f"{settings.google_login_scopes} {settings.google_calendar_scope}",
         access_type="offline",
         prompt="consent",
         include_granted_scopes="true",
+        login_hint=login_hint,
     )
 
 

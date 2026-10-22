@@ -48,11 +48,16 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
     google_redirect_uri: str = "http://localhost:8000/api/v1/auth/google/callback"
-    # Space-separated OAuth scopes. Includes Calendar so future lesson scheduling
-    # can create events on the user's behalf.
-    google_oauth_scopes: str = (
-        "openid email profile https://www.googleapis.com/auth/calendar.events"
-    )
+    # Sign-in / sign-up asks only for basic identity. These scopes are
+    # non-sensitive, so Google never shows its "unverified app" warning for
+    # them — students and teachers sign in without seeing it.
+    google_login_scopes: str = "openid email profile"
+    # Requested separately, only when a teacher clicks "Connect Google
+    # Calendar" in their dashboard (incremental authorization). Lesson events
+    # are always written with the teacher's token, so students never need it.
+    # The old GOOGLE_OAUTH_SCOPES env var (which bundled this into sign-in) is
+    # no longer read; leaving it set is harmless.
+    google_calendar_scope: str = "https://www.googleapis.com/auth/calendar.events"
 
     # Pending-registration handoff TTL (seconds) for the Redis-stored blob.
     registration_token_ttl_seconds: int = 15 * 60

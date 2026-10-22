@@ -39,6 +39,14 @@ export interface DashboardStrings {
   studentWelcomeDesc: string;
   todaySessions: string;
   noSessionsToday: string;
+  calConnectTitle: string;
+  calConnectDesc: string;
+  calConnectBtn: string;
+  calConnectNote: string;
+  calConnected: string;
+  calDenied: string;
+  calWrongAccount: string;
+  calError: string;
   quickStats: string;
   statStudents: string;
   statSessionsWeek: string;
@@ -196,6 +204,14 @@ const DICT: Record<Lang, DashboardStrings> = {
     studentWelcomeDesc: 'Track your journey through the Qur’an, session by session.',
     todaySessions: 'Today’s sessions',
     noSessionsToday: 'No sessions scheduled for today.',
+    calConnectTitle: 'Connect your Google Calendar',
+    calConnectDesc: 'Needed once, so your lessons are added to your calendar automatically with a Google Meet link. Until you connect, lessons assigned to you have no Meet link.',
+    calConnectBtn: 'Connect Google Calendar',
+    calConnectNote: 'Google may say this app isn’t verified yet — our review with Google is in progress. Choose “Advanced”, then “Go to elhafazah-academy.com”, and keep the Calendar box ticked.',
+    calConnected: 'Google Calendar connected. Your lessons will be added to it automatically.',
+    calDenied: 'Calendar access wasn’t granted. Please try again and keep the Calendar box ticked.',
+    calWrongAccount: 'Please connect the same Google account you sign in with.',
+    calError: 'Couldn’t connect Google Calendar. Please try again.',
     quickStats: 'At a glance',
     statStudents: 'Students',
     statSessionsWeek: 'Sessions / week',
@@ -362,6 +378,14 @@ const DICT: Record<Lang, DashboardStrings> = {
     studentWelcomeDesc: 'تابع رحلتك مع القرآن، حصة بعد حصة.',
     todaySessions: 'حصص اليوم',
     noSessionsToday: 'لا توجد حصص مجدولة اليوم.',
+    calConnectTitle: 'اربط تقويم جوجل الخاص بك',
+    calConnectDesc: 'خطوة لمرة واحدة فقط، لتُضاف حلقاتك إلى تقويمك تلقائياً مع رابط Google Meet. وإلى أن تقوم بالربط، لن يكون للحلقات المسندة إليك رابط Meet.',
+    calConnectBtn: 'ربط تقويم جوجل',
+    calConnectNote: 'قد تظهر رسالة من جوجل بأن التطبيق لم يتم التحقق منه بعد — مراجعة جوجل لتطبيقنا قيد الإجراء. اختر «خيارات متقدمة» ثم «الانتقال إلى elhafazah-academy.com»، وأبقِ خانة التقويم محددة.',
+    calConnected: 'تم ربط تقويم جوجل. ستُضاف حلقاتك إليه تلقائياً.',
+    calDenied: 'لم يتم منح صلاحية التقويم. يرجى المحاولة مرة أخرى مع إبقاء خانة التقويم محددة.',
+    calWrongAccount: 'يرجى ربط حساب جوجل نفسه الذي تسجّل الدخول به.',
+    calError: 'تعذّر ربط تقويم جوجل. يرجى المحاولة مرة أخرى.',
     quickStats: 'نظرة سريعة',
     statStudents: 'الطلاب',
     statSessionsWeek: 'حصص / أسبوعياً',
