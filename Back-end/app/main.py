@@ -1,3 +1,7 @@
+import asyncio
+import contextlib
+import logging
+
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from slowapi.errors import RateLimitExceeded
@@ -11,6 +15,8 @@ from app.core.handlers import register_exception_handlers
 from app.core.rate_limit import limiter
 from app.middleware.cors import register_cors
 
+logger = logging.getLogger(__name__)
+
 init_error_tracking()
 
 
@@ -19,9 +25,34 @@ init_error_tracking()
 async def lifespan(app: FastAPI):
     # Startup: warm up Redis pool
     await get_redis_pool()
+    finalizer = None
+    if settings.attendance_outcomes_start_date is not None:
+        finalizer = asyncio.create_task(_attendance_finalizer_loop())
     yield
+    if finalizer is not None:
+        finalizer.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await finalizer
     # Shutdown: close Redis pool
     await close_redis_pool()
+
+
+async def _attendance_finalizer_loop() -> None:
+    """Record outcomes (missed / no-show) for lessons that have ended.
+    Every Uvicorn worker runs this; the outcome table's unique constraint
+    makes concurrent passes safe — see AttendanceOutcomeService."""
+    from app.database.session import AsyncSessionFactory
+    from app.features.sessions.outcomes import AttendanceOutcomeService
+
+    while True:
+        try:
+            async with AsyncSessionFactory() as session:
+                n = await AttendanceOutcomeService(session).finalize_due()
+                if n:
+                    logger.info("Recorded %d lesson outcome(s)", n)
+        except Exception:
+            logger.warning("Lesson outcome finalization failed", exc_info=True)
+        await asyncio.sleep(settings.attendance_finalizer_interval_seconds)
 
 
 # ─── App Factory ───────────────────────────────────────────────────────────────

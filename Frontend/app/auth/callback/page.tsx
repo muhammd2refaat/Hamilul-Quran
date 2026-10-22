@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { takeReturnTo } from '@/lib/returnTo';
 import { Loader2 } from 'lucide-react';
 
 /**
@@ -31,7 +32,9 @@ export default function OAuthCallbackPage() {
     // Strip tokens from the address bar.
     window.history.replaceState(null, '', '/auth/callback');
 
-    if (role === 'TEACHER') router.replace('/dashboard/teacher');
+    const back = takeReturnTo();
+    if (back) router.replace(back);
+    else if (role === 'TEACHER') router.replace('/dashboard/teacher');
     else if (role === 'STUDENT') router.replace('/dashboard/student');
     else router.replace('/');
   }, [router]);

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import HTTPException, status
@@ -10,6 +10,7 @@ from app.features.allocations.models import Allocation
 from app.features.sessions.models import (
     AttendeeRole,
     SessionAttendance,
+    SessionOutcome,
     SessionScore,
     TeacherHistory,
 )
@@ -22,6 +23,9 @@ from app.features.sessions.schemas import (
 )
 from app.features.subscriptions.models import Subscription
 from app.features.users.models import User, UserRole
+
+# Matches Frontend/lib/dashboard/calendarUtils.ts JOIN_OPENS_MINUTES_BEFORE.
+JOIN_OPENS_MINUTES_BEFORE = 15
 
 
 class SessionService:
@@ -159,27 +163,75 @@ class SessionService:
         self.session.add(record)
 
         if role == AttendeeRole.STUDENT:
-            await self._consume_session(allocation.student_id)
+            record.consumed_session = await self._consume_session(allocation.student_id)
 
         await self.session.commit()
         await self.session.refresh(record)
         return record
 
-    async def _consume_session(self, student_id: uuid.UUID) -> None:
+    async def join_now(self, user: User, allocation_id: uuid.UUID) -> "JoinResponse":
+        """
+        Behind the tracked /join/<allocation> link put in every calendar
+        invite: if one of this allocation's lessons is open right now (from
+        15 minutes before its start until it ends, Cairo time — the same
+        window as the dashboard Join buttons), record the caller's attendance
+        and hand back the Meet link. Otherwise say why, without recording.
+        """
+        from app.features.calendar.google_calendar_client import CAIRO_TZ, parse_time_str
+        from app.features.sessions.schemas import JoinResponse
+
+        allocation = await self.session.get(Allocation, allocation_id)
+        if not allocation:
+            raise HTTPException(status_code=404, detail="Lesson not found")
+        if user.id not in (allocation.teacher_id, allocation.student_id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not part of this lesson")
+
+        now = datetime.now(CAIRO_TZ)
+        today_id = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")[now.weekday()]
+        for slot in allocation.schedule or []:
+            if not isinstance(slot, dict) or slot.get("day") != today_id or not slot.get("time"):
+                continue
+            try:
+                starts = datetime.combine(now.date(), parse_time_str(slot["time"]), tzinfo=CAIRO_TZ)
+            except ValueError:
+                continue
+            opens = starts - timedelta(minutes=JOIN_OPENS_MINUTES_BEFORE)
+            ends = starts + timedelta(minutes=allocation.duration)
+            if not (opens <= now <= ends):
+                continue
+            if not slot.get("meet_link"):
+                return JoinResponse(recorded=False, reason="no_meet_link")
+            await self.record_attendance(
+                user,
+                AttendanceRecordCreate(
+                    allocation_id=allocation.id,
+                    session_date=now.date(),
+                    scheduled_day=today_id,
+                    scheduled_time=slot["time"],
+                ),
+            )
+            return JoinResponse(recorded=True, meet_link=slot["meet_link"])
+        return JoinResponse(recorded=False, reason="not_open")
+
+    async def _consume_session(self, student_id: uuid.UUID) -> bool:
         """Best-effort: decrement the student's subscription session count
         by one, floored at 0, when their attendance is newly recorded. A
         student with no subscription, or a legacy subscription with no
         linked plan (sessions_remaining is None), is left untouched rather
         than treated as an error — attendance tracking must never fail
-        because billing/plan data happens to be incomplete for this student."""
+        because billing/plan data happens to be incomplete for this student.
+
+        Returns whether a session was actually deducted — stored on the
+        attendance row so a later teacher no-show refund is exact."""
         result = await self.session.exec(
             select(Subscription).where(Subscription.student_id == student_id)
         )
         subscription = result.first()
-        if subscription is None or subscription.sessions_remaining is None:
-            return
-        subscription.sessions_remaining = max(0, subscription.sessions_remaining - 1)
+        if subscription is None or not subscription.sessions_remaining:
+            return False
+        subscription.sessions_remaining -= 1
         self.session.add(subscription)
+        return True
 
     async def get_attendance_summary(
         self, user_id: uuid.UUID, role: UserRole
@@ -224,51 +276,77 @@ class SessionService:
         return AttendanceSummaryResponse(total_sessions=total_sessions, by_counterpart=items)
 
     async def get_admin_attendance(self) -> list[AdminAttendanceItem]:
-        """Full attendance log — one row per (allocation, session_date)
-        occurrence, student and teacher attendance shown side by side."""
-        result = await self.session.exec(
-            select(SessionAttendance).order_by(SessionAttendance.session_date.desc())
-        )
-        records = result.all()
+        """Full attendance log — one row per lesson occurrence, student and
+        teacher side by side, with its outcome. Finished lessons nobody
+        joined appear as "missed" rather than being absent from the log.
+        Runs a finalization pass first so the log is current even if the
+        background loop hasn't ticked yet."""
+        from app.features.sessions.outcomes import AttendanceOutcomeService
 
-        grouped: dict[tuple[uuid.UUID, object], dict] = {}
-        for r in records:
-            key = (r.allocation_id, r.session_date)
-            grouped.setdefault(key, {})[r.role] = r
+        await AttendanceOutcomeService(self.session).finalize_due()
+
+        attendance = (await self.session.exec(select(SessionAttendance))).all()
+        by_day: dict[tuple[uuid.UUID, object], dict] = {}
+        for r in attendance:
+            by_day.setdefault((r.allocation_id, r.session_date), {})[r.role] = r
+
+        outcomes = (await self.session.exec(select(SessionOutcome))).all()
+        allocations: dict[uuid.UUID, Optional[Allocation]] = {}
+        users: dict[uuid.UUID, Optional[User]] = {}
+
+        async def _alloc(aid):
+            if aid not in allocations:
+                allocations[aid] = await self.session.get(Allocation, aid)
+            return allocations[aid]
+
+        async def _user(uid):
+            if uid not in users:
+                users[uid] = await self.session.get(User, uid)
+            return users[uid]
+
+        def _name(u: Optional[User]) -> str:
+            return (f"{u.first_name} {u.last_name}".strip() or u.email) if u else "Unknown"
 
         out: list[AdminAttendanceItem] = []
-        for (allocation_id, session_date), by_role in grouped.items():
-            allocation = await self.session.get(Allocation, allocation_id)
-            if not allocation:
-                continue
-            student = await self.session.get(User, allocation.student_id)
-            teacher = await self.session.get(User, allocation.teacher_id)
-            student_rec = by_role.get(AttendeeRole.STUDENT)
-            teacher_rec = by_role.get(AttendeeRole.TEACHER)
-            any_rec = student_rec or teacher_rec
 
+        async def _row(aid, session_date, day, time, outcome: Optional[SessionOutcome]):
+            allocation = await _alloc(aid)
+            if not allocation:
+                return
+            joined = by_day.get((aid, session_date), {})
+            student_rec = joined.get(AttendeeRole.STUDENT)
+            teacher_rec = joined.get(AttendeeRole.TEACHER)
             out.append(
                 AdminAttendanceItem(
-                    allocation_id=allocation_id,
+                    allocation_id=aid,
                     session_date=session_date,
-                    scheduled_day=any_rec.scheduled_day if any_rec else "",
-                    scheduled_time=any_rec.scheduled_time if any_rec else "",
+                    scheduled_day=day,
+                    scheduled_time=time,
                     student_id=allocation.student_id,
-                    student_name=(
-                        f"{student.first_name} {student.last_name}".strip() or student.email
-                        if student
-                        else "Unknown"
-                    ),
+                    student_name=_name(await _user(allocation.student_id)),
                     student_joined_at=student_rec.joined_at if student_rec else None,
                     teacher_id=allocation.teacher_id,
-                    teacher_name=(
-                        f"{teacher.first_name} {teacher.last_name}".strip() or teacher.email
-                        if teacher
-                        else "Unknown"
-                    ),
+                    teacher_name=_name(await _user(allocation.teacher_id)),
                     teacher_joined_at=teacher_rec.joined_at if teacher_rec else None,
+                    status=outcome.status if outcome else "pending",
+                    outcome_id=outcome.id if outcome else None,
+                    session_charge=outcome.session_charge if outcome else 0,
+                    note=outcome.note if outcome else None,
                 )
             )
 
-        out.sort(key=lambda i: i.session_date, reverse=True)
+        finalized_days = set()
+        for o in outcomes:
+            finalized_days.add((o.allocation_id, o.session_date))
+            await _row(o.allocation_id, o.session_date, o.scheduled_day, o.scheduled_time, o)
+
+        # Joins not finalized yet: lessons in progress today, or from before
+        # attendance_outcomes_start_date (shown as they always were).
+        for (aid, session_date), joined in by_day.items():
+            if (aid, session_date) in finalized_days:
+                continue
+            any_rec = joined.get(AttendeeRole.STUDENT) or joined.get(AttendeeRole.TEACHER)
+            await _row(aid, session_date, any_rec.scheduled_day, any_rec.scheduled_time, None)
+
+        out.sort(key=lambda i: (i.session_date, i.scheduled_time), reverse=True)
         return out

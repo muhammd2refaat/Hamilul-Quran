@@ -94,3 +94,24 @@ class AdminAttendanceItem(BaseModel):
     teacher_id: uuid.UUID
     teacher_name: str
     teacher_joined_at: Optional[datetime] = None
+    # both | teacher_only | student_only | missed | excused once the lesson
+    # has ended and been finalized; "pending" while it's still in progress
+    # (or awaiting the next finalization pass).
+    status: str = "pending"
+    outcome_id: Optional[uuid.UUID] = None
+    # What finalization did to the student's sessions: +1 deducted
+    # (student no-show), -1 refunded (teacher no-show), 0 nothing.
+    session_charge: int = 0
+    note: Optional[str] = None
+
+
+class ExcuseRequest(BaseModel):
+    note: Optional[str] = None
+
+
+class JoinResponse(BaseModel):
+    """Result of opening a lesson through the tracked /join link."""
+    recorded: bool
+    meet_link: Optional[str] = None
+    # When the lesson isn't open yet / no slot today: why, for the page to show.
+    reason: Optional[str] = None

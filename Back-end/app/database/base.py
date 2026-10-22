@@ -25,6 +25,7 @@ from app.features.sessions.models import (                      # noqa: F401
     TeacherHistory,
     SessionScore,
     SessionAttendance,
+    SessionOutcome,
 )
 from app.features.allocations.models import Allocation          # noqa: F401
 from app.features.complaints.models import Complaint            # noqa: F401

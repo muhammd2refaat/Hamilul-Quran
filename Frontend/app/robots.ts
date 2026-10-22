@@ -5,7 +5,7 @@ import { SITE_URL } from '@/lib/seo';
 // enforcement is client-side + backend-side, see proxy.ts), so keep crawlers
 // out of them. Everything else, including the AI answer-engine crawlers
 // below, is explicitly welcomed — that's the whole point of this file.
-const PRIVATE_PATHS = ['/dashboard/', '/auth/', '/register/complete', '/register/required'];
+const PRIVATE_PATHS = ['/dashboard/', '/auth/', '/join/', '/register/complete', '/register/required'];
 
 // Crawlers that power AI answer engines / assistants (ChatGPT, Claude,
 // Gemini via Google-Extended, Perplexity) plus the usual search + social

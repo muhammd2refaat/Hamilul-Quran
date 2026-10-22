@@ -13,11 +13,27 @@ from app.features.calendar.google_calendar_client import (
     get_valid_access_token,
     has_calendar_access,
 )
-from app.features.sessions.models import SessionAttendance
+from app.features.sessions.models import SessionAttendance, SessionOutcome
 from app.features.sessions.service import SessionService
 from app.features.users.models import User
 
 logger = logging.getLogger(__name__)
+
+
+def _lesson_description(allocation_id: uuid.UUID) -> str:
+    """Calendar-invite body. Google always shows its own "Join with Google
+    Meet" button too — this link is the one that records attendance, so it
+    goes first, in both languages."""
+    join_url = f"{settings.frontend_url}/join/{allocation_id}"
+    return (
+        "Elhafazah Academy — weekly Qur'an lesson.\n\n"
+        f"Join here so your attendance is recorded:\n{join_url}\n\n"
+        "Joining with the Google Meet button below works too, but your "
+        "attendance won't be counted.\n\n"
+        "أكاديمية الحفظة — حلقة قرآن أسبوعية.\n\n"
+        f"انضم من هذا الرابط حتى يُسجَّل حضورك:\n{join_url}\n\n"
+        "يمكنك الانضمام عبر زر Google Meet أيضاً، لكن لن يُحتسب حضورك."
+    )
 
 class AllocationService:
     def __init__(self, session: AsyncSession):
@@ -112,6 +128,11 @@ class AllocationService:
         )
         for record in attendance_result.all():
             await self.session.delete(record)
+        outcome_result = await self.session.exec(
+            select(SessionOutcome).where(SessionOutcome.allocation_id == allocation_id)
+        )
+        for outcome in outcome_result.all():
+            await self.session.delete(outcome)
         # Flush now, separately from the allocation delete below: SQLModel
         # declares this as a plain foreign_key with no ORM relationship(), so
         # SQLAlchemy's flush has no dependency graph telling it these rows
@@ -271,7 +292,7 @@ class AllocationService:
             return await create_weekly_event(
                 access_token=access_token,
                 summary=f"Qur'an session — {student_name} with {teacher_name}",
-                description="Elhafazah Academy recurring lesson, scheduled via the platform.",
+                description=_lesson_description(allocation.id),
                 attendee_emails=attendee_emails,
                 day=day,
                 time_str=time_str,

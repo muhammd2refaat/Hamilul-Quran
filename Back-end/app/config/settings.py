@@ -1,6 +1,8 @@
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from datetime import date
 from functools import lru_cache
+from typing import Optional
 
 # Placeholder values shipped as defaults for local-dev convenience. If any of
 # these are still in effect when app_env=="production", the app must refuse
@@ -75,6 +77,20 @@ class Settings(BaseSettings):
     # default) skips this — set only where the academy actually wants the
     # noise, e.g. not on staging's test data.
     calendar_notify_email: str = ""
+
+    # ── Lesson outcomes (missed / no-show tracking) ────────────────────────
+    # Scheduled lessons on or after this date (Cairo) get an outcome row
+    # once they end: both / teacher_only / student_only / missed. Unset
+    # (the default) disables the feature entirely — set it to the release
+    # date so lessons from before the feature existed are never marked or
+    # charged retroactively.
+    attendance_outcomes_start_date: Optional[date] = None
+    # Student no-show (teacher joined, student didn't): deduct one session.
+    attendance_charge_student_no_show: bool = True
+    # How long after a lesson's scheduled end before it's finalized —
+    # leaves room for late joins.
+    attendance_finalize_grace_minutes: int = 15
+    attendance_finalizer_interval_seconds: int = 600
 
     allowed_origins: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
 

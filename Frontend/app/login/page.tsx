@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 import { apiClient } from '@/lib/api';
+import { takeReturnTo } from '@/lib/returnTo';
 import { type User } from '@/types/user';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -98,7 +99,10 @@ function LoginPageInner() {
 
       const { data: userProfile } = await apiClient.get<User>('/users/me');
 
-      if (userProfile.role === 'TEACHER') {
+      const back = takeReturnTo();
+      if (back && (userProfile.role === 'TEACHER' || userProfile.role === 'STUDENT')) {
+        router.push(back);
+      } else if (userProfile.role === 'TEACHER') {
         router.push('/dashboard/teacher');
       } else if (userProfile.role === 'STUDENT') {
         router.push('/dashboard/student');

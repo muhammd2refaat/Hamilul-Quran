@@ -84,3 +84,59 @@ class SessionAttendance(SQLModel, table=True):
     scheduled_time: str = Field(max_length=20)
 
     joined_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Whether this Join click actually deducted one session from the
+    # student's subscription. Recorded so a teacher no-show can be refunded
+    # exactly — never crediting a session that was never taken (e.g. the
+    # subscription was already at 0, or had no plan). Always False for
+    # teacher rows and for rows recorded before this column existed.
+    consumed_session: bool = Field(default=False)
+
+
+class OutcomeStatus(str, Enum):
+    """How a scheduled lesson actually went, decided once it has ended.
+    Stored as plain strings (not a Postgres ENUM) — see the enum gotcha in
+    eae302777fad_session_attendance.py."""
+    BOTH = "both"                  # teacher and student both clicked Join
+    TEACHER_ONLY = "teacher_only"  # student no-show
+    STUDENT_ONLY = "student_only"  # teacher no-show
+    MISSED = "missed"              # nobody clicked Join
+    EXCUSED = "excused"            # an admin excused it after the fact
+
+
+class SessionOutcome(SQLModel, table=True):
+    """
+    One row per scheduled lesson occurrence once it has ended — including
+    lessons nobody joined, so absences are visible instead of silent.
+
+    Written by AttendanceOutcomeService.finalize_due() (a background loop
+    plus a lazy pass when an admin opens the attendance log). The unique
+    constraint makes finalization idempotent across workers: whoever inserts
+    the row first applies the session adjustment; everyone else no-ops.
+
+    session_charge records what finalization did to the student's
+    subscription, so an admin excuse can reverse exactly that:
+      +1  one session deducted (student no-show rule)
+      -1  one session refunded (teacher no-show after the student was
+          charged at Join time)
+       0  nothing
+    """
+    __tablename__ = "session_outcomes"
+    __table_args__ = (
+        UniqueConstraint("allocation_id", "session_date", "scheduled_time", name="uq_session_outcome"),
+    )
+
+    id: Optional[uuid.UUID] = Field(
+        default_factory=uuid.uuid4,
+        primary_key=True,
+        index=True,
+        nullable=False,
+    )
+    allocation_id: uuid.UUID = Field(foreign_key="allocations.id", index=True)
+    session_date: date = Field(index=True)
+    scheduled_day: str = Field(max_length=10)
+    scheduled_time: str = Field(max_length=20)
+    status: str = Field(max_length=20)
+    session_charge: int = Field(default=0)
+    note: Optional[str] = Field(default=None, max_length=500)
+    finalized_at: datetime = Field(default_factory=datetime.utcnow)

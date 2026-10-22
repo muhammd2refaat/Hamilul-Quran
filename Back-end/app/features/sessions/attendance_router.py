@@ -1,5 +1,7 @@
 from typing import Annotated
 
+import uuid
+
 from fastapi import APIRouter, Depends
 
 from app.core.database import get_session
@@ -9,7 +11,10 @@ from app.features.sessions.schemas import (
     AttendanceRecordCreate,
     AttendanceResponse,
     AttendanceSummaryResponse,
+    ExcuseRequest,
+    JoinResponse,
 )
+from app.features.sessions.outcomes import AttendanceOutcomeService
 from app.features.sessions.service import SessionService
 
 router = APIRouter(prefix="/sessions/attendance", tags=["Attendance"])
@@ -56,3 +61,25 @@ async def get_my_attendance_summary(current_user: CurrentUserDep, svc: SvcDep):
 )
 async def list_attendance(_: AdminDep, svc: SvcDep):
     return await svc.get_admin_attendance()
+
+
+@router.post(
+    "/join/{allocation_id}",
+    response_model=JoinResponse,
+    summary="Open my lesson via the tracked link — records attendance, returns the Meet link",
+)
+async def join_lesson(allocation_id: uuid.UUID, current_user: CurrentUserDep, svc: SvcDep):
+    """Used by the /join/<allocation> page linked from every calendar
+    invite, so joining from Google Calendar still counts as attendance."""
+    return await svc.join_now(current_user, allocation_id)
+
+
+@router.patch(
+    "/outcomes/{outcome_id}/excuse",
+    response_model=AdminAttendanceItem,
+    summary="Excuse a lesson — refunds a student no-show deduction (ADMIN)",
+)
+async def excuse_lesson(outcome_id: uuid.UUID, body: ExcuseRequest, _: AdminDep, svc: SvcDep):
+    outcome = await AttendanceOutcomeService(svc.session).excuse(outcome_id, body.note)
+    rows = await svc.get_admin_attendance()
+    return next(r for r in rows if r.outcome_id == outcome.id)
