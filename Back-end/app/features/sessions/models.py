@@ -102,6 +102,8 @@ class OutcomeStatus(str, Enum):
     STUDENT_ONLY = "student_only"  # teacher no-show
     MISSED = "missed"              # nobody clicked Join
     EXCUSED = "excused"            # an admin excused it after the fact
+    CONFIRMED = "confirmed"        # an admin confirmed it took place (joined outside the platform)
+    NOT_SCHEDULED = "not_scheduled"  # past the student's last paid lesson, nobody joined
 
 
 class SessionOutcome(SQLModel, table=True):
@@ -132,7 +134,12 @@ class SessionOutcome(SQLModel, table=True):
         index=True,
         nullable=False,
     )
-    allocation_id: uuid.UUID = Field(foreign_key="allocations.id", index=True)
+    # Not a foreign key: lesson history (teacher totals, student records)
+    # outlives the allocation, so teacher_id/student_id are kept here too —
+    # also the right people if the allocation's teacher is changed later.
+    allocation_id: uuid.UUID = Field(index=True)
+    teacher_id: Optional[uuid.UUID] = Field(default=None, index=True)
+    student_id: Optional[uuid.UUID] = Field(default=None, index=True)
     session_date: date = Field(index=True)
     scheduled_day: str = Field(max_length=10)
     scheduled_time: str = Field(max_length=20)

@@ -1,5 +1,8 @@
 import logging
 import uuid
+from datetime import date
+from typing import Optional
+
 from fastapi import HTTPException, status
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -12,8 +15,11 @@ from app.features.calendar.google_calendar_client import (
     delete_event,
     get_valid_access_token,
     has_calendar_access,
+    next_occurrence,
+    set_event_until,
 )
-from app.features.sessions.models import SessionAttendance, SessionOutcome
+from app.features.sessions.models import SessionAttendance
+from app.features.sessions.schedule import ScheduleService
 from app.features.sessions.service import SessionService
 from app.features.users.models import User
 
@@ -74,7 +80,10 @@ class AllocationService:
         await self.session.commit()
         await self.session.refresh(allocation)
 
-        await self._try_create_calendar_events(allocation)
+        # Sets scheduled_until from the student's remaining sessions and
+        # creates the calendar series ending there.
+        await ScheduleService(self.session).sync_student(allocation.student_id, create_missing=True)
+        await self.session.refresh(allocation)
 
         return allocation
 
@@ -92,6 +101,7 @@ class AllocationService:
 
         schedule_changed = "schedule" in update_data and update_data["schedule"] is not None
         old_teacher_id = allocation.teacher_id
+        old_student_id = allocation.student_id
         old_schedule = list(allocation.schedule or []) if schedule_changed else None
 
         if schedule_changed:
@@ -108,10 +118,15 @@ class AllocationService:
 
         if schedule_changed:
             # Best-effort: drop the old Meet events on the (possibly former)
-            # teacher's calendar, then generate fresh ones for the new schedule.
+            # teacher's calendar; the sync below creates fresh ones for the
+            # new schedule.
             await self._try_delete_calendar_events(old_teacher_id, old_schedule)
-            await self._try_create_calendar_events(allocation)
 
+        schedule = ScheduleService(self.session)
+        await schedule.sync_student(allocation.student_id, create_missing=True)
+        if old_student_id != allocation.student_id:
+            await schedule.sync_student(old_student_id)
+        await self.session.refresh(allocation)
         return allocation
 
     async def delete(self, allocation_id: uuid.UUID) -> None:
@@ -128,11 +143,8 @@ class AllocationService:
         )
         for record in attendance_result.all():
             await self.session.delete(record)
-        outcome_result = await self.session.exec(
-            select(SessionOutcome).where(SessionOutcome.allocation_id == allocation_id)
-        )
-        for outcome in outcome_result.all():
-            await self.session.delete(outcome)
+        # Lesson outcomes are kept: they carry teacher_id/student_id and are
+        # the monthly history (teacher totals), which outlives the allocation.
         # Flush now, separately from the allocation delete below: SQLModel
         # declares this as a plain foreign_key with no ORM relationship(), so
         # SQLAlchemy's flush has no dependency graph telling it these rows
@@ -142,6 +154,8 @@ class AllocationService:
 
         await self.session.delete(allocation)
         await self.session.commit()
+        # The student's other allocations may now have lessons to spare.
+        await ScheduleService(self.session).sync_student(allocation.student_id)
 
     async def _try_delete_calendar_events(
         self, teacher_id: uuid.UUID, schedule: list[dict] | None
@@ -169,6 +183,53 @@ class AllocationService:
         except Exception:
             logger.warning(
                 "Failed to delete Google Calendar event %s", event_id, exc_info=True,
+            )
+
+    async def apply_schedule_end(
+        self, allocation: Allocation, old_until: Optional[date], today: date
+    ) -> None:
+        """
+        Best-effort: bring the teacher's calendar in line with the
+        allocation's scheduled_until — end the series on the last paid
+        lesson, extend it after a renewal or deferral, and create events for
+        slots that have none (e.g. the subscription had run out when the
+        allocation was made). A series that had already ended in the past is
+        recreated from now rather than extended, so the old weeks with no
+        lesson don't reappear on the calendar. Never raises.
+        """
+        try:
+            access_token = await self._get_teacher_access_token(allocation.teacher_id)
+            if not access_token:
+                return
+            until = allocation.scheduled_until
+            restart = old_until is not None and old_until < today and (until is None or until > old_until)
+
+            slots = []
+            for entry in allocation.schedule or []:
+                entry = dict(entry)
+                event_id = entry.get("google_event_id")
+                if event_id:
+                    series_start = entry.get("series_start")
+                    starts_after_end = (
+                        until is not None and series_start is not None
+                        and until < date.fromisoformat(series_start)
+                    )
+                    if restart or starts_after_end:
+                        await self._delete_event_for_entry(access_token, entry)
+                        for key in ("google_event_id", "meet_link", "series_start"):
+                            entry.pop(key, None)
+                    else:
+                        await set_event_until(access_token, event_id, entry["day"], until)
+                slots.append(entry)
+
+            # Reassign (not in-place mutate) so SQLAlchemy detects the JSON change.
+            allocation.schedule = slots
+            self.session.add(allocation)
+            await self.session.commit()
+            await self._try_create_calendar_events(allocation)
+        except Exception:
+            logger.warning(
+                "Google Calendar schedule-end sync failed for allocation %s", allocation.id, exc_info=True
             )
 
     async def _try_create_calendar_events(self, allocation: Allocation) -> None:
@@ -250,10 +311,20 @@ class AllocationService:
         teacher_name = f"{teacher.first_name} {teacher.last_name}".strip() or teacher.email
 
         enriched_schedule = []
+        until = allocation.scheduled_until
         for entry in allocation.schedule:
             enriched_entry = dict(entry)
             day = entry.get("day")
             time_str = entry.get("time")
+            # Slots that already have a series, or whose next lesson is past
+            # the last paid one (no sessions left), get no new event.
+            if entry.get("google_event_id") or not (day and time_str):
+                enriched_schedule.append(enriched_entry)
+                continue
+            first_lesson = next_occurrence(day, time_str)
+            if until is not None and first_lesson.date() > until:
+                enriched_schedule.append(enriched_entry)
+                continue
             if day and time_str:
                 event = await self._create_event_for_slot(
                     access_token, allocation, teacher, student,
@@ -262,6 +333,7 @@ class AllocationService:
                 if event:
                     enriched_entry["meet_link"] = event.get("hangoutLink")
                     enriched_entry["google_event_id"] = event.get("id")
+                    enriched_entry["series_start"] = first_lesson.date().isoformat()
             enriched_schedule.append(enriched_entry)
         return enriched_schedule
 
@@ -297,6 +369,7 @@ class AllocationService:
                 day=day,
                 time_str=time_str,
                 duration_minutes=allocation.duration,
+                until=allocation.scheduled_until,
             )
         except Exception:
             logger.warning(

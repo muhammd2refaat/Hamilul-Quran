@@ -55,6 +55,10 @@ class SubscriptionResponse(BaseModel):
     notes: Optional[str] = None
     sessions_remaining: Optional[int] = None
     paused_at: Optional[datetime] = None
+    # Date of the student's last paid lesson (moves when a lesson is excused
+    # or deferred, or the subscription renewed). None = no lessons
+    # scheduled, or open-ended.
+    ends_on: Optional[date] = None
     created_at: datetime
     updated_at: datetime
     # Full plan detail (sessions/week, duration, price) when plan_id is set —

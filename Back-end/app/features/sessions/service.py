@@ -326,7 +326,11 @@ class SessionService:
 
         async def _row(aid, session_date, day, time, outcome: Optional[SessionOutcome]):
             allocation = await _alloc(aid)
-            if not allocation:
+            # Outcomes outlive their allocation (lesson history) and carry
+            # who taught whom themselves.
+            teacher_id = outcome.teacher_id if outcome and outcome.teacher_id else allocation.teacher_id if allocation else None
+            student_id = outcome.student_id if outcome and outcome.student_id else allocation.student_id if allocation else None
+            if teacher_id is None or student_id is None:
                 return
             joined = by_day.get((aid, session_date), {})
             student_rec = joined.get(AttendeeRole.STUDENT)
@@ -337,11 +341,11 @@ class SessionService:
                     session_date=session_date,
                     scheduled_day=day,
                     scheduled_time=time,
-                    student_id=allocation.student_id,
-                    student_name=_name(await _user(allocation.student_id)),
+                    student_id=student_id,
+                    student_name=_name(await _user(student_id)),
                     student_joined_at=student_rec.joined_at if student_rec else None,
-                    teacher_id=allocation.teacher_id,
-                    teacher_name=_name(await _user(allocation.teacher_id)),
+                    teacher_id=teacher_id,
+                    teacher_name=_name(await _user(teacher_id)),
                     teacher_joined_at=teacher_rec.joined_at if teacher_rec else None,
                     status=(
                         outcome.status if outcome

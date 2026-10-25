@@ -5,6 +5,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from fastapi import HTTPException, status
 
+from app.features.allocations.models import Allocation
 from app.features.subscriptions.models import Plan, Subscription, SubscriptionStatus
 from app.features.subscriptions.schemas import PlanCreate, PlanUpdate, SubscriptionUpsert
 from app.features.users.models import User
@@ -139,11 +140,24 @@ class SubscriptionService:
 
         self.session.add(subscription)
         await self.session.commit()
+
+        # A renewal, top-up, pause or resume moves the last lesson date —
+        # and the teacher's calendar series with it.
+        from app.features.sessions.schedule import ScheduleService
+
+        await ScheduleService(self.session).sync_student(student_id, create_missing=True)
         await self.session.refresh(subscription)
         return await self._to_dict(subscription)
 
     async def _to_dict(self, sub: Subscription, student_name: Optional[str] = None) -> dict:
         d = sub.model_dump()
+        # Date of the last paid lesson — see sessions/schedule.py.
+        ends = (
+            await self.session.exec(
+                select(Allocation.scheduled_until).where(Allocation.student_id == sub.student_id)
+            )
+        ).all()
+        d["ends_on"] = max((e for e in ends if e is not None), default=None)
         if student_name is not None:
             d["student_name"] = student_name
         if sub.plan_id is not None:

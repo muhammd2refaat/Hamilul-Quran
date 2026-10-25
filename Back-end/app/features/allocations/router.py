@@ -6,6 +6,8 @@ from app.core.database import get_session
 from app.core.dependencies import AdminDep
 from app.features.allocations.schemas import (
     AllocationCreate,
+    AllocationPreviewRequest,
+    AllocationPreviewResponse,
     AllocationResponse,
     AllocationUpdate,
 )
@@ -27,6 +29,19 @@ async def get_my_allocations(current_user: CurrentUserDep, svc: SvcDep):
 @router.get("", response_model=list[AllocationResponse], summary="List all allocations (ADMIN)")
 async def list_allocations(_: AdminDep, svc: SvcDep):
     return await svc.get_all()
+
+@router.post(
+    "/preview",
+    response_model=AllocationPreviewResponse,
+    summary="Which lessons an allocation would schedule, given the student's sessions (ADMIN)",
+)
+async def preview_allocation(body: AllocationPreviewRequest, _: AdminDep, svc: SvcDep):
+    from app.features.sessions.schedule import preview_allocation as _preview
+
+    return await _preview(
+        svc.session, body.student_id, [s.model_dump() for s in body.schedule], body.duration,
+        exclude_allocation_id=body.allocation_id,
+    )
 
 @router.post("", response_model=AllocationResponse, status_code=201, summary="Create allocation (ADMIN)")
 async def create_allocation(_: AdminDep, svc: SvcDep, body: AllocationCreate):
