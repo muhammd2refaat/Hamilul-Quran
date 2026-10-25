@@ -13,6 +13,7 @@ import { ArchPanel } from '@/components/dashboard/ArchPanel';
 import { SectionHeader } from '@/components/dashboard/SectionHeader';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { PlanRequestModal } from '@/components/dashboard/PlanRequestModal';
+import { LessonRatingCard } from '@/components/dashboard/LessonRatingCard';
 
 export default function StudentOverviewPage() {
   const { t } = useLang();
@@ -112,6 +113,8 @@ export default function StudentOverviewPage() {
           <StatCard label={t.statSessionsAttended} value={attendance?.total_sessions ?? '—'} icon={Award} />
         </div>
       )}
+
+      {!isNew && <LessonRatingCard />}
 
       {!isNew && (
         <div style={{ marginTop: 26 }}>

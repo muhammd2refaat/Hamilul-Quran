@@ -47,6 +47,14 @@ export interface DashboardStrings {
   calDenied: string;
   calWrongAccount: string;
   calError: string;
+  rateTitle: string;
+  rateDesc: string;
+  rateWith: string;
+  rateCommentPlaceholder: string;
+  rateSubmit: string;
+  rateEdit: string;
+  rateThanks: string;
+  rateError: string;
   quickStats: string;
   statStudents: string;
   statSessionsWeek: string;
@@ -212,6 +220,14 @@ const DICT: Record<Lang, DashboardStrings> = {
     calDenied: 'Calendar access wasn’t granted. Please try again and keep the Calendar box ticked.',
     calWrongAccount: 'Please connect the same Google account you sign in with.',
     calError: 'Couldn’t connect Google Calendar. Please try again.',
+    rateTitle: 'Rate your recent lessons',
+    rateDesc: 'How did each lesson go? Your rating goes to the academy — your teacher doesn’t see it.',
+    rateWith: 'with',
+    rateCommentPlaceholder: 'Anything you’d like to add? (optional)',
+    rateSubmit: 'Send rating',
+    rateEdit: 'Change',
+    rateThanks: 'Thank you — rating saved.',
+    rateError: 'Couldn’t save your rating. Please try again.',
     quickStats: 'At a glance',
     statStudents: 'Students',
     statSessionsWeek: 'Sessions / week',
@@ -386,6 +402,14 @@ const DICT: Record<Lang, DashboardStrings> = {
     calDenied: 'لم يتم منح صلاحية التقويم. يرجى المحاولة مرة أخرى مع إبقاء خانة التقويم محددة.',
     calWrongAccount: 'يرجى ربط حساب جوجل نفسه الذي تسجّل الدخول به.',
     calError: 'تعذّر ربط تقويم جوجل. يرجى المحاولة مرة أخرى.',
+    rateTitle: 'قيّم حصصك الأخيرة',
+    rateDesc: 'كيف كانت كل حصة؟ يصل تقييمك إلى إدارة الأكاديمية — ولا يراه معلّمك.',
+    rateWith: 'مع',
+    rateCommentPlaceholder: 'هل تريد إضافة شيء؟ (اختياري)',
+    rateSubmit: 'إرسال التقييم',
+    rateEdit: 'تعديل',
+    rateThanks: 'شكرًا لك — تم حفظ التقييم.',
+    rateError: 'تعذّر حفظ تقييمك. يرجى المحاولة مرة أخرى.',
     quickStats: 'نظرة سريعة',
     statStudents: 'الطلاب',
     statSessionsWeek: 'حصص / أسبوعياً',
