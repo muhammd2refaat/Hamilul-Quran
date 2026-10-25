@@ -1,9 +1,10 @@
 from __future__ import annotations
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 from typing import Optional
 
+from sqlalchemy import Index, text
 from sqlmodel import SQLModel, Field
 
 
@@ -56,8 +57,33 @@ class Ijaza(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class ReviewKind(str, Enum):
+    """Stored as plain strings (not a Postgres ENUM) — see the enum gotcha
+    in eae302777fad_session_attendance.py."""
+    STUDENT_SESSION = "student_session"  # a student rating one lesson they joined
+    ADMIN_AUDIT = "admin_audit"          # an admin's evaluation of the teacher
+    GENERAL = "general"                  # legacy: not tied to a lesson or an audit
+
+
 class TeacherReview(SQLModel, table=True):
+    """
+    A rating of a teacher. Student reviews are always about one specific
+    lesson occurrence (allocation + date + time); admin audits may point at
+    a lesson too, but don't have to.
+
+    allocation_id is deliberately NOT a foreign key: deleting or
+    re-creating an allocation must not erase the teacher's review history.
+    """
     __tablename__ = "teacher_reviews"
+    __table_args__ = (
+        # One student review per reviewer per lesson; admins may audit freely.
+        Index(
+            "uq_student_lesson_review",
+            "reviewer_id", "allocation_id", "session_date", "scheduled_time",
+            unique=True,
+            postgresql_where=text("kind = 'student_session'"),
+        ),
+    )
 
     id: Optional[uuid.UUID] = Field(
         default_factory=uuid.uuid4,
@@ -76,4 +102,10 @@ class TeacherReview(SQLModel, table=True):
     comment: Optional[str] = Field(default=None)
     is_admin: bool = Field(default=False)
 
+    kind: str = Field(default=ReviewKind.GENERAL.value, max_length=20, index=True)
+    allocation_id: Optional[uuid.UUID] = Field(default=None, index=True)
+    session_date: Optional[date] = Field(default=None)
+    scheduled_time: Optional[str] = Field(default=None, max_length=20)
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = Field(default=None)

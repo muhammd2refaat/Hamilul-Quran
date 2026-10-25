@@ -1,20 +1,28 @@
 import uuid
+from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional, Sequence
 
 from fastapi import HTTPException, UploadFile, status
 from sqlmodel import select, func
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.config.settings import settings
 from app.core.storage import save_certificate
 from app.features.allocations.models import Allocation
-from app.features.sessions.models import SessionScore
-from app.features.teachers.models import Ijaza, IjazaType, TeacherProfile, TeacherReview
+from app.features.calendar.google_calendar_client import CAIRO_TZ
+from app.features.sessions.models import SessionAttendance, SessionScore
+from app.features.teachers.models import Ijaza, IjazaType, ReviewKind, TeacherProfile, TeacherReview
 from app.features.teachers.schemas import (
     IjazaResponse,
+    LessonReviewCreate,
     PaginatedTeachers,
+    ReviewableLesson,
     TeacherProfileResponse,
     TeacherProfileUpdate,
     TeacherPublicResponse,
+    TeacherReviewCreate,
+    TeacherReviewResponse,
     TeacherStudentResponse,
 )
 from app.features.users.models import User, UserRole
@@ -229,61 +237,193 @@ class TeacherService:
         return result.all()
 
 
+
+    async def get_certificate(self, user_id: uuid.UUID) -> tuple[Path, str]:
+        """The teacher's uploaded certificate on disk, plus a download name."""
+        profile = await self._get_profile_row(user_id)
+        file_path = Path(settings.upload_dir) / profile.certificate_path if profile.certificate_path else None
+        if file_path is None or not file_path.is_file():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="This teacher has no certificate on file.",
+            )
+        return file_path, f"certificate{file_path.suffix.lower()}"
+
+
+# How far back a student may still rate a lesson they joined.
+LESSON_REVIEW_WINDOW_DAYS = 14
+
+
 class ReviewService:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def list_for_teacher(self, teacher_id: uuid.UUID) -> list[TeacherReview]:
+    async def list_for_teacher(self, teacher_id: uuid.UUID) -> list[TeacherReviewResponse]:
         result = await self.session.exec(
             select(TeacherReview)
             .where(TeacherReview.teacher_id == teacher_id)
             .order_by(TeacherReview.created_at.desc())
         )
-        return result.all()
-
-    async def create(
-        self,
-        teacher_id: uuid.UUID,
-        reviewer_id: Optional[uuid.UUID],
-        reviewer_name: str,
-        rating: int,
-        comment: Optional[str],
-        is_admin: bool,
-    ) -> TeacherReview:
-        """Create a review, or update the reviewer's existing review for this
-        teacher if one already exists — one review per reviewer per teacher."""
-        if reviewer_id is not None:
-            existing_result = await self.session.exec(
-                select(TeacherReview)
-                .where(TeacherReview.teacher_id == teacher_id)
-                .where(TeacherReview.reviewer_id == reviewer_id)
+        reviews = result.all()
+        student_names = await self._lesson_student_names(
+            {r.allocation_id for r in reviews if r.allocation_id}
+        )
+        return [
+            TeacherReviewResponse.model_validate(r).model_copy(
+                update={"student_name": student_names.get(r.allocation_id)}
             )
-            existing = existing_result.first()
-            if existing is not None:
-                existing.reviewer_name = reviewer_name
-                existing.rating = rating
-                existing.comment = comment
-                existing.is_admin = is_admin
-                self.session.add(existing)
-                await self.session.commit()
-                await self.session.refresh(existing)
-                return existing
+            for r in reviews
+        ]
+
+    async def _lesson_student_names(self, allocation_ids: set[uuid.UUID]) -> dict[uuid.UUID, str]:
+        if not allocation_ids:
+            return {}
+        result = await self.session.exec(
+            select(Allocation.id, User)
+            .join(User, Allocation.student_id == User.id)
+            .where(Allocation.id.in_(allocation_ids))
+        )
+        return {alloc_id: _full_name(student) for alloc_id, student in result.all()}
+
+    async def create_audit(
+        self, teacher_id: uuid.UUID, admin: User, body: TeacherReviewCreate
+    ) -> TeacherReviewResponse:
+        """An admin's evaluation of a teacher. Every audit is its own row, so
+        the history of evaluations over time is kept."""
+        teacher = await self.session.get(User, teacher_id)
+        if teacher is None or teacher.role != UserRole.TEACHER:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Teacher not found")
+
+        lesson = (body.allocation_id, body.session_date, body.scheduled_time)
+        if any(v is not None for v in lesson) and not all(v is not None for v in lesson):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="A lesson needs allocation_id, session_date and scheduled_time together.",
+            )
+        if body.allocation_id is not None:
+            allocation = await self.session.get(Allocation, body.allocation_id)
+            if allocation is None or allocation.teacher_id != teacher_id:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="That lesson doesn't belong to this teacher.",
+                )
 
         review = TeacherReview(
             teacher_id=teacher_id,
-            reviewer_id=reviewer_id,
-            reviewer_name=reviewer_name,
-            rating=rating,
-            comment=comment,
-            is_admin=is_admin,
+            reviewer_id=admin.id,
+            reviewer_name=_full_name(admin),
+            rating=body.rating,
+            comment=body.comment,
+            is_admin=True,
+            kind=ReviewKind.ADMIN_AUDIT.value,
+            allocation_id=body.allocation_id,
+            session_date=body.session_date,
+            scheduled_time=body.scheduled_time,
         )
         self.session.add(review)
         await self.session.commit()
         await self.session.refresh(review)
-        return review
+        names = await self._lesson_student_names({review.allocation_id} if review.allocation_id else set())
+        return TeacherReviewResponse.model_validate(review).model_copy(
+            update={"student_name": names.get(review.allocation_id)}
+        )
 
-    async def average_rating(self, teacher_id: uuid.UUID) -> Optional[float]:
-        reviews = await self.list_for_teacher(teacher_id)
-        if not reviews:
-            return None
-        return round(sum(r.rating for r in reviews) / len(reviews), 2)
+    async def recent_lessons_for_student(self, student: User) -> list[ReviewableLesson]:
+        """Lessons this student joined in the review window, newest first,
+        with the rating they already gave (if any)."""
+        since = datetime.now(CAIRO_TZ).date() - timedelta(days=LESSON_REVIEW_WINDOW_DAYS)
+        result = await self.session.exec(
+            select(SessionAttendance, User)
+            .join(Allocation, SessionAttendance.allocation_id == Allocation.id)
+            .join(User, Allocation.teacher_id == User.id)
+            .where(SessionAttendance.user_id == student.id)
+            .where(SessionAttendance.session_date >= since)
+            .order_by(SessionAttendance.session_date.desc(), SessionAttendance.joined_at.desc())
+        )
+        rows = result.all()
+
+        reviews_result = await self.session.exec(
+            select(TeacherReview)
+            .where(TeacherReview.reviewer_id == student.id)
+            .where(TeacherReview.kind == ReviewKind.STUDENT_SESSION.value)
+            .where(TeacherReview.session_date >= since)
+        )
+        mine = {
+            (r.allocation_id, r.session_date, r.scheduled_time): r for r in reviews_result.all()
+        }
+
+        lessons = []
+        for attendance, teacher in rows:
+            review = mine.get((attendance.allocation_id, attendance.session_date, attendance.scheduled_time))
+            lessons.append(ReviewableLesson(
+                allocation_id=attendance.allocation_id,
+                session_date=attendance.session_date,
+                scheduled_day=attendance.scheduled_day,
+                scheduled_time=attendance.scheduled_time,
+                teacher_name=_full_name(teacher),
+                rating=review.rating if review else None,
+                comment=review.comment if review else None,
+            ))
+        return lessons
+
+    async def submit_lesson_review(
+        self, student: User, body: LessonReviewCreate
+    ) -> TeacherReviewResponse:
+        """Rate one lesson the student joined. Submitting again for the same
+        lesson edits the earlier rating instead of adding a second one."""
+        since = datetime.now(CAIRO_TZ).date() - timedelta(days=LESSON_REVIEW_WINDOW_DAYS)
+        if body.session_date < since:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Lessons can be rated for {LESSON_REVIEW_WINDOW_DAYS} days after they happen.",
+            )
+
+        attended = await self.session.exec(
+            select(SessionAttendance)
+            .where(SessionAttendance.allocation_id == body.allocation_id)
+            .where(SessionAttendance.user_id == student.id)
+            .where(SessionAttendance.session_date == body.session_date)
+            .where(SessionAttendance.scheduled_time == body.scheduled_time)
+        )
+        allocation = await self.session.get(Allocation, body.allocation_id)
+        if attended.first() is None or allocation is None or allocation.student_id != student.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only rate lessons you joined.",
+            )
+
+        existing_result = await self.session.exec(
+            select(TeacherReview)
+            .where(TeacherReview.reviewer_id == student.id)
+            .where(TeacherReview.kind == ReviewKind.STUDENT_SESSION.value)
+            .where(TeacherReview.allocation_id == body.allocation_id)
+            .where(TeacherReview.session_date == body.session_date)
+            .where(TeacherReview.scheduled_time == body.scheduled_time)
+        )
+        review = existing_result.first()
+        if review is None:
+            review = TeacherReview(
+                teacher_id=allocation.teacher_id,
+                reviewer_id=student.id,
+                reviewer_name=_full_name(student),
+                rating=body.rating,
+                comment=body.comment,
+                kind=ReviewKind.STUDENT_SESSION.value,
+                allocation_id=body.allocation_id,
+                session_date=body.session_date,
+                scheduled_time=body.scheduled_time,
+            )
+        else:
+            review.rating = body.rating
+            review.comment = body.comment
+            review.updated_at = datetime.utcnow()
+        self.session.add(review)
+        await self.session.commit()
+        await self.session.refresh(review)
+        return TeacherReviewResponse.model_validate(review).model_copy(
+            update={"student_name": review.reviewer_name}
+        )
+
+
+def _full_name(user: User) -> str:
+    return f"{user.first_name} {user.last_name}".strip() or user.email
