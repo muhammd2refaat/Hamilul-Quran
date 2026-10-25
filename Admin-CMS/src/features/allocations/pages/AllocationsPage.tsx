@@ -25,6 +25,7 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { Button, Modal, ConfirmDialog } from '@/shared/components';
 import { useAllocationsStore, type Allocation } from '../store/allocationsStore';
+import { AllocationPreview } from '../components/AllocationPreview';
 import { useUsersStore } from '@/features/users/store/usersStore';
 import { get } from '@/services/api/client';
 import { useEffect } from 'react';
@@ -626,6 +627,13 @@ export function AllocationsPage() {
                 })}
               </div>
               </div>
+
+              <AllocationPreview
+                studentId={state.studentId}
+                duration={state.duration}
+                schedule={state.schedule}
+                allocationId={editingId}
+              />
             </div>
           )}
         </div>

@@ -29,6 +29,8 @@ export interface Subscription {
   notes?: string;
   sessionsRemaining?: number;
   pausedAt?: string;
+  /** Date of the last paid lesson (moves when a lesson is excused/deferred). */
+  endsOn?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -65,6 +67,7 @@ const mapSubscription = (item: any): Subscription => ({
   notes: item.notes ?? undefined,
   sessionsRemaining: item.sessions_remaining ?? undefined,
   pausedAt: item.paused_at ?? undefined,
+  endsOn: item.ends_on ?? undefined,
   createdAt: item.created_at,
   updatedAt: item.updated_at,
 });

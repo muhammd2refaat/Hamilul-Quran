@@ -11,6 +11,7 @@ interface AttendanceState {
   error: string | null;
   fetchAttendance: () => Promise<void>;
   excuse: (outcomeId: string, note: string) => Promise<void>;
+  confirm: (outcomeId: string, note: string) => Promise<void>;
 }
 
 // Map the backend snake_case shape onto the UI's camelCase AttendanceRecord.
@@ -52,6 +53,14 @@ export const useAttendanceStore = create<AttendanceState>((set) => ({
   excuse: async (outcomeId, note) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updated = mapRecord(await apiPatch<any>(`/sessions/attendance/outcomes/${outcomeId}/excuse`, { note }));
+    set((state) => ({
+      records: state.records.map((r) => (r.outcomeId === outcomeId ? updated : r)),
+    }));
+  },
+
+  confirm: async (outcomeId, note) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updated = mapRecord(await apiPatch<any>(`/sessions/attendance/outcomes/${outcomeId}/confirm`, { note }));
     set((state) => ({
       records: state.records.map((r) => (r.outcomeId === outcomeId ? updated : r)),
     }));
