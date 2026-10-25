@@ -397,3 +397,20 @@ async def test_hard_delete_student_with_attendance_and_outcomes(client, db_sessi
     assert r.status_code in (200, 204), r.text
     left = (await db_session.exec(select(SessionOutcome).where(SessionOutcome.student_id == student_user.id))).all()
     assert left == []
+
+
+@pytest.mark.asyncio
+async def test_history_upcoming_counts_only_paid_lessons(client, db_session, admin_headers, teacher_user, student_user):
+    """Two slots on the same day, one session left: one upcoming lesson."""
+    future = TODAY + timedelta(days=2)
+    if future.month != TODAY.month:
+        pytest.skip("needs two days left in the month")
+    day = DAYS[future.weekday()]
+    db_session.add(Allocation(teacher_id=teacher_user.id, student_id=student_user.id, sessions_per_week=2, duration=30,
+                              schedule=[{"day": day, "time": "10:00 AM"}, {"day": day, "time": "11:00 AM"}]))
+    db_session.add(Subscription(student_id=student_user.id, plan_name="p", sessions_remaining=1))
+    await db_session.commit()
+
+    r = await client.get(f"/sessions/attendance/history?month={TODAY.strftime('%Y-%m')}", headers=admin_headers)
+    [student] = r.json()["students"]
+    assert student["upcoming"] == 1

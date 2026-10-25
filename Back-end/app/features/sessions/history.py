@@ -25,7 +25,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.features.allocations.models import Allocation
 from app.features.calendar.google_calendar_client import CAIRO_TZ, parse_time_str
 from app.features.sessions.models import OutcomeStatus, SessionOutcome
-from app.features.sessions.schedule import _created, slot_lessons
+from app.features.sessions.schedule import ScheduleService
 from app.features.subscriptions.models import Plan, Subscription
 from app.features.users.models import User
 
@@ -75,15 +75,20 @@ async def monthly_history(session: AsyncSession, month: date, now: Optional[date
             "outcome_id": o.id, "note": o.note,
         })
 
-    # The rest of the month: lessons still ahead, while they're paid for.
+    # The rest of the month: lessons still ahead that are paid for — the
+    # same list the end date comes from (open-ended students: every slot).
     if last >= now_cairo.date():
+        schedule = ScheduleService(session)
+        by_student: dict[uuid.UUID, list[Allocation]] = {}
         for a in allocations.values():
-            for l in slot_lessons(a.id, a.schedule, a.duration, _created(a), now_cairo, 6):
-                if not (first <= l.session_date <= last):
-                    continue
-                if a.scheduled_until is not None and l.session_date > a.scheduled_until:
-                    continue
-                if (a.id, l.session_date, l.time) in finalized:
+            by_student.setdefault(a.student_id, []).append(a)
+        for student_id, student_allocations in by_student.items():
+            remaining = schedule.sessions_left(await schedule._subscription(student_id))
+            weeks_left = (last - now_cairo.date()).days // 7 + 2
+            want = remaining if remaining is not None else weeks_left * sum(len(a.schedule or []) for a in student_allocations)
+            for l in await schedule.paid_lessons(student_id, student_allocations, want, now):
+                a = allocations[l.allocation_id]
+                if not (first <= l.session_date <= last) or (a.id, l.session_date, l.time) in finalized:
                     continue
                 lessons.append({
                     "session_date": l.session_date, "scheduled_time": l.time,
