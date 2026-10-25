@@ -166,6 +166,9 @@ export interface Subscription {
   notes?: string | null;
   sessions_remaining?: number | null;
   paused_at?: string | null;
+  // Date of the last paid lesson ("YYYY-MM-DD"); moves when a lesson is
+  // excused/deferred or the subscription renewed.
+  ends_on?: string | null;
   created_at: string;
   updated_at: string;
   // Full plan detail (sessions/week, duration, price) when plan_id is set.

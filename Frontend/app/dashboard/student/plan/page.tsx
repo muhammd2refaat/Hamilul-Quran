@@ -172,6 +172,16 @@ export default function StudentPlanPage() {
                 <strong>{subscription.sessions_remaining}</strong>
               </div>
             )}
+            {subscription.ends_on && subscription.status === 'active' && (subscription.sessions_remaining ?? 0) > 0 && (
+              <div>
+                <span style={{ color: EE.sageMuted }}>{t.planLastLessonLabel}: </span>
+                <strong>
+                  {new Date(`${subscription.ends_on}T00:00:00`).toLocaleDateString(lang === 'ar' ? 'ar' : 'en-US', {
+                    weekday: 'long', day: 'numeric', month: 'long',
+                  })}
+                </strong>
+              </div>
+            )}
             {subscription.status === 'paused' && subscription.paused_at && (
               <div style={{ color: EE.goldDeep, fontWeight: 600 }}>
                 {t.planPausedSince.replace(
