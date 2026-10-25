@@ -206,9 +206,17 @@
     "selectedSlots": "تم اختيار {{selected}} من {{total}} مواعيد",
     "slotLocked": "محجوز بالفعل لهذا المعلم",
     "calendarConnected": "تقويم جوجل مرتبط",
-    "calendarNotConnected": "التقويم غير مرتبط — لا رابط Meet حتى يقوم المعلم بالربط",
+    "calendarNotConnected": "التقويم غير مربوط — لا يمكن التخصيص بعد",
     "enrolledStudents": "الطلاب المسجلون ({{count}})",
-    "noEnrolledStudents": "لا يوجد طلاب مسجلون بعد."
+    "noEnrolledStudents": "لا يوجد طلاب مسجلون بعد.",
+    "syncingCalendarDesc": "جارٍ إنشاء مواعيد الحصص وروابط Google Meet في تقويم المعلّم وإرسال الدعوات. قد يستغرق ذلك بضع ثوانٍ — من فضلك لا تغلق هذه النافذة.",
+    "notConnectedTitle": "تقويم جوجل غير مربوط",
+    "notConnectedMessage": "لم يربط {{name}} تقويم جوجل بعد، لذلك لا يمكن تخصيص أو جدولة حصص لهذا المعلّم.",
+    "notConnectedWhy": "تُنشأ كل حصة كموعد برابط Google Meet في تقويم المعلّم نفسه. بدون هذا الربط لن يكون هناك رابط للحصة ولا دعوات.",
+    "notConnectedHowTo": "اطلب من المعلّم تسجيل الدخول إلى لوحة التحكم والضغط على «ربط تقويم جوجل» (خطوة لمرة واحدة)، ثم اضغط «تحقّق مرة أخرى».",
+    "checkAgain": "تحقّق مرة أخرى",
+    "ok": "حسنًا",
+    "calendarNowConnected": "تم ربط تقويم المعلّم الآن"
   },
   "subscriptions": {
     "title": "الاشتراكات",

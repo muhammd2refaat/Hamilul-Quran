@@ -18,6 +18,8 @@ import {
   Trash2,
   Users,
   Lock,
+  Loader2,
+  CalendarX2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -76,17 +78,47 @@ export function AllocationsPage() {
     fetchUsers();
   }, [fetchAllocations, fetchUsers]);
 
-  // Which teachers have granted Google Calendar access. A teacher who hasn't
-  // connected yet can still be allocated, but the lesson gets no Meet link
-  // until they connect from their dashboard (events are backfilled then).
+  // Which teachers have granted Google Calendar access. Lessons are created
+  // as events on the teacher's own calendar, so a teacher who hasn't
+  // connected yet can't be allocated — the admin gets a popup instead.
+  // If this lookup fails the state is unknown and allocating isn't blocked.
   const [calendarConnected, setCalendarConnected] = useState<Record<string, boolean>>({});
-  useEffect(() => {
+  const [isCheckingCalendar, setIsCheckingCalendar] = useState(false);
+  const loadCalendarConnections = () =>
     get<{ teacher_id: string; connected: boolean }[]>('/calendar/connections')
-      .then((rows) => setCalendarConnected(Object.fromEntries(rows.map((r) => [r.teacher_id, r.connected]))))
-      .catch(() => {
-        // Non-critical — the badge is simply omitted if this fails.
-      });
+      .then((rows) => {
+        const map = Object.fromEntries(rows.map((r) => [r.teacher_id, r.connected]));
+        setCalendarConnected(map);
+        return map as Record<string, boolean>;
+      })
+      .catch(() => null);
+  useEffect(() => {
+    loadCalendarConnections();
   }, []);
+  // The teacher the "calendar not connected" popup is about, if open.
+  const [notConnectedTeacherId, setNotConnectedTeacherId] = useState<string | null>(null);
+  const isNotConnected = (teacherId: string) => calendarConnected[teacherId] === false;
+
+  const selectTeacher = (teacherId: string) => {
+    if (isNotConnected(teacherId)) {
+      setNotConnectedTeacherId(teacherId);
+      return;
+    }
+    setState((prev) => ({ ...prev, teacherId }));
+  };
+
+  // "Check again" in the popup — the teacher may have just connected.
+  const recheckCalendar = async () => {
+    if (!notConnectedTeacherId) return;
+    setIsCheckingCalendar(true);
+    const map = await loadCalendarConnections();
+    setIsCheckingCalendar(false);
+    if (map && map[notConnectedTeacherId]) {
+      toast.success(t('allocations.calendarNowConnected'));
+      if (!editingId) setState((prev) => ({ ...prev, teacherId: notConnectedTeacherId }));
+      setNotConnectedTeacherId(null);
+    }
+  };
 
   const teachers = users.filter(u => u.role === 'TEACHER');
   const students = users.filter(u => u.role === 'STUDENT');
@@ -120,6 +152,11 @@ export function AllocationsPage() {
       return;
     }
     if (isSubmitting) return; // already in flight — ignore a double-click
+    // Also covers editing an allocation whose teacher has no calendar.
+    if (isNotConnected(state.teacherId)) {
+      setNotConnectedTeacherId(state.teacherId);
+      return;
+    }
     const payload = {
       teacher_id: state.teacherId,
       student_id: state.studentId,
@@ -295,6 +332,7 @@ export function AllocationsPage() {
       <Modal
         isOpen={isModalOpen}
         onClose={handleModalClose}
+        closeOnEscape={!notConnectedTeacherId}
         title={editingId ? t('allocations.editTitle') : t('allocations.createTitle')}
         size="xl"
         footer={
@@ -349,7 +387,20 @@ export function AllocationsPage() {
           </div>
         </div>
 
-        <div className="min-h-[400px]">
+        <div className="min-h-[400px] relative">
+          {/* Saving runs the Google Calendar sync before the request returns —
+              cover the form so it's clear something is happening. */}
+          {isSubmitting && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-xl bg-white/90 backdrop-blur-sm text-center px-6"
+            >
+              <Loader2 className="h-12 w-12 animate-spin text-primary-600" />
+              <p className="text-lg font-bold text-gray-900">{t('allocations.syncingCalendar')}</p>
+              <p className="text-sm text-gray-500 max-w-sm">{t('allocations.syncingCalendarDesc')}</p>
+            </div>
+          )}
           {/* STEP 1: Select Users */}
           {step === 1 && (
             <div className="space-y-6 animate-fade-in">
@@ -361,11 +412,13 @@ export function AllocationsPage() {
                   {teachers.map((t) => (
                     <div 
                       key={t.id}
-                      onClick={() => setState({ ...state, teacherId: t.id })}
+                      onClick={() => selectTeacher(t.id)}
                       className={`p-4 border rounded-xl cursor-pointer transition-all ${
-                        state.teacherId === t.id 
-                          ? 'border-primary-600 bg-primary-50 ring-1 ring-primary-600' 
-                          : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
+                        state.teacherId === t.id
+                          ? 'border-primary-600 bg-primary-50 ring-1 ring-primary-600'
+                          : isNotConnected(t.id)
+                            ? 'border-dashed border-amber-300 bg-amber-50/40 opacity-75 hover:opacity-100'
+                            : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
                       }`}
                     >
                       <p className="font-bold text-gray-900">{t.firstName} {t.lastName}</p>
@@ -576,6 +629,38 @@ export function AllocationsPage() {
             </div>
           )}
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={notConnectedTeacherId !== null}
+        onClose={() => setNotConnectedTeacherId(null)}
+        title={t('allocations.notConnectedTitle')}
+        size="md"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={recheckCalendar} isLoading={isCheckingCalendar}>
+              {t('allocations.checkAgain')}
+            </Button>
+            <Button onClick={() => setNotConnectedTeacherId(null)}>{t('allocations.ok')}</Button>
+          </div>
+        }
+      >
+        {(() => {
+          const teacher = users.find((u) => u.id === notConnectedTeacherId);
+          const name = teacher ? `${teacher.firstName} ${teacher.lastName}` : '';
+          return (
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                <CalendarX2 className="h-6 w-6 text-amber-700" />
+              </div>
+              <div className="space-y-2 text-sm text-gray-600">
+                <p className="font-semibold text-gray-900">{t('allocations.notConnectedMessage', { name })}</p>
+                <p>{t('allocations.notConnectedWhy')}</p>
+                <p>{t('allocations.notConnectedHowTo')}</p>
+              </div>
+            </div>
+          );
+        })()}
       </Modal>
 
       <ConfirmDialog

@@ -206,9 +206,17 @@
     "selectedSlots": "Selected {{selected}} of {{total}} slots",
     "slotLocked": "Already booked for this teacher",
     "calendarConnected": "Google Calendar connected",
-    "calendarNotConnected": "Calendar not connected — no Meet link until the teacher connects",
+    "calendarNotConnected": "Calendar not connected — can't be allocated yet",
     "enrolledStudents": "Enrolled Students ({{count}})",
-    "noEnrolledStudents": "No students enrolled yet."
+    "noEnrolledStudents": "No students enrolled yet.",
+    "syncingCalendarDesc": "Creating the lesson events and Google Meet links on the teacher's calendar and sending the invites. This can take a few seconds — please don't close this window.",
+    "notConnectedTitle": "Google Calendar not connected",
+    "notConnectedMessage": "{{name}} hasn't connected Google Calendar yet, so lessons can't be allocated or scheduled for this teacher.",
+    "notConnectedWhy": "Every lesson is created as an event with a Google Meet link on the teacher's own calendar. Without that connection there would be no meeting link and no invites.",
+    "notConnectedHowTo": "Ask the teacher to sign in to their dashboard and press “Connect Google Calendar” (a one-time step). Then press “Check again”.",
+    "checkAgain": "Check again",
+    "ok": "OK",
+    "calendarNowConnected": "The teacher's calendar is connected now"
   },
   "subscriptions": {
     "title": "Subscriptions",
