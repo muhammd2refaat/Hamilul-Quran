@@ -8,7 +8,8 @@ const DESCRIPTION =
   'Learn Qur’an memorization (Hifz), Tajweed, and Noorani Qaida online with certified 1-on-1 teachers. Free trial class, flexible schedule, male & female teachers, students in 40+ countries.';
 
 export const metadata: Metadata = {
-  title: TITLE,
+  // Absolute: the root layout's "%s | Elhafazah Academy" template would repeat the name.
+  title: { absolute: TITLE },
   description: DESCRIPTION,
   keywords: [
     'online Quran memorization', 'Quran memorization classes online', 'Hifz online',
