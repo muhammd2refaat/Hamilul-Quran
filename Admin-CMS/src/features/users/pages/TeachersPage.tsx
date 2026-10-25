@@ -1,9 +1,7 @@
 /**
  * TeachersPage — real backend data (role=TEACHER)
  * Keeps all rich attributes from mock data design while sourcing from backend.
- * Fields that don't exist in backend yet (qualifications, reviews, sessions)
- * are shown as "not yet available" placeholder — backend tables are documented
- * in the gap analysis for future implementation.
+ * Qualifications and reviews load per teacher — see TeacherInsights.
  */
 
 import { useEffect, useState } from 'react';
@@ -19,7 +17,6 @@ import {
   Users,
   GraduationCap,
   RefreshCw,
-  Award,
   CalendarDays,
   User,
   Plus,
@@ -28,6 +25,7 @@ import { useUsersStore, selectUsers, selectIsLoading } from '../store/usersStore
 import { useAllocationsStore } from '@/features/allocations/store/allocationsStore';
 import { AddUserModal } from '../components/AddUserModal';
 import { UserActions } from '../components/UserActions';
+import { TeacherQualifications, TeacherReviews } from '../components/TeacherInsights';
 import type { User as UserType } from '../store/usersStore';
 import { format, differenceInYears, parseISO } from 'date-fns';
 import { useTranslation } from 'react-i18next';
@@ -52,16 +50,6 @@ function StatusBadge({ status }: { status: string }) {
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${badge}`}>
       <Icon className="h-3.5 w-3.5" /> {label}
     </span>
-  );
-}
-
-// ─── Pending implementation note ──────────────────────────────────────────────
-
-function PendingFeature({ label }: { label: string }) {
-  return (
-    <div className="text-xs text-gray-400 italic py-2 px-3 bg-gray-50 border border-dashed border-gray-200 rounded-xl">
-      ⏳ {label} — backend table not yet implemented
-    </div>
   );
 }
 
@@ -158,21 +146,8 @@ function TeacherCard({ teacher, assignedStudents }: { teacher: UserType; assigne
         </div>
       </div>
 
-      {/* ── Qualifications — backend table pending ── */}
-      <div className="px-5 py-3 border-b border-gray-100">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5 mb-2">
-          <Award className="h-3.5 w-3.5" /> Qualifications
-        </p>
-        <PendingFeature label="Qualifications/certifications" />
-      </div>
-
-      {/* ── Reviews — backend table pending ── */}
-      <div className="px-5 py-3 border-b border-gray-100">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5 mb-2">
-          ⭐ Reviews
-        </p>
-        <PendingFeature label="Teacher reviews & ratings" />
-      </div>
+      <TeacherQualifications teacherId={teacher.id} />
+      <TeacherReviews teacherId={teacher.id} teacherName={fullName} />
 
       {/* ── Assigned Students (real backend data via teacher_id) ── */}
       <div className="px-5 py-3">

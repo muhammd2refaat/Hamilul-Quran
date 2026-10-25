@@ -46,6 +46,13 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // Callers that expect a 404 as a normal answer (e.g. a teacher with no
+    // sign-up profile) opt out of the toast; 401 still redirects below.
+    const skipErrorToast = (error.config as { skipErrorToast?: boolean } | undefined)?.skipErrorToast;
+    if (skipErrorToast && error.response?.status !== 401) {
+      return Promise.reject(error);
+    }
+
     // For all other requests, show a generic error toast
     const status = error.response?.status;
     const data = error.response?.data as { message?: string } | undefined;
