@@ -58,41 +58,59 @@ async def test_update_teacher_profile_self(client, teacher_headers, teacher_user
 
 
 @pytest.mark.asyncio
-async def test_create_teacher_review(client, student_headers, student_user, teacher_user):
+async def test_students_cannot_post_general_teacher_reviews(client, student_headers, teacher_user):
+    """Students rate individual lessons through /lesson-reviews instead."""
     r = await client.post(
         f"/teachers/{teacher_user.id}/reviews", headers=student_headers,
         json={"rating": 5, "comment": "Excellent teacher"},
     )
-    assert r.status_code == 201
-    body = r.json()
-    assert body["rating"] == 5
-    assert body["is_admin"] is False
-    assert body["reviewer_name"] == f"{student_user.first_name} {student_user.last_name}"
+    assert r.status_code == 403
 
 
 @pytest.mark.asyncio
-async def test_create_teacher_review_as_admin_flags_is_admin(client, admin_headers, teacher_user):
+async def test_admin_audit_is_recorded(client, admin_headers, admin_user, teacher_user):
     r = await client.post(
         f"/teachers/{teacher_user.id}/reviews", headers=admin_headers,
         json={"rating": 4, "comment": "Solid performance"},
     )
     assert r.status_code == 201
-    assert r.json()["is_admin"] is True
+    body = r.json()
+    assert body["is_admin"] is True
+    assert body["kind"] == "admin_audit"
+    assert body["reviewer_id"] == str(admin_user.id)
+    assert body["session_date"] is None
 
 
 @pytest.mark.asyncio
-async def test_create_review_invalid_rating_rejected(client, student_headers, teacher_user):
+async def test_each_admin_audit_is_kept(client, admin_headers, teacher_user):
+    for rating in (3, 5):
+        r = await client.post(f"/teachers/{teacher_user.id}/reviews", headers=admin_headers, json={"rating": rating})
+        assert r.status_code == 201
+    r = await client.get(f"/teachers/{teacher_user.id}/reviews", headers=admin_headers)
+    assert sorted(x["rating"] for x in r.json()) == [3, 5]
+
+
+@pytest.mark.asyncio
+async def test_create_review_invalid_rating_rejected(client, admin_headers, teacher_user):
     r = await client.post(
-        f"/teachers/{teacher_user.id}/reviews", headers=student_headers,
+        f"/teachers/{teacher_user.id}/reviews", headers=admin_headers,
         json={"rating": 6, "comment": "too high"},
     )
     assert r.status_code == 422
 
 
 @pytest.mark.asyncio
-async def test_list_teacher_reviews(client, student_headers, teacher_user):
-    await client.post(f"/teachers/{teacher_user.id}/reviews", headers=student_headers, json={"rating": 5})
-    r = await client.get(f"/teachers/{teacher_user.id}/reviews", headers=student_headers)
+async def test_audit_of_a_non_teacher_is_404(client, admin_headers, student_user):
+    r = await client.post(f"/teachers/{student_user.id}/reviews", headers=admin_headers, json={"rating": 4})
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_list_teacher_reviews_is_admin_only(client, student_headers, teacher_headers, admin_headers, teacher_user):
+    await client.post(f"/teachers/{teacher_user.id}/reviews", headers=admin_headers, json={"rating": 5})
+    assert (await client.get(f"/teachers/{teacher_user.id}/reviews", headers=student_headers)).status_code == 403
+    assert (await client.get(f"/teachers/{teacher_user.id}/reviews", headers=teacher_headers)).status_code == 403
+    r = await client.get(f"/teachers/{teacher_user.id}/reviews", headers=admin_headers)
     assert r.status_code == 200
     assert len(r.json()) == 1
 

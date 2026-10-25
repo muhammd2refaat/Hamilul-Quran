@@ -335,5 +335,53 @@
     "rememberMe": "Remember me",
     "forgotPassword": "Forgot password?",
     "terms": "By signing in, you agree to our Terms of Service and Privacy Policy"
+  },
+  "teachers": {
+    "qualifications": "Qualifications",
+    "reviews": "Reviews",
+    "loading": "Loading…",
+    "loadFailed": "Couldn't load this — try Refresh.",
+    "noProfile": "No qualification details — this teacher didn't fill in the sign-up profile (added by an admin).",
+    "noIjazas": "No ijazah listed",
+    "ijaza": {
+      "HIFZ": "Ijazah in Hifz",
+      "TILAWAH": "Ijazah in Tilawah",
+      "HAFS_AN_ASIM": "Ijazah Hafs ʿan ʿAsim",
+      "TEN_QIRAAT": "Ijazah in the Ten Qiraʾat",
+      "OTHER": "Other ijazah"
+    },
+    "juzMemorized": "Juz memorized",
+    "juzOf30": "{{count}} / 30",
+    "taughtOnline": "Taught online before",
+    "yes": "Yes",
+    "no": "No",
+    "certificate": "Certificate",
+    "viewCertificate": "View certificate",
+    "notUploaded": "Not uploaded",
+    "overall": "Overall",
+    "studentRatings": "Student ratings",
+    "adminAudits": "Admin audits",
+    "reviewCount_one": "{{count}} review",
+    "reviewCount_other": "{{count}} reviews",
+    "noReviews": "No reviews yet. Students can rate each lesson they join from their dashboard.",
+    "noAudits": "No admin audits yet — use “Add evaluation”.",
+    "kind": {
+      "student_session": "Student · lesson",
+      "admin_audit": "Admin audit",
+      "general": "General"
+    },
+    "lesson": "Lesson",
+    "showAll": "Show all {{count}}",
+    "showLess": "Show less",
+    "addEvaluation": "Add evaluation",
+    "evaluateTitle": "Evaluate {{name}}",
+    "rating": "Rating",
+    "lessonOptional": "About a specific lesson (optional)",
+    "generalEvaluation": "General evaluation — not about one lesson",
+    "notes": "Notes",
+    "notesPlaceholder": "e.g. tajweed accuracy, punctuality, how the lesson was run…",
+    "pickRating": "Pick a rating from 1 to 5 stars",
+    "saveEvaluation": "Save evaluation",
+    "evaluationSaved": "Evaluation saved"
   }
 }

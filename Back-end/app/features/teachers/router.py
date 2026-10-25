@@ -2,12 +2,15 @@ from typing import Annotated
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import FileResponse
 
 from app.core.database import get_session
-from app.core.dependencies import AdminDep, CurrentUserDep
+from app.core.dependencies import AdminDep, CurrentUserDep, StudentDep
 from app.features.sessions.schemas import SessionScoreResponse
 from app.features.teachers.schemas import (
+    LessonReviewCreate,
     PaginatedTeachers,
+    ReviewableLesson,
     TeacherProfileResponse,
     TeacherProfileUpdate,
     TeacherPublicResponse,
@@ -31,6 +34,10 @@ def _get_review_svc(session=Depends(get_session)) -> ReviewService:
 
 TeacherSvcDep = Annotated[TeacherService, Depends(_get_teacher_svc)]
 ReviewSvcDep = Annotated[ReviewService, Depends(_get_review_svc)]
+
+# Certificates are magic-byte checked on upload (core/storage.py), so the
+# saved extension is trustworthy.
+_CERTIFICATE_MEDIA_TYPES = {".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
 
 
 def _require_self_or_admin(current_user, teacher_id: uuid.UUID) -> None:
@@ -129,11 +136,27 @@ async def update_teacher_profile(
 
 
 @router.get(
+    "/{teacher_id}/certificate",
+    summary="Download a teacher's uploaded certificate (self or ADMIN)",
+)
+async def download_teacher_certificate(
+    teacher_id: uuid.UUID, current_user: CurrentUserDep, svc: TeacherSvcDep
+):
+    _require_self_or_admin(current_user, teacher_id)
+    file_path, filename = await svc.get_certificate(teacher_id)
+    return FileResponse(
+        path=file_path,
+        media_type=_CERTIFICATE_MEDIA_TYPES.get(file_path.suffix.lower(), "application/octet-stream"),
+        filename=filename,
+    )
+
+
+@router.get(
     "/{teacher_id}/reviews",
     response_model=list[TeacherReviewResponse],
-    summary="List a teacher's reviews",
+    summary="All of a teacher's reviews — students' lesson ratings and admin audits (ADMIN)",
 )
-async def list_teacher_reviews(teacher_id: uuid.UUID, _: CurrentUserDep, svc: ReviewSvcDep):
+async def list_teacher_reviews(teacher_id: uuid.UUID, _: AdminDep, svc: ReviewSvcDep):
     return await svc.list_for_teacher(teacher_id)
 
 
@@ -141,26 +164,37 @@ async def list_teacher_reviews(teacher_id: uuid.UUID, _: CurrentUserDep, svc: Re
     "/{teacher_id}/reviews",
     response_model=TeacherReviewResponse,
     status_code=201,
-    summary="Leave a review for a teacher",
+    summary="Record an admin audit of a teacher, optionally about one lesson (ADMIN)",
 )
 async def create_teacher_review(
     teacher_id: uuid.UUID,
     body: TeacherReviewCreate,
-    current_user: CurrentUserDep,
+    current_user: AdminDep,
     svc: ReviewSvcDep,
 ):
-    if current_user.id == teacher_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You cannot review yourself",
-        )
+    """Students rate teachers per lesson through /lesson-reviews instead."""
+    return await svc.create_audit(teacher_id, current_user, body)
 
-    reviewer_name = body.reviewer_name or f"{current_user.first_name} {current_user.last_name}".strip()
-    return await svc.create(
-        teacher_id=teacher_id,
-        reviewer_id=current_user.id,
-        reviewer_name=reviewer_name or current_user.email,
-        rating=body.rating,
-        comment=body.comment,
-        is_admin=current_user.role == UserRole.ADMIN,
-    )
+
+# ── Student lesson ratings ────────────────────────────────────────────────────
+lesson_reviews_router = APIRouter(prefix="/lesson-reviews")
+
+
+@lesson_reviews_router.get(
+    "/me",
+    response_model=list[ReviewableLesson],
+    summary="Lessons I joined recently that I can rate, with my ratings (STUDENT)",
+)
+async def list_my_reviewable_lessons(current_user: StudentDep, svc: ReviewSvcDep):
+    return await svc.recent_lessons_for_student(current_user)
+
+
+@lesson_reviews_router.post(
+    "",
+    response_model=TeacherReviewResponse,
+    summary="Rate a lesson I joined — submitting again edits my rating (STUDENT)",
+)
+async def submit_lesson_review(
+    body: LessonReviewCreate, current_user: StudentDep, svc: ReviewSvcDep
+):
+    return await svc.submit_lesson_review(current_user, body)

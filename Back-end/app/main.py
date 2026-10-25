@@ -137,8 +137,9 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(attendance_router, prefix=prefix, tags=["Attendance"])
 
     # Teachers (profile + reviews)
-    from app.features.teachers.router import router as teachers_router
+    from app.features.teachers.router import router as teachers_router, lesson_reviews_router
     app.include_router(teachers_router, prefix=prefix, tags=["Teachers"])
+    app.include_router(lesson_reviews_router, prefix=prefix, tags=["Teachers"])
 
     # Requests (reschedule / enrollment / teacher-change / pause)
     from app.features.requests.router import router as requests_router
