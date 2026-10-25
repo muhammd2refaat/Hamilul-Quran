@@ -270,7 +270,9 @@
       "noneLeft": "The student has no sessions left, so no lessons will be put on the calendar. Renew the subscription and they're added automatically.",
       "inactive": "The subscription is {{status}}, so no lessons will be put on the calendar until it's active again.",
       "otherAllocation": "Another allocation of this student",
-      "sharedNote": "Dashed dates belong to the student's other allocation — both share the same remaining sessions."
+      "sharedNote": "Dashed dates belong to the student's other allocation — both share the same remaining sessions.",
+      "takenByOthers_one": "The student's {{count}} remaining session is already used by their other allocation, so this one gets no lessons until the subscription is renewed.",
+      "takenByOthers_other": "The student's {{count}} remaining sessions are already used by their other allocation, so this one gets no lessons until the subscription is renewed."
     }
   },
   "subscriptions": {

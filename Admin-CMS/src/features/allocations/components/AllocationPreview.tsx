@@ -68,7 +68,8 @@ export function AllocationPreview({
 
   const mine = preview?.lessons.filter((l) => l.this_allocation) ?? [];
   const inactive = preview?.subscription_status && preview.subscription_status !== 'active';
-  const noneLeft = preview && !preview.open_ended && mine.length === 0;
+  const noneLeft = preview && !preview.open_ended && preview.lessons.length === 0;
+  const takenByOthers = preview && !preview.open_ended && mine.length === 0 && preview.lessons.length > 0;
 
   return (
     <div className="rounded-xl border border-primary-200 bg-primary-50/40 p-4 space-y-3">
@@ -91,6 +92,8 @@ export function AllocationPreview({
             <Warning text={t('allocations.preview.inactive', { status: preview.subscription_status })} />
           ) : noneLeft ? (
             <Warning text={t('allocations.preview.noneLeft')} />
+          ) : takenByOthers ? (
+            <Warning text={t('allocations.preview.takenByOthers', { count: preview.sessions_remaining ?? 0 })} />
           ) : preview.open_ended ? (
             <p className="text-sm text-amber-800 flex items-start gap-2">
               <InfinityIcon className="h-4 w-4 mt-0.5 flex-shrink-0" /> {t('allocations.preview.openEnded')}
