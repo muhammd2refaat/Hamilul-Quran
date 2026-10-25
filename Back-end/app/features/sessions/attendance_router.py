@@ -2,7 +2,9 @@ from typing import Annotated
 
 import uuid
 
-from fastapi import APIRouter, Depends
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.database import get_session
 from app.core.dependencies import AdminDep, CurrentUserDep
@@ -11,9 +13,12 @@ from app.features.sessions.schemas import (
     AttendanceRecordCreate,
     AttendanceResponse,
     AttendanceSummaryResponse,
+    ConfirmRequest,
     ExcuseRequest,
     JoinResponse,
+    MonthlyHistoryResponse,
 )
+from app.features.sessions.history import monthly_history
 from app.features.sessions.outcomes import AttendanceOutcomeService
 from app.features.sessions.service import SessionService
 
@@ -83,3 +88,32 @@ async def excuse_lesson(outcome_id: uuid.UUID, body: ExcuseRequest, _: AdminDep,
     outcome = await AttendanceOutcomeService(svc.session).excuse(outcome_id, body.note)
     rows = await svc.get_admin_attendance()
     return next(r for r in rows if r.outcome_id == outcome.id)
+
+
+@router.patch(
+    "/outcomes/{outcome_id}/confirm",
+    response_model=AdminAttendanceItem,
+    summary="Confirm a lesson took place (joined outside the platform) — uses one session (ADMIN)",
+)
+async def confirm_lesson(outcome_id: uuid.UUID, body: ConfirmRequest, _: AdminDep, svc: SvcDep):
+    outcome = await AttendanceOutcomeService(svc.session).confirm(outcome_id, body.note)
+    rows = await svc.get_admin_attendance()
+    return next(r for r in rows if r.outcome_id == outcome.id)
+
+
+@router.get(
+    "/history",
+    response_model=MonthlyHistoryResponse,
+    summary="Monthly lessons per teacher and per student — scheduled vs how they went (ADMIN)",
+)
+async def get_monthly_history(
+    _: AdminDep,
+    svc: SvcDep,
+    month: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="YYYY-MM"),
+):
+    try:
+        first = datetime.strptime(month, "%Y-%m").date()
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="month must be YYYY-MM")
+    await AttendanceOutcomeService(svc.session).finalize_due()
+    return await monthly_history(svc.session, first)

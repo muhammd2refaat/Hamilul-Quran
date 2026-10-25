@@ -38,18 +38,30 @@ async def lifespan(app: FastAPI):
 
 
 async def _attendance_finalizer_loop() -> None:
-    """Record outcomes (missed / no-show) for lessons that have ended.
-    Every Uvicorn worker runs this; the outcome table's unique constraint
-    makes concurrent passes safe — see AttendanceOutcomeService."""
+    """Record outcomes (missed / no-show) for lessons that have ended, then
+    re-sync each student's schedule end (and calendar series).
+    Every Uvicorn worker runs this loop; a short Redis lock lets one worker
+    do a pass at a time, so two workers never restart the same calendar
+    series twice (the outcome table's unique constraint already makes the
+    finalization itself safe — see AttendanceOutcomeService)."""
     from app.database.session import AsyncSessionFactory
     from app.features.sessions.outcomes import AttendanceOutcomeService
+    from app.features.sessions.schedule import ScheduleService
 
     while True:
         try:
+            redis = await get_redis_pool()
+            if not await redis.set("elhafazah:lesson-sync-lock", "1", nx=True, ex=300):
+                await asyncio.sleep(settings.attendance_finalizer_interval_seconds)
+                continue
             async with AsyncSessionFactory() as session:
                 n = await AttendanceOutcomeService(session).finalize_due()
                 if n:
                     logger.info("Recorded %d lesson outcome(s)", n)
+                # Also catches subscription changes made outside the API, and
+                # sets the end date on allocations from before it existed.
+                await ScheduleService(session).sync_all()
+            await redis.delete("elhafazah:lesson-sync-lock")
         except Exception:
             logger.warning("Lesson outcome finalization failed", exc_info=True)
         await asyncio.sleep(settings.attendance_finalizer_interval_seconds)

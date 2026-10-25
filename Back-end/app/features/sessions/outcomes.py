@@ -14,8 +14,16 @@ deduct-on-Join behaviour in SessionService.record_attendance):
   teacher_only  student no-show: deduct one session, when
                 settings.attendance_charge_student_no_show is on and the
                 subscription is active with sessions left
-  missed        nothing — nobody came
+  missed        nothing — nobody came, so the session is deferred: the
+                subscription's end date moves to the next weekly slot
+  not_scheduled after the student's last paid lesson (scheduled_until) and
+                nobody came — not an absence, there was no lesson
   excused       set later by an admin; refunds a no-show deduction
+  confirmed     set later by an admin when the lesson took place but was
+                joined outside the platform; uses one session
+
+After each pass the students' schedules are re-synced (sessions/schedule.py),
+which is how a deferral moves the end date and the calendar series.
 
 "Joined" means clicked Join inside the platform (dashboard button or the
 tracked /join link in the calendar invite) — the platform can't see inside
@@ -116,6 +124,7 @@ class AttendanceOutcomeService:
 
         allocations = (await self.session.exec(select(Allocation))).all()
         recorded = 0
+        touched: set[uuid.UUID] = set()
         for allocation in allocations:
             due = list(ended_occurrences(allocation, start, now_cairo, grace))
             if not due:
@@ -133,7 +142,14 @@ class AttendanceOutcomeService:
                     continue
                 if await self._finalize_one(allocation, occ):
                     recorded += 1
+                    touched.add(allocation.student_id)
             await self.session.commit()
+
+        from app.features.sessions.schedule import ScheduleService
+
+        schedule = ScheduleService(self.session)
+        for student_id in touched:
+            await schedule.sync_student(student_id, now)
         return recorded
 
     async def _finalize_one(self, allocation: Allocation, occ: Occurrence) -> bool:
@@ -148,6 +164,12 @@ class AttendanceOutcomeService:
         teacher_row = next((r for r in rows if r.role == AttendeeRole.TEACHER), None)
         student_row = next((r for r in rows if r.role == AttendeeRole.STUDENT), None)
         outcome_status = classify(teacher_row is not None, student_row is not None)
+        if (
+            outcome_status == OutcomeStatus.MISSED
+            and allocation.scheduled_until is not None
+            and occ.session_date > allocation.scheduled_until
+        ):
+            outcome_status = OutcomeStatus.NOT_SCHEDULED
 
         outcome_id = uuid.uuid4()
         inserted = (
@@ -156,6 +178,8 @@ class AttendanceOutcomeService:
                 .values(
                     id=outcome_id,
                     allocation_id=allocation.id,
+                    teacher_id=allocation.teacher_id,
+                    student_id=allocation.student_id,
                     session_date=occ.session_date,
                     scheduled_day=occ.day,
                     scheduled_time=occ.time,
@@ -205,6 +229,48 @@ class AttendanceOutcomeService:
         self.session.add(sub)
         return True
 
+    async def _student_of(self, outcome: SessionOutcome) -> Optional[uuid.UUID]:
+        if outcome.student_id is not None:
+            return outcome.student_id
+        allocation = await self.session.get(Allocation, outcome.allocation_id)
+        return allocation.student_id if allocation else None
+
+    async def _resync(self, student_id: Optional[uuid.UUID]) -> None:
+        from app.features.sessions.schedule import ScheduleService
+
+        if student_id is not None:
+            await ScheduleService(self.session).sync_student(student_id)
+
+    async def confirm(self, outcome_id: uuid.UUID, note: Optional[str]) -> SessionOutcome:
+        """Admin confirms a lesson took place although it wasn't joined
+        through the platform (both came straight from Google Meet, or one of
+        them did). It counts as done, and uses one of the student's sessions
+        like any attended lesson — unless the student was already charged
+        for it (a student no-show deduction)."""
+        outcome = await self.session.get(SessionOutcome, outcome_id)
+        if outcome is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lesson outcome not found")
+        confirmable = {
+            OutcomeStatus.MISSED.value, OutcomeStatus.TEACHER_ONLY.value,
+            OutcomeStatus.STUDENT_ONLY.value, OutcomeStatus.NOT_SCHEDULED.value,
+        }
+        if outcome.status not in confirmable:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Only missed or one-sided lessons can be confirmed as done.",
+            )
+        student_id = await self._student_of(outcome)
+        already_charged = outcome.status == OutcomeStatus.TEACHER_ONLY.value and outcome.session_charge == 1
+        if not already_charged and student_id is not None and await self._adjust_sessions(student_id, -1):
+            outcome.session_charge += 1
+        outcome.status = OutcomeStatus.CONFIRMED.value
+        outcome.note = (note or "").strip() or None
+        self.session.add(outcome)
+        await self.session.commit()
+        await self._resync(student_id)
+        await self.session.refresh(outcome)
+        return outcome
+
     async def excuse(self, outcome_id: uuid.UUID, note: Optional[str]) -> SessionOutcome:
         """Admin marks a lesson excused (holiday, illness, technical problem)
         so it doesn't count against the student. Refunds a student no-show
@@ -214,13 +280,14 @@ class AttendanceOutcomeService:
         outcome = await self.session.get(SessionOutcome, outcome_id)
         if outcome is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lesson outcome not found")
-        if outcome.session_charge == 1:
-            allocation = await self.session.get(Allocation, outcome.allocation_id)
-            if allocation is not None and await self._adjust_sessions(allocation.student_id, +1):
-                outcome.session_charge = 0
+        student_id = await self._student_of(outcome)
+        if outcome.session_charge == 1 and student_id is not None and await self._adjust_sessions(student_id, +1):
+            outcome.session_charge = 0
         outcome.status = OutcomeStatus.EXCUSED.value
         outcome.note = (note or "").strip() or None
         self.session.add(outcome)
         await self.session.commit()
+        # A refunded session moves the end date (and calendar) one slot on.
+        await self._resync(student_id)
         await self.session.refresh(outcome)
         return outcome

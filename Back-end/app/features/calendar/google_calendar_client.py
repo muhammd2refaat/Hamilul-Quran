@@ -8,7 +8,7 @@ of this codebase talks to Google (direct httpx calls, see auth/google.py).
 """
 from __future__ import annotations
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
 
@@ -48,6 +48,18 @@ DAY_TO_ICAL = {
     "fri": "FR", "sat": "SA", "sun": "SU",
 }
 DAY_TO_PY_WEEKDAY = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
+
+
+def weekly_rrule(day: str, until: Optional[date] = None) -> str:
+    """RRULE for a weekly lesson slot. `until` (a Cairo date) ends the series
+    on the subscription's last lesson; None repeats with no end. RFC 5545
+    wants UNTIL in UTC for a zoned DTSTART, so the end of that Cairo day is
+    converted."""
+    rule = f"RRULE:FREQ=WEEKLY;BYDAY={DAY_TO_ICAL[day]}"
+    if until is None:
+        return rule
+    end_utc = datetime.combine(until, time(23, 59, 59), tzinfo=CAIRO_TZ).astimezone(timezone.utc)
+    return f"{rule};UNTIL={end_utc.strftime('%Y%m%dT%H%M%SZ')}"
 
 
 def parse_time_str(time_str: str):
@@ -113,10 +125,12 @@ async def create_weekly_event(
     day: str,
     time_str: str,
     duration_minutes: int,
+    until: Optional[date] = None,
 ) -> dict:
     """
     Create a weekly-recurring Google Calendar event with an auto-generated
-    Meet link. Returns the raw Google event JSON (id, hangoutLink, ...).
+    Meet link, starting at the slot's next occurrence and ending on `until`
+    (see weekly_rrule). Returns the raw Google event JSON (id, hangoutLink, ...).
     """
     start = next_occurrence(day, time_str)
     end = start + timedelta(minutes=duration_minutes)
@@ -132,7 +146,7 @@ async def create_weekly_event(
         # year-round instead of drifting by an hour when DST changes.
         "start": {"dateTime": start.isoformat(), "timeZone": "Africa/Cairo"},
         "end": {"dateTime": end.isoformat(), "timeZone": "Africa/Cairo"},
-        "recurrence": [f"RRULE:FREQ=WEEKLY;BYDAY={DAY_TO_ICAL[day]}"],
+        "recurrence": [weekly_rrule(day, until)],
         "attendees": [{"email": email} for email in attendee_emails],
         "conferenceData": {
             "createRequest": {
@@ -152,6 +166,22 @@ async def create_weekly_event(
         )
         resp.raise_for_status()
         return resp.json()
+
+
+async def set_event_until(access_token: str, event_id: str, day: str, until: Optional[date]) -> None:
+    """Move the end of a lesson series (renewal, deferral, sessions used up).
+    sendUpdates=none: this can change every week a lesson is deferred, and
+    guests shouldn't get an email each time — the lessons themselves don't
+    move. 404/410 (event deleted in Google) are ignored."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.patch(
+            f"{GOOGLE_CALENDAR_EVENTS_URL}/{event_id}",
+            params={"sendUpdates": "none"},
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={"recurrence": [weekly_rrule(day, until)]},
+        )
+        if resp.status_code not in (200, 404, 410):
+            resp.raise_for_status()
 
 
 async def delete_event(access_token: str, event_id: str) -> None:

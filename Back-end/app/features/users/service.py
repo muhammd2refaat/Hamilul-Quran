@@ -165,7 +165,7 @@ class UserService:
         from app.features.auth.models import GoogleCredential
         from app.features.complaints.models import Complaint
         from app.features.requests.models import PlatformRequest
-        from app.features.sessions.models import SessionScore, TeacherHistory
+        from app.features.sessions.models import SessionAttendance, SessionOutcome, SessionScore, TeacherHistory
         from app.features.teachers.models import Ijaza, TeacherProfile, TeacherReview
 
         user = await self.get_by_id(user_id)
@@ -177,8 +177,22 @@ class UserService:
             )
         )
         allocations = alloc_result.all()
+        # Attendance rows reference both the user and the allocation (FKs);
+        # lesson outcomes are history kept past an allocation, but go with
+        # the person on a hard delete.
+        allocation_ids = [a.id for a in allocations]
+        attendance_filter = SessionAttendance.user_id == user_id
+        if allocation_ids:
+            attendance_filter = attendance_filter | SessionAttendance.allocation_id.in_(allocation_ids)
+        await self.session.exec(sql_delete(SessionAttendance).where(attendance_filter))
+        await self.session.exec(
+            sql_delete(SessionOutcome).where(
+                (SessionOutcome.teacher_id == user_id) | (SessionOutcome.student_id == user_id)
+            )
+        )
         if allocations:
             await self._try_delete_calendar_events(allocations)
+            await self.session.flush()
             for allocation in allocations:
                 await self.session.delete(allocation)
 

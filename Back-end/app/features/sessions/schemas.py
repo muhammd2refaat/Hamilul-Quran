@@ -94,9 +94,9 @@ class AdminAttendanceItem(BaseModel):
     teacher_id: uuid.UUID
     teacher_name: str
     teacher_joined_at: Optional[datetime] = None
-    # both | teacher_only | student_only | missed | excused once the lesson
-    # has ended and been finalized; "pending" while it's still in progress
-    # (or awaiting the next finalization pass).
+    # both | teacher_only | student_only | missed | excused | confirmed |
+    # not_scheduled once the lesson has ended and been finalized; "pending"
+    # while it's still in progress (or awaiting the next finalization pass).
     status: str = "pending"
     outcome_id: Optional[uuid.UUID] = None
     # What finalization did to the student's sessions: +1 deducted
@@ -115,3 +115,58 @@ class JoinResponse(BaseModel):
     meet_link: Optional[str] = None
     # When the lesson isn't open yet / no slot today: why, for the page to show.
     reason: Optional[str] = None
+
+
+class ConfirmRequest(BaseModel):
+    note: Optional[str] = None
+
+
+# ─── Monthly history ───────────────────────────────────────────────────────────
+
+class HistoryCounts(BaseModel):
+    """How a person's lessons in the month went. scheduled = every lesson
+    that was (or still is) on the calendar: done + no-shows + missed +
+    excused + upcoming. Lessons after the last paid one (not_scheduled)
+    aren't part of it."""
+    id: uuid.UUID
+    name: str
+    scheduled: int
+    done: int
+    student_no_show: int
+    teacher_no_show: int
+    missed: int
+    excused: int
+    upcoming: int
+    not_scheduled: int
+
+
+class TeacherHistory(HistoryCounts):
+    # Lessons the teacher is credited for: done + student no-shows.
+    credited: int
+
+
+class StudentHistory(HistoryCounts):
+    plan_name: Optional[str] = None
+    sessions_per_week: Optional[int] = None
+    sessions_remaining: Optional[int] = None
+    ends_on: Optional[date] = None
+
+
+class HistoryLesson(BaseModel):
+    session_date: date
+    scheduled_time: str
+    teacher_id: Optional[uuid.UUID] = None
+    teacher_name: str
+    student_id: Optional[uuid.UUID] = None
+    student_name: str
+    # An outcome status, or "upcoming".
+    status: str
+    outcome_id: Optional[uuid.UUID] = None
+    note: Optional[str] = None
+
+
+class MonthlyHistoryResponse(BaseModel):
+    month: str  # "YYYY-MM"
+    teachers: list[TeacherHistory]
+    students: list[StudentHistory]
+    lessons: list[HistoryLesson]

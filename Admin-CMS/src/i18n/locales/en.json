@@ -165,7 +165,9 @@
       "student_only": "Teacher no-show",
       "missed": "Missed — nobody joined",
       "excused": "Excused",
-      "pending": "In progress"
+      "pending": "In progress",
+      "confirmed": "Done (confirmed by admin)",
+      "not_scheduled": "After last paid session"
     },
     "charge": {
       "deducted": "1 session deducted (student no-show)",
@@ -177,7 +179,45 @@
     "excuseNote": "Reason (optional)",
     "excuseConfirm": "Excuse lesson",
     "excused": "Lesson excused",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "done": "Done",
+    "tabLog": "Lesson log",
+    "tabHistory": "Monthly history",
+    "confirmDone": "Confirm done",
+    "confirmTitle": "Confirm this lesson took place",
+    "confirmDesc": "Use this when the lesson happened but wasn't joined through the platform (for example, both joined straight from Google Meet). It counts as done and uses one of the student's sessions.",
+    "confirmDescCharged": "Use this when the lesson happened but wasn't joined through the platform. It counts as done. The student was already charged one session for it, so nothing more is deducted.",
+    "confirmNote": "Note (optional)",
+    "confirmNotePlaceholder": "e.g. joined from Google Meet directly",
+    "confirmedToast": "Lesson confirmed as done",
+    "history": {
+      "month": "Month",
+      "teachers": "Teachers",
+      "students": "Students",
+      "teacher": "Teacher",
+      "student": "Student",
+      "noShows": "No-shows",
+      "loadFailed": "Couldn't load the history — try Refresh.",
+      "empty": "No lessons in this month.",
+      "noLessons": "No lessons.",
+      "perWeek_one": "{{count}}/week",
+      "perWeek_other": "{{count}}/week",
+      "creditedHelp": "Credited = done lessons (both joined, or confirmed by an admin) + student no-shows — the teacher was there either way. Scheduled = every lesson on the calendar this month, including the ones still ahead.",
+      "studentHelp": "Scheduled = lessons on the calendar this month (paid sessions only). Sessions left and end date are as of today; excusing a lesson moves the end date to the next weekly slot.",
+      "col": {
+        "plan": "Plan",
+        "scheduled": "Scheduled",
+        "done": "Done",
+        "student_no_show": "Student no-show",
+        "teacher_no_show": "Teacher no-show",
+        "missed": "Missed",
+        "excused": "Excused",
+        "upcoming": "Upcoming",
+        "credited": "Credited",
+        "sessions_left": "Sessions left",
+        "ends_on": "Ends on"
+      }
+    }
   },
   "allocations": {
     "title": "Allocations",
@@ -216,7 +256,24 @@
     "notConnectedHowTo": "Ask the teacher to sign in to their dashboard and press “Connect Google Calendar” (a one-time step). Then press “Check again”.",
     "checkAgain": "Check again",
     "ok": "OK",
-    "calendarNowConnected": "The teacher's calendar is connected now"
+    "calendarNowConnected": "The teacher's calendar is connected now",
+    "preview": {
+      "title": "Lessons that will be scheduled",
+      "noPlan": "This student has no plan with a session count.",
+      "plan_one": "{{plan}} — {{count}} session left",
+      "plan_other": "{{plan}} — {{count}} sessions left",
+      "summary_one": "{{count}} lesson will be added to Google Calendar. Last lesson: {{end}}.",
+      "summary_other": "{{count}} lessons will be added to Google Calendar. Last lesson: {{end}}.",
+      "inMonth_one": "{{month}}: {{count}} lesson",
+      "inMonth_other": "{{month}}: {{count}} lessons",
+      "openEnded": "No session count to go by, so lessons repeat every week with no end date. Assign a plan to the student to schedule a fixed number.",
+      "noneLeft": "The student has no sessions left, so no lessons will be put on the calendar. Renew the subscription and they're added automatically.",
+      "inactive": "The subscription is {{status}}, so no lessons will be put on the calendar until it's active again.",
+      "otherAllocation": "Another allocation of this student",
+      "sharedNote": "Dashed dates belong to the student's other allocation — both share the same remaining sessions.",
+      "takenByOthers_one": "The student's {{count}} remaining session is already used by their other allocation, so this one gets no lessons until the subscription is renewed.",
+      "takenByOthers_other": "The student's {{count}} remaining sessions are already used by their other allocation, so this one gets no lessons until the subscription is renewed."
+    }
   },
   "subscriptions": {
     "title": "Subscriptions",
@@ -242,7 +299,9 @@
       "active": "Active",
       "paused": "Paused",
       "withdrawn": "Withdrawn"
-    }
+    },
+    "endsOn": "Last lesson {{date}}",
+    "endedOn": "Ended {{date}}"
   },
   "plans": {
     "title": "Plans",

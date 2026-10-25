@@ -258,6 +258,14 @@ export function SubscriptionsPage() {
                     {t('subscriptions.sessionsLeft', { count: row.subscription.sessionsRemaining })}
                   </div>
                 )}
+                {row.subscription?.endsOn && (
+                  <div className="text-[11px] text-gray-500">
+                    {t(
+                      row.subscription.endsOn < format(new Date(), 'yyyy-MM-dd') ? 'subscriptions.endedOn' : 'subscriptions.endsOn',
+                      { date: format(new Date(`${row.subscription.endsOn}T00:00:00`), 'MMM d, yyyy') },
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="sm:w-40">

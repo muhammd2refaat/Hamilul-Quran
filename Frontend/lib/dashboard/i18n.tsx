@@ -116,6 +116,7 @@ export interface DashboardStrings {
   planStartDateLabel: string;
   planNotesLabel: string;
   planSessionsRemainingLabel: string;
+  planLastLessonLabel: string;
   planPausedSince: string;
   planPriceLabel: string;
   choosePlanLabel: string;
@@ -294,6 +295,7 @@ const DICT: Record<Lang, DashboardStrings> = {
     planStartDateLabel: 'Start date',
     planNotesLabel: 'Notes',
     planSessionsRemainingLabel: 'Sessions remaining',
+    planLastLessonLabel: 'Last lesson',
     planPausedSince: 'Paused since {date}',
     planPriceLabel: 'Price',
     choosePlanLabel: 'Choose a plan',
@@ -471,6 +473,7 @@ const DICT: Record<Lang, DashboardStrings> = {
     planStartDateLabel: 'تاريخ البدء',
     planNotesLabel: 'ملاحظات',
     planSessionsRemainingLabel: 'الجلسات المتبقية',
+    planLastLessonLabel: 'آخر حصة',
     planPausedSince: 'متوقف منذ {date}',
     planPriceLabel: 'السعر',
     choosePlanLabel: 'اختر خطة',
