@@ -22,7 +22,7 @@ export function TermsContent({ initialLang = 'en' }: { initialLang?: Lang }) {
     <div className="min-h-screen bg-slate-50" dir={dir}>
       <div className="max-w-3xl mx-auto px-6 py-12">
         <div className="flex items-center justify-between mb-10">
-          <Link href={lang === 'ar' ? '/ar' : '/'} className="flex items-center gap-2 text-emerald-800">
+          <Link href={lang === 'ar' ? '/' : '/en'} className="flex items-center gap-2 text-emerald-800">
             <BookOpen className="h-7 w-7 text-emerald-600" />
             <span className="font-bold text-2xl tracking-tight">
               {lang === 'ar' ? 'أكاديمية الحفظة' : 'Elhafazah Academy'}

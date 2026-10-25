@@ -3,34 +3,34 @@ import { LandingPage } from '@/components/landing/LandingPage';
 import { faqsData } from '@/components/landing/faqData';
 import { SITE_URL, buildLandingSchema } from '@/lib/seo';
 
-const TITLE = 'Elhafazah Academy | Online Qur’an Memorization, Tajweed & Hifz Classes';
+const TITLE = 'أكاديمية الحفظة | حفظ القرآن الكريم والتجويد أونلاين';
 const DESCRIPTION =
-  'Learn Qur’an memorization (Hifz), Tajweed, and Noorani Qaida online with certified 1-on-1 teachers. Free trial class, flexible schedule, male & female teachers, students in 40+ countries.';
+  'احفظ القرآن الكريم وتعلّم التجويد والقاعدة النورانية أونلاين مع معلمين ومعلمات مجازين، بحصص فردية مباشرة. حصة تجريبية مجانية، مواعيد مرنة، طلاب في أكثر من ٤٠ دولة.';
 
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   keywords: [
-    'online Quran memorization', 'Quran memorization classes online', 'Hifz online',
-    'learn Quran online', 'online Tajweed classes', 'Noorani Qaida online',
-    'Quran teacher online', 'Quran classes for kids', 'ijazah online', 'Elhafazah Academy',
+    'حفظ القرآن أونلاين', 'تعلم القرآن اونلاين', 'حفظ القرآن الكريم', 'دروس تجويد أونلاين',
+    'القاعدة النورانية أونلاين', 'معلم قرآن أونلاين', 'تحفيظ القرآن للأطفال', 'إجازة قرآن أونلاين',
+    'أكاديمية الحفظة',
   ],
   alternates: {
     canonical: `${SITE_URL}/`,
     languages: {
-      en: `${SITE_URL}/`,
-      ar: `${SITE_URL}/ar`,
+      ar: `${SITE_URL}/`,
+      en: `${SITE_URL}/en`,
       'x-default': `${SITE_URL}/`,
     },
   },
   openGraph: {
     type: 'website',
     url: `${SITE_URL}/`,
-    siteName: 'Elhafazah Academy',
+    siteName: 'أكاديمية الحفظة',
     title: TITLE,
     description: DESCRIPTION,
-    locale: 'en_US',
-    alternateLocale: ['ar_AR'],
+    locale: 'ar_AR',
+    alternateLocale: ['en_US'],
   },
   twitter: {
     card: 'summary_large_image',
@@ -39,9 +39,10 @@ export const metadata: Metadata = {
   },
 };
 
+// Arabic is the default language: it's served at the site root, English at /en.
 export default function Home() {
-  const faqs = faqsData.map((f) => ({ q: f.qEn, a: f.aEn }));
-  const schema = buildLandingSchema('en', faqs);
+  const faqs = faqsData.map((f) => ({ q: f.qAr, a: f.aAr }));
+  const schema = buildLandingSchema('ar', faqs);
 
   return (
     <>
@@ -49,7 +50,7 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
       />
-      <LandingPage initialLang="en" />
+      <LandingPage initialLang="ar" />
     </>
   );
 }
