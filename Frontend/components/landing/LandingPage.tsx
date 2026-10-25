@@ -171,6 +171,16 @@ export function LandingPage({ initialLang = 'en' }: { initialLang?: Lang }) {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   const t = S[lang];
+
+  // Switch in place, and move the address to the matching page ("/" is
+  // Arabic, "/en" English) so a reload or a shared link keeps the language.
+  const switchLang = () => {
+    const next: Lang = lang === 'ar' ? 'en' : 'ar';
+    setLang(next);
+    window.history.replaceState(null, '', (next === 'ar' ? '/' : '/en') + window.location.hash);
+    document.documentElement.lang = next;
+    document.documentElement.dir = next === 'ar' ? 'rtl' : 'ltr';
+  };
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
 
   const programs = programsData.map(p => ({
@@ -334,8 +344,8 @@ export function LandingPage({ initialLang = 'en' }: { initialLang?: Lang }) {
             <a href="#faq" style={{ color: 'inherit', textDecoration: 'none' }}>{t.navFaq}</a>
             <a href="#trial" style={{ color: 'inherit', textDecoration: 'none' }}>{t.navTrial}</a>
             <a
-              href={lang === 'ar' ? '/' : '/ar'}
-              onClick={(e) => { e.preventDefault(); setLang(lang === 'ar' ? 'en' : 'ar'); }}
+              href={lang === 'ar' ? '/en' : '/'}
+              onClick={(e) => { e.preventDefault(); switchLang(); }}
               className="ee-lang"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'transparent', border: '1px solid rgba(185,203,188,.4)', color: '#F1EBDD', padding: '8px 14px', borderRadius: 30, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', transition: 'all .25s', textDecoration: 'none' }}
             >
@@ -374,8 +384,8 @@ export function LandingPage({ initialLang = 'en' }: { initialLang?: Lang }) {
             <a href="#faq" onClick={() => setMobileNavOpen(false)} style={{ color: 'inherit', textDecoration: 'none', padding: '10px 0' }}>{t.navFaq}</a>
             <a href="#trial" onClick={() => setMobileNavOpen(false)} style={{ color: 'inherit', textDecoration: 'none', padding: '10px 0' }}>{t.navTrial}</a>
             <a
-              href={lang === 'ar' ? '/' : '/ar'}
-              onClick={(e) => { e.preventDefault(); setMobileNavOpen(false); setLang(lang === 'ar' ? 'en' : 'ar'); }}
+              href={lang === 'ar' ? '/en' : '/'}
+              onClick={(e) => { e.preventDefault(); setMobileNavOpen(false); switchLang(); }}
               className="ee-lang"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'transparent', border: '1px solid rgba(185,203,188,.4)', color: '#F1EBDD', padding: '10px 14px', borderRadius: 30, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', transition: 'all .25s', margin: '10px 0', width: 'fit-content', textDecoration: 'none' }}
             >

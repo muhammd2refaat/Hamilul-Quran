@@ -40,7 +40,8 @@ export default async function RootLayout({
   // lang/dir for the marketing pages (app/page.tsx vs app/ar/page.tsx)
   // instead of hardcoding English for Arabic-language routes too.
   const pathname = (await headers()).get("x-pathname") ?? "/";
-  const isArabic = pathname === "/ar" || pathname.startsWith("/ar/");
+  // "/" is the Arabic home page (Arabic is the default); English is /en.
+  const isArabic = pathname === "/" || pathname === "/ar" || pathname.startsWith("/ar/");
 
   return (
     <html lang={isArabic ? "ar" : "en"} dir={isArabic ? "rtl" : "ltr"}>

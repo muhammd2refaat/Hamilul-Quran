@@ -46,7 +46,7 @@ const COURSES = [
  */
 export function buildLandingSchema(lang: SeoLang, faqs: Faq[]) {
   const isAr = lang === 'ar';
-  const pageUrl = isAr ? `${SITE_URL}/ar` : `${SITE_URL}/`;
+  const pageUrl = isAr ? `${SITE_URL}/` : `${SITE_URL}/en`;
 
   return {
     '@context': 'https://schema.org',
