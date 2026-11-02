@@ -1,4 +1,5 @@
 import datetime
+import logging
 import uuid
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -15,6 +16,10 @@ from app.features.requests.models import (
 )
 from app.features.requests.schemas import PublicTrialRequestCreate, RequestCreate, RequestUpdate
 from app.features.users.models import User, UserRole
+
+logger = logging.getLogger(__name__)
+
+logger = logging.getLogger(__name__)
 
 _FROM_ROLE_BY_USER_ROLE = {
     UserRole.STUDENT: RequestFromRole.STUDENT,
@@ -89,6 +94,16 @@ class RequestService:
         details = f"Program: {data.program}"
         if data.message:
             details += f"\nMessage: {data.message}"
+
+        if data.looks_automated():
+            # Looks like a bot: answer as if it worked (so it doesn't adapt),
+            # but store nothing and send no email.
+            logger.info("Dropped an automated free-trial submission")
+            return PlatformRequest(
+                id=uuid.uuid4(), user_id=None, from_role=RequestFromRole.GUEST,
+                type=RequestType.NEW_ENROLLMENT, details=details, requested_plan=data.program,
+                guest_name=data.full_name, guest_email=data.email, guest_phone=data.phone,
+            )
 
         req = PlatformRequest(
             user_id=None,

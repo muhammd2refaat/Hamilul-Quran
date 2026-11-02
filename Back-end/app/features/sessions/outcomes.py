@@ -198,7 +198,7 @@ class AttendanceOutcomeService:
             )
             subject, text_body, html_body = build_lesson_alert_email(items, settings.admin_url)
             to_email = settings.contact_notification_email or settings.admin_email
-            await send_email(to_email, subject, text_body, html_body=html_body)
+            await send_email(to_email, subject, text_body, html_body=html_body, priority="high")
         except Exception:
             logger.warning("Lesson alert email failed", exc_info=True)
 

@@ -153,6 +153,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
+      # Rate-limit counters shared by all workers (app/core/rate_limit.py).
+      RATE_LIMIT_STORAGE_URI: redis://redis:6379/1
     volumes:
       - uploads_data:/app/uploads
     depends_on:

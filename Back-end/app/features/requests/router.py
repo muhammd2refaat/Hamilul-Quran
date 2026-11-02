@@ -45,7 +45,7 @@ async def create_request(body: RequestCreate, current_user: CurrentUserDep, svc:
     status_code=201,
     summary="Public free-trial request (no auth — landing page form)",
 )
-@limiter.limit("5/minute")
+@limiter.limit("5/minute;20/day")
 async def create_public_trial_request(
     request: Request, body: PublicTrialRequestCreate, svc: SvcDep
 ):

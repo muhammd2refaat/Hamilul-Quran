@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Menu, X, ChevronDown } from 'lucide-react';
 import { faqsData } from './faqData';
 
@@ -163,6 +163,13 @@ export function LandingPage({ initialLang = 'en' }: { initialLang?: Lang }) {
   const [program, setProgram] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [message, setMessage] = useState('');
+  // Bot traps checked by the API: a field people never see, and how long
+  // the page was open before sending.
+  const [website, setWebsite] = useState('');
+  const openedAt = useRef(0);
+  useEffect(() => {
+    openedAt.current = Date.now();
+  }, []);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [regStep, setRegStep] = useState(1);
@@ -275,6 +282,8 @@ export function LandingPage({ initialLang = 'en' }: { initialLang?: Lang }) {
           program,
           message: message.trim() || undefined,
           lang,
+          website,
+          elapsed_ms: Date.now() - openedAt.current,
         }),
       });
       if (res.status === 429) {
@@ -603,6 +612,16 @@ export function LandingPage({ initialLang = 'en' }: { initialLang?: Lang }) {
 
                 <label style={labelDark}>{t.fMessage}</label>
                 <textarea value={message} onChange={e => setMessage(e.target.value)} placeholder={t.phMessage} rows={3} style={{ ...inputDark, resize: 'vertical', marginBottom: 22 }} />
+                <input
+                  type="text"
+                  name="website"
+                  value={website}
+                  onChange={e => setWebsite(e.target.value)}
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  style={{ position: 'absolute', left: '-10000px', width: 1, height: 1, opacity: 0 }}
+                />
 
                 {submitError && <p style={{ ...errTextDark, marginBottom: 14 }}>{submitError}</p>}
 
