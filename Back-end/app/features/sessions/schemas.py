@@ -2,7 +2,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 from app.features.sessions.models import AttendeeRole
 
 class TeacherHistoryResponse(BaseModel):
@@ -36,12 +36,19 @@ class SessionScoreCreate(BaseModel):
     # teacher_id is inferred from the current user for TEACHER callers;
     # ADMIN callers must supply it explicitly.
     teacher_id: Optional[uuid.UUID] = None
-    score: int
-    max_score: int = 20
+    score: int = Field(ge=0)
+    max_score: int = Field(default=20, gt=0)
     surah: Optional[str] = None
     teacher_comment: Optional[str] = None
     notes: Optional[str] = None
     recitation_type: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _score_within_max(self) -> "SessionScoreCreate":
+        # Averages and charts are percentages of max_score.
+        if self.score > self.max_score:
+            raise ValueError("score can't be more than max_score")
+        return self
 
 
 # ─── Attendance (Join-button click tracking) ───────────────────────────────────

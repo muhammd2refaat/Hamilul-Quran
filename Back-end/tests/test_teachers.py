@@ -135,6 +135,16 @@ async def test_teacher_records_own_session_score(client, teacher_headers, teache
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("score,max_score", [(95, 20), (-1, 20), (0, 0)])
+async def test_score_must_fit_within_max(client, teacher_headers, student_user, score, max_score):
+    r = await client.post(
+        "/session-scores", headers=teacher_headers,
+        json={"student_id": str(student_user.id), "score": score, "max_score": max_score},
+    )
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_teacher_cannot_record_score_for_unallocated_student(client, teacher_headers, teacher_user, student_user):
     r = await client.post(
         "/session-scores", headers=teacher_headers,
