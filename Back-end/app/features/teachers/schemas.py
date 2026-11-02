@@ -86,6 +86,16 @@ class ReviewableLesson(BaseModel):
     comment: Optional[str] = None
 
 
+class TeacherRatingsResponse(BaseModel):
+    """The calling teacher's own lesson ratings from students. Admin audits
+    are internal and not included."""
+    average: Optional[float] = None
+    count: int
+    # Number of ratings per star, "1".."5".
+    distribution: dict[str, int]
+    reviews: list[TeacherReviewResponse]
+
+
 class TeacherStudentResponse(BaseModel):
     """A student assigned to the calling teacher, with allocation details and a
     snapshot of their most recent session score."""

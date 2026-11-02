@@ -91,6 +91,11 @@ class Settings(BaseSettings):
     # leaves room for late joins.
     attendance_finalize_grace_minutes: int = 15
     attendance_finalizer_interval_seconds: int = 600
+    # Email the admins (contact_notification_email, else admin_email) when a
+    # finished lesson was missed or someone didn't show up.
+    attendance_notify_admin: bool = True
+    # Admin-CMS base URL — linked from admin notification emails. Empty = no link.
+    admin_url: str = ""
 
     allowed_origins: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
 

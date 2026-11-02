@@ -77,6 +77,14 @@ export interface DashboardStrings {
   joinEnded: string;
   noSchedule: string;
 
+  navRatings: string;
+  ratingsTitle: string;
+  ratingsDesc: string;
+  ratingsAverage: string;
+  ratingsCount: string;
+  ratingsCountOne: string;
+  ratingsEmpty: string;
+
   studentsTitle: string;
   studentsDesc: string;
   noStudents: string;
@@ -222,7 +230,7 @@ const DICT: Record<Lang, DashboardStrings> = {
     calWrongAccount: 'Please connect the same Google account you sign in with.',
     calError: 'Couldn’t connect Google Calendar. Please try again.',
     rateTitle: 'Rate your recent lessons',
-    rateDesc: 'How did each lesson go? Your rating goes to the academy — your teacher doesn’t see it.',
+    rateDesc: 'How did each lesson go? Your rating and comment are shared with your teacher and the academy.',
     rateWith: 'with',
     rateCommentPlaceholder: 'Anything you’d like to add? (optional)',
     rateSubmit: 'Send rating',
@@ -251,6 +259,15 @@ const DICT: Record<Lang, DashboardStrings> = {
     joinOpensSoon: 'Join opens 15 minutes before your session starts.',
     joinEnded: 'This session has ended.',
     noSchedule: 'No sessions scheduled yet.',
+
+    // ratings (teacher)
+    navRatings: 'My Ratings',
+    ratingsTitle: 'My Ratings',
+    ratingsDesc: 'How your students rated each lesson.',
+    ratingsAverage: 'Average rating',
+    ratingsCount: 'ratings',
+    ratingsCountOne: 'rating',
+    ratingsEmpty: 'No ratings yet. Students can rate a lesson for 14 days after joining it.',
 
     // students
     studentsTitle: 'My Students',
@@ -405,7 +422,7 @@ const DICT: Record<Lang, DashboardStrings> = {
     calWrongAccount: 'يرجى ربط حساب جوجل نفسه الذي تسجّل الدخول به.',
     calError: 'تعذّر ربط تقويم جوجل. يرجى المحاولة مرة أخرى.',
     rateTitle: 'قيّم حصصك الأخيرة',
-    rateDesc: 'كيف كانت كل حصة؟ يصل تقييمك إلى إدارة الأكاديمية — ولا يراه معلّمك.',
+    rateDesc: 'كيف كانت كل حصة؟ يصل تقييمك وتعليقك إلى معلّمك وإدارة الأكاديمية.',
     rateWith: 'مع',
     rateCommentPlaceholder: 'هل تريد إضافة شيء؟ (اختياري)',
     rateSubmit: 'إرسال التقييم',
@@ -433,6 +450,14 @@ const DICT: Record<Lang, DashboardStrings> = {
     joinOpensSoon: 'يفتح رابط الانضمام قبل 15 دقيقة من بدء حصتك.',
     joinEnded: 'انتهت هذه الحصة.',
     noSchedule: 'لا توجد حصص مجدولة بعد.',
+
+    navRatings: 'تقييماتي',
+    ratingsTitle: 'تقييماتي',
+    ratingsDesc: 'كيف قيّم طلابك كل حصة.',
+    ratingsAverage: 'متوسط التقييم',
+    ratingsCount: 'تقييمات',
+    ratingsCountOne: 'تقييم',
+    ratingsEmpty: 'لا توجد تقييمات بعد. يمكن للطالب تقييم الحصة خلال 14 يومًا من حضورها.',
 
     studentsTitle: 'طلابي',
     studentsDesc: 'كل من تم تخصيصه لك حاليًا.',

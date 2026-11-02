@@ -75,6 +75,23 @@ export interface Allocation {
   created_at: string;
 }
 
+export interface LessonRating {
+  id: string;
+  rating: number;
+  comment: string | null;
+  student_name: string | null;
+  session_date: string | null;
+  scheduled_time: string | null;
+  created_at: string;
+}
+
+export interface TeacherRatings {
+  average: number | null;
+  count: number;
+  distribution: Record<'1' | '2' | '3' | '4' | '5', number>;
+  reviews: LessonRating[];
+}
+
 export interface TeacherStudent {
   allocation_id: string;
   student_id: string;
