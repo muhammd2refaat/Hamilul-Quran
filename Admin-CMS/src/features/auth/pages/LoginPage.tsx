@@ -21,7 +21,7 @@ import {
 import toast from 'react-hot-toast';
 import { loginSchema, type LoginFormData } from '../schemas';
 import { useAuthStore } from '../store';
-import { TwoFactorVerify, PasswordResetRequest } from '../components';
+import { TwoFactorVerify, ForgotPassword } from '../components';
 
 type AuthView = 'login' | '2fa' | 'forgot-password';
 
@@ -300,8 +300,8 @@ export function LoginPage() {
 
   if (view === 'forgot-password') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <PasswordResetRequest onBack={() => setView('login')} />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <ForgotPassword onBack={() => setView('login')} />
       </div>
     );
   }
