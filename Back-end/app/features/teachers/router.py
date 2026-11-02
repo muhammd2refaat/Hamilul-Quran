@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
 
 from app.core.database import get_session
-from app.core.dependencies import AdminDep, CurrentUserDep, StudentDep
+from app.core.dependencies import AdminDep, CurrentUserDep, StudentDep, TeacherDep
 from app.features.sessions.schemas import SessionScoreResponse
 from app.features.teachers.schemas import (
     LessonReviewCreate,
@@ -14,6 +14,7 @@ from app.features.teachers.schemas import (
     TeacherProfileResponse,
     TeacherProfileUpdate,
     TeacherPublicResponse,
+    TeacherRatingsResponse,
     TeacherReviewCreate,
     TeacherReviewResponse,
     TeacherStudentResponse,
@@ -187,6 +188,15 @@ lesson_reviews_router = APIRouter(prefix="/lesson-reviews")
 )
 async def list_my_reviewable_lessons(current_user: StudentDep, svc: ReviewSvcDep):
     return await svc.recent_lessons_for_student(current_user)
+
+
+@lesson_reviews_router.get(
+    "/teacher/me",
+    response_model=TeacherRatingsResponse,
+    summary="My lesson ratings from students (TEACHER)",
+)
+async def list_my_ratings(current_user: TeacherDep, svc: ReviewSvcDep):
+    return await svc.ratings_for_teacher(current_user)
 
 
 @lesson_reviews_router.post(

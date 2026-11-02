@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { LayoutDashboard, CalendarDays, CalendarClock, Users, Mail } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, CalendarClock, Users, Mail, Star } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { type User } from '@/types/user';
 import { LangProvider, useLang } from '@/lib/dashboard/i18n';
@@ -39,6 +39,7 @@ function TeacherShellInner({ children }: { children: ReactNode }) {
     { href: '/dashboard/teacher', label: t.navOverview, icon: LayoutDashboard },
     { href: '/dashboard/teacher/schedule', label: t.navSchedule, icon: CalendarDays },
     { href: '/dashboard/teacher/students', label: t.navStudents, icon: Users },
+    { href: '/dashboard/teacher/ratings', label: t.navRatings, icon: Star },
     { href: '/dashboard/teacher/calendar', label: t.navCalendar, icon: CalendarClock },
     { href: '/dashboard/teacher/contact', label: t.navContact, icon: Mail },
   ];

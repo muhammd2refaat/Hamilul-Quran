@@ -22,6 +22,7 @@ from app.features.teachers.schemas import (
     TeacherProfileUpdate,
     TeacherPublicResponse,
     TeacherReviewCreate,
+    TeacherRatingsResponse,
     TeacherReviewResponse,
     TeacherStudentResponse,
 )
@@ -274,6 +275,28 @@ class ReviewService:
             )
             for r in reviews
         ]
+
+    async def ratings_for_teacher(self, teacher: User) -> TeacherRatingsResponse:
+        """A teacher's own view: students' lesson ratings, newest first."""
+        result = await self.session.exec(
+            select(TeacherReview)
+            .where(TeacherReview.teacher_id == teacher.id)
+            .where(TeacherReview.kind == ReviewKind.STUDENT_SESSION.value)
+            .order_by(TeacherReview.session_date.desc(), TeacherReview.created_at.desc())
+        )
+        reviews = result.all()
+        distribution = {str(star): 0 for star in range(1, 6)}
+        for r in reviews:
+            distribution[str(r.rating)] += 1
+        return TeacherRatingsResponse(
+            average=round(sum(r.rating for r in reviews) / len(reviews), 2) if reviews else None,
+            count=len(reviews),
+            distribution=distribution,
+            reviews=[
+                TeacherReviewResponse.model_validate(r).model_copy(update={"student_name": r.reviewer_name})
+                for r in reviews
+            ],
+        )
 
     async def _lesson_student_names(self, allocation_ids: set[uuid.UUID]) -> dict[uuid.UUID, str]:
         if not allocation_ids:
