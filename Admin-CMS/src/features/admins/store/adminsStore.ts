@@ -1,48 +1,43 @@
 /**
  * Admins store using Zustand — real backend data (role=ADMIN users via /admins).
+ * Adding, editing, deleting and password resets are Super Admin only; the
+ * backend enforces it, the page just hides the buttons for everyone else.
  */
 
 import { create } from 'zustand';
 import { get, post, patch, del } from '@/services/api/client';
-import type { Admin, AdminRole, AdminStatus } from '../types';
+import type { Admin, AdminStatus, AuditEntry, EmailUsage } from '../types';
 
 interface AdminsState {
   admins: Admin[];
   isLoading: boolean;
   error: string | null;
+  audit: AuditEntry[];
+  emailUsage: EmailUsage | null;
 
-  // Actions
   fetchAdmins: () => Promise<void>;
-  addAdmin: (admin: {
-    name: string;
-    email: string;
-    role: AdminRole;
-    status: AdminStatus;
-    password?: string;
-  }) => Promise<void>;
-  updateAdmin: (
-    id: string,
-    admin: Partial<{ name: string; role: AdminRole; status: AdminStatus }>
-  ) => Promise<void>;
+  /** Returns whether the temporary-password email went out. */
+  addAdmin: (admin: { firstName: string; lastName: string; email: string }) => Promise<boolean>;
+  updateAdmin: (id: string, admin: Partial<{ firstName: string; lastName: string; status: AdminStatus }>) => Promise<void>;
   deleteAdmin: (id: string) => Promise<void>;
+  /** Emails a new temporary password. Returns whether the email went out. */
+  resetPassword: (id: string) => Promise<boolean>;
+  fetchAudit: () => Promise<void>;
+  fetchEmailUsage: () => Promise<void>;
 }
 
-function splitName(name: string): [string, string] {
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0] || 'Admin';
-  const last = parts.slice(1).join(' ');
-  return [first, last];
-}
-
-// Backend has a single ADMIN role — the CMS's Super Admin/Admin distinction
-// is display-only for now (not persisted). See Admin-CMS/PROGRESS.md.
 function mapAdmin(u: any): Admin {
   return {
     id: u.id,
     name: `${u.first_name} ${u.last_name}`.trim(),
+    firstName: u.first_name,
+    lastName: u.last_name,
     email: u.email,
-    role: 'Admin',
+    role: u.is_super_admin ? 'Super Admin' : 'Admin',
     status: u.status === 'ACTIVE' ? 'active' : 'inactive',
+    isSuperAdmin: !!u.is_super_admin,
+    mustChangePassword: !!u.must_change_password,
+    tempPasswordExpiresAt: u.temp_password_expires_at ?? null,
     createdAt: u.created_at,
     updatedAt: u.updated_at,
   };
@@ -52,75 +47,52 @@ export const useAdminsStore = create<AdminsState>((set) => ({
   admins: [],
   isLoading: false,
   error: null,
+  audit: [],
+  emailUsage: null,
 
   fetchAdmins: async () => {
     set({ isLoading: true, error: null });
     try {
       const response = await get<any>('/admins?limit=100');
       set({ admins: response.items.map(mapAdmin), isLoading: false });
-    } catch (error: any) {
-      set({
-        error: error?.response?.data?.detail || 'Failed to fetch admins',
-        isLoading: false,
-      });
+    } catch (error) {
+      set({ isLoading: false, error: 'Failed to load admins' });
     }
   },
 
-  addAdmin: async (admin) => {
-    set({ isLoading: true, error: null });
-    try {
-      const [firstName, lastName] = splitName(admin.name);
-      const created = await post<any>('/admins', {
-        email: admin.email,
-        username: admin.email.split('@')[0],
-        first_name: firstName,
-        last_name: lastName,
-        password: admin.password || undefined,
-      });
-      set((state) => ({
-        admins: [mapAdmin(created), ...state.admins],
-        isLoading: false,
-      }));
-    } catch (error) {
-      set({ isLoading: false });
-      throw error;
-    }
+  addAdmin: async ({ firstName, lastName, email }) => {
+    const created = await post<any>('/admins', { email, first_name: firstName, last_name: lastName });
+    set((state) => ({ admins: [mapAdmin(created), ...state.admins] }));
+    return !!created.email_sent;
   },
 
   updateAdmin: async (id, updates) => {
-    set({ isLoading: true, error: null });
-    try {
-      const payload: Record<string, unknown> = {};
-      if (updates.name) {
-        const [firstName, lastName] = splitName(updates.name);
-        payload.first_name = firstName;
-        payload.last_name = lastName;
-      }
-      if (updates.status) {
-        payload.status = updates.status === 'active' ? 'ACTIVE' : 'INACTIVE';
-      }
-      const updated = await patch<any>(`/admins/${id}`, payload);
-      set((state) => ({
-        admins: state.admins.map((a) => (a.id === id ? mapAdmin(updated) : a)),
-        isLoading: false,
-      }));
-    } catch (error) {
-      set({ isLoading: false });
-      throw error;
-    }
+    const payload: Record<string, unknown> = {};
+    if (updates.firstName !== undefined) payload.first_name = updates.firstName;
+    if (updates.lastName !== undefined) payload.last_name = updates.lastName;
+    if (updates.status) payload.status = updates.status === 'active' ? 'ACTIVE' : 'INACTIVE';
+    const updated = await patch<any>(`/admins/${id}`, payload);
+    set((state) => ({ admins: state.admins.map((a) => (a.id === id ? mapAdmin(updated) : a)) }));
   },
 
   deleteAdmin: async (id) => {
-    set({ isLoading: true, error: null });
-    try {
-      await del(`/admins/${id}`);
-      set((state) => ({
-        admins: state.admins.filter((a) => a.id !== id),
-        isLoading: false,
-      }));
-    } catch (error) {
-      set({ isLoading: false });
-      throw error;
-    }
+    await del(`/admins/${id}`);
+    set((state) => ({ admins: state.admins.filter((a) => a.id !== id) }));
+  },
+
+  resetPassword: async (id) => {
+    const updated = await post<any>(`/admins/${id}/reset-password`);
+    set((state) => ({ admins: state.admins.map((a) => (a.id === id ? mapAdmin(updated) : a)) }));
+    return !!updated.email_sent;
+  },
+
+  fetchAudit: async () => {
+    const audit = await get<AuditEntry[]>('/admins/audit-log?limit=50');
+    set({ audit });
+  },
+
+  fetchEmailUsage: async () => {
+    const emailUsage = await get<EmailUsage>('/admins/email-usage');
+    set({ emailUsage });
   },
 }));

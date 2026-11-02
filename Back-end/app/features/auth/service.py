@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import redis.asyncio as aioredis
 from fastapi import HTTPException, status
@@ -94,6 +94,18 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        if (
+            user.must_change_password
+            and user.temp_password_expires_at is not None
+            and user.temp_password_expires_at < datetime.utcnow()
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Your temporary password has expired. Ask the Super Admin to send a new one, "
+                       "or use Forgot password.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
         # Admin with 2FA enabled → issue temp token, require TOTP step
         if user.role == UserRole.ADMIN and user.totp_enabled:
             temp_token = create_access_token(
@@ -144,6 +156,10 @@ class AuthService:
         user = result.first()
         if not user:
             raise credentials_exception
+        from app.core.dependencies import issued_before_revocation
+
+        if issued_before_revocation(payload, user):
+            raise credentials_exception
 
         # Issue new access token
         new_access_token = create_access_token(
@@ -184,8 +200,28 @@ class AuthService:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Current password is incorrect.",
             )
+        if new_password == current_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Choose a password different from your current one.",
+            )
+        if user.role == UserRole.ADMIN:
+            from app.features.admins.schemas import check_admin_password
+
+            try:
+                check_admin_password(new_password)
+            except ValueError as exc:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
         user.password_hash = hash_password(new_password)
+        user.must_change_password = False
+        user.temp_password_expires_at = None
+        # Signs out every other device; the router re-issues this one's tokens.
+        user.sessions_valid_after = datetime.utcnow()
         self.session.add(user)
+        if user.role == UserRole.ADMIN:
+            from app.features.admins.service import AdminAccountService
+
+            AdminAccountService(self.session).log(user, "password_changed", user)
         await self.session.commit()
 
     # ─── Password reset ───────────────────────────────────────────────────────

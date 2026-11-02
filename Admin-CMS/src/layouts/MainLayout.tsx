@@ -23,7 +23,10 @@ import {
   CalendarDays,
   Receipt,
   Video,
+  KeyRound,
 } from 'lucide-react';
+import { Modal } from '@/shared/components';
+import { ChangePasswordForm } from '@/features/auth/components/AccountPassword';
 import { useTranslation } from 'react-i18next';
 import { useComplaintsStore } from '@/features/complaints/store/complaintsStore';
 import { useRequestsStore } from '@/features/requests/store/requestsStore';
@@ -51,8 +54,8 @@ export function MainLayout() {
     Products: false,
   });
 
-  // Check if user is Super Admin
-  const isSuperAdmin = user?.role === 'Super Admin';
+  const isSuperAdmin = !!user?.isSuperAdmin;
+  const [isPasswordOpen, setIsPasswordOpen] = useState(false);
 
   // Build navigation items based on user role
   const openComplaints  = useComplaintsStore((s) => s.unreadCount);
@@ -81,7 +84,7 @@ export function MainLayout() {
     { name: 'Requests', labelKey: 'nav.requests', path: '/requests', icon: Inbox, badge: pendingRequests },
     { name: 'Receipts', labelKey: 'nav.receipts', path: '/receipts', icon: Receipt, badge: newReceipts },
     { name: 'Attendance', labelKey: 'nav.attendance', path: '/attendance', icon: Video },
-    ...(isSuperAdmin ? [{ name: 'Admins', labelKey: 'nav.admins', path: '/admins', icon: Shield }] : []),
+    { name: 'Admins', labelKey: 'nav.admins', path: '/admins', icon: Shield },
   ];
 
 
@@ -148,12 +151,28 @@ export function MainLayout() {
                   <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
                     <Users className="h-5 w-5 text-primary-600" />
                   </div>
-                  <div className="hidden sm:block text-left">
-                    <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                  <div className="hidden sm:block text-start">
+                    <p className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
+                      {user?.name}
+                      {isSuperAdmin && (
+                        <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
+                          {t('admins.superAdmin')}
+                        </span>
+                      )}
+                    </p>
                     <p className="text-xs text-gray-500">{user?.email}</p>
                   </div>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setIsPasswordOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+                title={t('account.changePassword')}
+              >
+                <KeyRound className="h-4 w-4" />
+                <span className="hidden md:inline">{t('account.changePassword')}</span>
+              </button>
             </div>
           </div>
         </div>
@@ -252,6 +271,10 @@ export function MainLayout() {
           <Outlet />
         </main>
       </div>
+
+      <Modal isOpen={isPasswordOpen} onClose={() => setIsPasswordOpen(false)} title={t('account.changePassword')} size="sm">
+        {isPasswordOpen && <ChangePasswordForm onDone={() => setIsPasswordOpen(false)} />}
+      </Modal>
 
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (

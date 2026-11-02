@@ -32,8 +32,8 @@ def _feature_on(monkeypatch):
 def sent(monkeypatch):
     mails = []
 
-    async def fake_send(to_email, subject, body, html_body=None):
-        mails.append({"to": to_email, "subject": subject, "body": body, "html": html_body})
+    async def fake_send(to_email, subject, body, html_body=None, priority="normal"):
+        mails.append({"to": to_email, "subject": subject, "body": body, "html": html_body, "priority": priority})
 
     monkeypatch.setattr(outcomes, "send_email", fake_send)
     return mails
@@ -66,7 +66,7 @@ async def test_missed_lesson_emails_the_admin(db_session, teacher_user, student_
     await AttendanceOutcomeService(db_session).finalize_due()
 
     [mail] = sent
-    assert mail["to"] == "office@example.com"
+    assert mail["to"] == "office@example.com" and mail["priority"] == "high"
     assert mail["subject"] == "[Elhafazah] 1 lesson needs attention"
     assert "Missed — nobody joined" in mail["body"]
     assert teacher_user.first_name in mail["body"] and student_user.first_name in mail["body"]

@@ -11,6 +11,32 @@ import toast from 'react-hot-toast';
 
 interface AuthStore extends AuthState, AuthActions {}
 
+interface MeResponse {
+  id: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+  first_name?: string;
+  last_name?: string;
+  is_super_admin?: boolean;
+  must_change_password?: boolean;
+}
+
+function toAdmin(me: MeResponse): import('../types').Admin {
+  const name = `${me.first_name ?? ''} ${me.last_name ?? ''}`.trim();
+  return {
+    id: String(me.id),
+    email: me.email,
+    name: name || me.email.split('@')[0],
+    role: (me.is_super_admin ? 'Super Admin' : 'Admin') as AdminRole,
+    backendRole: me.role as import('../types').BackendRole,
+    is_active: me.is_active,
+    twoFactorEnabled: false,
+    isSuperAdmin: !!me.is_super_admin,
+    mustChangePassword: !!me.must_change_password,
+  };
+}
+
 const initialState: AuthState = {
   user: null,
   token: null,
@@ -44,9 +70,7 @@ export const useAuthStore = create<AuthStore>()(
           // values below are kept in memory only, never persisted.
 
           // Step 2: Fetch real user profile from backend
-          const me = await get<{ id: string; email: string; role: string; is_active: boolean }>(
-            '/auth/me'
-          );
+          const me = await get<MeResponse>('/auth/me');
 
           // This is the admin CMS — only ADMIN-role accounts may use it.
           if (me.role !== 'ADMIN') {
@@ -57,22 +81,7 @@ export const useAuthStore = create<AuthStore>()(
             throw guardError;
           }
 
-          // Map backend role → CMS AdminRole display name
-          const roleMap: Record<string, AdminRole> = {
-            ADMIN: 'Super Admin',
-            TEACHER: 'Content Admin',
-            STUDENT: 'Viewer',
-          };
-
-          const user = {
-            id: String(me.id),
-            email: me.email,
-            name: me.email.split('@')[0],
-            role: roleMap[me.role] ?? ('Viewer' as AdminRole),
-            backendRole: me.role,
-            is_active: me.is_active,
-            twoFactorEnabled: false,
-          } as import('../types').Admin;
+          const user = toAdmin(me);
 
           set({
             user,
@@ -176,8 +185,32 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
+      syncMe: async (): Promise<void> => {
+        const me = await get<MeResponse>('/auth/me');
+        if (me.role !== 'ADMIN') {
+          set(initialState);
+          return;
+        }
+        set({ user: toAdmin(me) });
+      },
+
+      changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
+        // The backend signs out other devices and sets fresh cookies here.
+        await post('/auth/change-password', { current_password: currentPassword, new_password: newPassword });
+        const user = getStore().user;
+        if (user) set({ user: { ...user, mustChangePassword: false } });
+      },
+
+      requestResetCode: async (email: string): Promise<void> => {
+        await post('/admins/password-code/request', { email });
+      },
+
+      confirmResetCode: async (email: string, code: string, newPassword: string): Promise<void> => {
+        await post('/admins/password-code/confirm', { email, code, new_password: newPassword });
+      },
+
       requestPasswordReset: async (email: string): Promise<void> => {
-        await post('/auth/request-password-reset', { email });
+        await post('/admins/password-code/request', { email });
       },
 
       resetPassword: async (data: any): Promise<void> => {

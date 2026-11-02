@@ -32,3 +32,4 @@ from app.features.complaints.models import Complaint            # noqa: F401
 from app.features.requests.models import PlatformRequest        # noqa: F401
 from app.features.subscriptions.models import Plan, Subscription  # noqa: F401
 from app.features.receipts.models import Receipt                # noqa: F401
+from app.features.admins.models import AdminAuditLog            # noqa: F401

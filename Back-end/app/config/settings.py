@@ -104,6 +104,8 @@ class Settings(BaseSettings):
     sentry_dsn: str = ""
 
     # Admin seed credentials — used only by full_seed.py, never at app startup.
+    # admin_email is also the Super Admin account: the migration that added
+    # the role marks this user, and nobody can delete or demote it.
     admin_email: str = "admin@elhafazah-academy.com"
     admin_password: str = _PLACEHOLDER_ADMIN_PASSWORD
 
@@ -125,6 +127,34 @@ class Settings(BaseSettings):
     # is just an inbox and the two don't have to be the same address. Falls
     # back to admin_email if left unset.
     contact_notification_email: str = ""
+
+    # ── Admin accounts ──────────────────────────────────────────────────────
+    # Where the Super Admin's reset codes and temporary passwords are sent
+    # when its login email isn't a real inbox. Set by the migration that
+    # added the role; other admins use their own email.
+    super_admin_recovery_email: str = ""
+    # Lifetime of a temporary password emailed to a new or reset admin.
+    admin_temp_password_hours: int = 24
+    # Forgot-password codes for admins.
+    admin_otp_minutes: int = 10
+    admin_otp_max_attempts: int = 5
+    admin_otp_resend_seconds: int = 60
+    admin_otp_daily_limit: int = 5
+
+    # ── Email abuse protection (app/core/email.py) ─────────────────────────
+    # Gmail allows ~500 recipients a day. Normal emails (welcome, trial
+    # confirmations, contact-form copies) stop at the cutoff, keeping the
+    # rest of the day's budget for important ones (codes, temporary
+    # passwords, lesson alerts), which stop at the cap.
+    email_daily_cap: int = 450
+    email_normal_cutoff: int = 400
+    # Per recipient, for normal emails to anyone but the academy's inbox.
+    email_per_recipient_hourly: int = 3
+    email_per_recipient_daily: int = 6
+
+    # slowapi storage. "memory://" counts per process; production points it
+    # at Redis so limits hold across all Uvicorn workers.
+    rate_limit_storage_uri: str = "memory://"
 
     @model_validator(mode="after")
     def _reject_placeholder_secrets_in_production(self) -> "Settings":

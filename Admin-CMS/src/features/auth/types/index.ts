@@ -17,6 +17,10 @@ export interface Admin {
   is_active: boolean;
   avatar?: string;
   twoFactorEnabled?: boolean;
+  /** The one Super Admin — manages the other admins. */
+  isSuperAdmin?: boolean;
+  /** On a temporary password: only the change-password screen is shown. */
+  mustChangePassword?: boolean;
   createdAt?: string;
   lastLogin?: string;
 }
@@ -69,6 +73,11 @@ export interface AuthActions {
   refreshAuthToken: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   resetPassword: (data: PasswordReset) => Promise<void>;
+  /** Re-read /auth/me (Super Admin flag, forced password change). */
+  syncMe: () => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  requestResetCode: (email: string) => Promise<void>;
+  confirmResetCode: (email: string, code: string, newPassword: string) => Promise<void>;
   setUser: (user: Admin | null) => void;
   clearAuth: () => void;
 }

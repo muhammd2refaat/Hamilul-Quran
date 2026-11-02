@@ -73,6 +73,20 @@ class User(SQLModel, table=True):
     totp_secret: Optional[str] = Field(default=None, nullable=True)
     totp_enabled: bool = Field(default=False)
 
+    # ─── Admin accounts ────────────────────────────────────────────────────
+    # The one Super Admin (settings.admin_email): manages the other admins
+    # and can never be deleted, deactivated or demoted.
+    is_super_admin: bool = Field(default=False)
+    # Where this account's codes / temporary passwords go instead of email.
+    recovery_email: Optional[str] = Field(default=None, max_length=255, nullable=True)
+    # Set for a temporary password (new or reset admin) and for admins who
+    # must pick a new one; admin routes are blocked until they do.
+    must_change_password: bool = Field(default=False)
+    temp_password_expires_at: Optional[datetime] = Field(default=None, nullable=True)
+    # Tokens issued before this moment are rejected — set on password change
+    # or reset to sign the account out everywhere.
+    sessions_valid_after: Optional[datetime] = Field(default=None, nullable=True)
+
     joined_date: datetime = Field(default_factory=datetime.utcnow)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(

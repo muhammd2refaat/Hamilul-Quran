@@ -104,6 +104,13 @@ class PublicTrialRequestCreate(BaseModel):
     # pick the confirmation email's language (app/core/email_templates.py),
     # not stored on the request itself.
     lang: Literal["en", "ar"] = "en"
+    # Bot traps: `website` is a field people never see (bots fill it), and
+    # elapsed_ms is how long the form was open — a person needs seconds.
+    website: Optional[str] = Field(default=None, max_length=200)
+    elapsed_ms: Optional[int] = None
+
+    def looks_automated(self) -> bool:
+        return bool(self.website) or (self.elapsed_ms is not None and self.elapsed_ms < 3000)
 
     @field_validator("phone")
     @classmethod

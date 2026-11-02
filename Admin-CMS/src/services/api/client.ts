@@ -41,7 +41,12 @@ apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error: AxiosError) => {
     // For auth/login failures, let the caller handle the error — don't toast here
-    const isLoginRequest = error.config?.url?.includes('/auth/login');
+    // Same for the password screens: a wrong current password is a 401 that
+    // must show on the form, not bounce the admin to the login page.
+    const url = error.config?.url ?? '';
+    const isLoginRequest = ['/auth/login', '/auth/change-password', '/admins/password-code'].some((p) =>
+      url.includes(p)
+    );
     if (isLoginRequest) {
       return Promise.reject(error);
     }
