@@ -34,8 +34,15 @@ export function DashboardShell({
     router.push('/login');
   };
 
-  const isActive = (href: string) =>
-    href === '/' ? pathname === href : pathname === href || pathname?.startsWith(href + '/');
+  const matches = (href: string) =>
+    href === '/' ? pathname === href : pathname === href || !!pathname?.startsWith(href + '/');
+  // Only the most specific match is active, so the Overview item
+  // (/dashboard/teacher) isn't lit up on every page under it.
+  const activeHref = nav
+    .map((item) => item.href)
+    .filter(matches)
+    .sort((a, b) => b.length - a.length)[0];
+  const isActive = (href: string) => href === activeHref;
 
   return (
     <div dir={dir} style={{ minHeight: '100vh', background: EE.parchment, fontFamily: EE.fontBody, color: EE.ink }}>

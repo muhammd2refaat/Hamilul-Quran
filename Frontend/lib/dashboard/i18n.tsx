@@ -82,6 +82,7 @@ export interface DashboardStrings {
   ratingsDesc: string;
   ratingsAverage: string;
   ratingsCount: string;
+  ratingsCountOne: string;
   ratingsEmpty: string;
 
   studentsTitle: string;
@@ -265,6 +266,7 @@ const DICT: Record<Lang, DashboardStrings> = {
     ratingsDesc: 'How your students rated each lesson.',
     ratingsAverage: 'Average rating',
     ratingsCount: 'ratings',
+    ratingsCountOne: 'rating',
     ratingsEmpty: 'No ratings yet. Students can rate a lesson for 14 days after joining it.',
 
     // students
@@ -454,6 +456,7 @@ const DICT: Record<Lang, DashboardStrings> = {
     ratingsDesc: 'كيف قيّم طلابك كل حصة.',
     ratingsAverage: 'متوسط التقييم',
     ratingsCount: 'تقييمات',
+    ratingsCountOne: 'تقييم',
     ratingsEmpty: 'لا توجد تقييمات بعد. يمكن للطالب تقييم الحصة خلال 14 يومًا من حضورها.',
 
     studentsTitle: 'طلابي',

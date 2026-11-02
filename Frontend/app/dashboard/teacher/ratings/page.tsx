@@ -81,7 +81,7 @@ export default function TeacherRatingsPage() {
                 <Stars value={data.average ?? 0} size={18} />
               </div>
               <div style={{ fontSize: 12.5, color: EE.sageFaint }}>
-                {data.count} {t.ratingsCount}
+                {data.count} {data.count === 1 ? t.ratingsCountOne : t.ratingsCount}
               </div>
             </div>
             <div style={{ flex: '1 1 220px', display: 'flex', flexDirection: 'column', gap: 4 }}>
