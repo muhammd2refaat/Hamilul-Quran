@@ -2,7 +2,7 @@
  * Form Input component with label and error handling
  */
 
-import { forwardRef, type InputHTMLAttributes } from 'react';
+import { forwardRef, useId, type InputHTMLAttributes } from 'react';
 import { cn } from '../../utils';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -35,7 +35,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     },
     ref
   ) => {
-    const inputId = id || props.name;
+    // Fall back to a generated id so the label is always tied to the input.
+    const autoId = useId();
+    const inputId = id || props.name || autoId;
 
     return (
       <div className={cn('flex flex-col gap-1.5', fullWidth && 'w-full')}>
