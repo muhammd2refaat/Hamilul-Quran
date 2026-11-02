@@ -339,3 +339,89 @@ def build_welcome_email(
         ]),
     )
     return subject, text_body, html_body
+
+
+# ── Admin alert: lessons that didn't happen as planned ──────────────────────
+
+_ALERT_LABELS = {
+    "missed": ("Missed — nobody joined", "#6B7280"),
+    "teacher_only": ("Student didn't show up", "#B45309"),
+    "student_only": ("Teacher didn't show up", "#B91C1C"),
+}
+
+
+def build_lesson_alert_email(
+    alerts: list[dict], admin_url: str = ""
+) -> tuple[str, str, str]:
+    """One email listing finished lessons that were missed or had a no-show.
+    Each alert: session_date (date), scheduled_time, teacher_name,
+    student_name, status. Returns (subject, text_body, html_body)."""
+    count = len(alerts)
+    subject = (
+        f"[Elhafazah] {count} lesson{'s' if count != 1 else ''} need{'s' if count == 1 else ''} attention"
+    )
+    attendance_link = f"{admin_url.rstrip('/')}/attendance" if admin_url else ""
+
+    lines = []
+    rows = []
+    for a in alerts:
+        label, color = _ALERT_LABELS.get(a["status"], (a["status"], _MUTED))
+        when = f"{a['session_date']:%a %d %b %Y} · {a['scheduled_time']}"
+        lines.append(f"- {when}: {label} (teacher: {a['teacher_name']}, student: {a['student_name']})")
+        rows.append(f"""\
+                <tr>
+                  <td style="padding:10px 0; border-bottom:1px solid #EEE; font-size:13.5px; color:{_INK};">
+                    <div style="font-weight:600;">{escape(when)}</div>
+                    <div style="color:{_MUTED}; margin-top:2px;">Teacher: {escape(a['teacher_name'])} · Student: {escape(a['student_name'])}</div>
+                  </td>
+                  <td style="padding:10px 0 10px 12px; border-bottom:1px solid #EEE; font-size:12.5px;
+                             font-weight:700; color:{color}; white-space:nowrap;" align="right">{escape(label)}</td>
+                </tr>""")
+
+    advice = (
+        "If a lesson actually took place (joined outside the platform), open Attendance "
+        "and press Confirm done. If the student had an excuse, press Excuse to defer it."
+    )
+    text_body = "\n".join([
+        "These lessons ended without both the teacher and the student joining through the platform:",
+        "",
+        *lines,
+        "",
+        advice,
+        *([f"", f"Attendance: {attendance_link}"] if attendance_link else []),
+        "",
+        "— Elhafazah Academy",
+    ])
+
+    button = (
+        f"""
+              <a href="{escape(attendance_link)}" style="display:inline-block; margin-top:18px; background:{_DARK};
+                 color:{_PARCHMENT}; text-decoration:none; font-size:14px; font-weight:600;
+                 padding:11px 22px; border-radius:8px;">Open Attendance</a>"""
+        if attendance_link else ""
+    )
+    body_row = f"""\
+          <tr>
+            <td style="padding:30px 32px 30px;" align="left">
+              <h1 style="margin:0 0 10px; font-size:20px; font-weight:700; color:{_INK};">{escape(subject[12:])}</h1>
+              <p style="margin:0 0 14px; font-size:14px; line-height:1.6; color:{_MUTED};">
+                These lessons ended without both the teacher and the student joining through the platform.
+              </p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+{chr(10).join(rows)}
+              </table>
+              <p style="margin:16px 0 0; font-size:13px; line-height:1.6; color:{_MUTED};">{escape(advice)}</p>{button}
+            </td>
+          </tr>"""
+
+    html_body = _shell(
+        lang="en",
+        subject=subject,
+        preheader=lines[0][2:] if lines else subject,
+        body_rows="\n".join([
+            _header_row("en"),
+            body_row,
+            _footer_row("en", "Admin notification", "Elhafazah Academy"),
+        ]),
+    )
+    return subject, text_body, html_body

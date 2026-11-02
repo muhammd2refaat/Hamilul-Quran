@@ -23,7 +23,8 @@ deduct-on-Join behaviour in SessionService.record_attendance):
                 joined outside the platform; uses one session
 
 After each pass the students' schedules are re-synced (sessions/schedule.py),
-which is how a deferral moves the end date and the calendar series.
+which is how a deferral moves the end date and the calendar series, and
+the admins get one email listing the pass's missed / no-show lessons.
 
 "Joined" means clicked Join inside the platform (dashboard button or the
 tracked /join link in the calendar invite) — the platform can't see inside
@@ -43,6 +44,8 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.config.settings import settings
+from app.core.email import send_email
+from app.core.email_templates import build_lesson_alert_email
 from app.features.allocations.models import Allocation
 from app.features.calendar.google_calendar_client import (
     CAIRO_TZ,
@@ -56,8 +59,15 @@ from app.features.sessions.models import (
     SessionOutcome,
 )
 from app.features.subscriptions.models import Subscription, SubscriptionStatus
+from app.features.users.models import User
 
 logger = logging.getLogger(__name__)
+
+# Outcomes worth an admin email.
+ALERT_STATUSES = {OutcomeStatus.MISSED, OutcomeStatus.TEACHER_ONLY, OutcomeStatus.STUDENT_ONLY}
+# Only lessons this recent are emailed — a first run catching up on old
+# lessons mustn't flood the inbox.
+ALERT_MAX_AGE = timedelta(days=2)
 
 
 @dataclass(frozen=True)
@@ -125,6 +135,7 @@ class AttendanceOutcomeService:
         allocations = (await self.session.exec(select(Allocation))).all()
         recorded = 0
         touched: set[uuid.UUID] = set()
+        alerts: list[tuple[Allocation, Occurrence, OutcomeStatus]] = []
         for allocation in allocations:
             due = list(ended_occurrences(allocation, start, now_cairo, grace))
             if not due:
@@ -140,9 +151,15 @@ class AttendanceOutcomeService:
             for occ in due:
                 if (occ.session_date, occ.time) in done:
                     continue
-                if await self._finalize_one(allocation, occ):
+                outcome_status = await self._finalize_one(allocation, occ)
+                if outcome_status is not None:
                     recorded += 1
                     touched.add(allocation.student_id)
+                    if (
+                        outcome_status in ALERT_STATUSES
+                        and occ.session_date >= now_cairo.date() - ALERT_MAX_AGE
+                    ):
+                        alerts.append((allocation, occ, outcome_status))
             await self.session.commit()
 
         from app.features.sessions.schedule import ScheduleService
@@ -150,9 +167,44 @@ class AttendanceOutcomeService:
         schedule = ScheduleService(self.session)
         for student_id in touched:
             await schedule.sync_student(student_id, now)
+        if alerts:
+            await self._notify_admin(alerts)
         return recorded
 
-    async def _finalize_one(self, allocation: Allocation, occ: Occurrence) -> bool:
+    async def _notify_admin(self, alerts: list[tuple[Allocation, Occurrence, OutcomeStatus]]) -> None:
+        """One email for the pass's missed / no-show lessons. Never raises."""
+        if not settings.attendance_notify_admin:
+            return
+        try:
+            ids = {a.teacher_id for a, _, _ in alerts} | {a.student_id for a, _, _ in alerts}
+            users = {u.id: u for u in (await self.session.exec(select(User).where(User.id.in_(ids)))).all()}
+
+            def name(user_id: uuid.UUID) -> str:
+                u = users.get(user_id)
+                return (f"{u.first_name} {u.last_name}".strip() or u.email) if u else "—"
+
+            items = sorted(
+                (
+                    {
+                        "session_date": occ.session_date,
+                        "scheduled_time": occ.time,
+                        "teacher_name": name(a.teacher_id),
+                        "student_name": name(a.student_id),
+                        "status": st.value,
+                    }
+                    for a, occ, st in alerts
+                ),
+                key=lambda i: (i["session_date"], i["scheduled_time"]),
+            )
+            subject, text_body, html_body = build_lesson_alert_email(items, settings.admin_url)
+            to_email = settings.contact_notification_email or settings.admin_email
+            await send_email(to_email, subject, text_body, html_body=html_body)
+        except Exception:
+            logger.warning("Lesson alert email failed", exc_info=True)
+
+    async def _finalize_one(self, allocation: Allocation, occ: Occurrence) -> Optional[OutcomeStatus]:
+        """Record the occurrence's outcome. Returns its status, or None when
+        another worker recorded it first."""
         rows = (
             await self.session.exec(
                 select(SessionAttendance).where(
@@ -192,7 +244,7 @@ class AttendanceOutcomeService:
             )
         ).first()
         if inserted is None:
-            return False  # another worker finalized it first
+            return None  # another worker finalized it first
 
         charge = 0
         if outcome_status == OutcomeStatus.STUDENT_ONLY and student_row and student_row.consumed_session:
@@ -209,7 +261,7 @@ class AttendanceOutcomeService:
             outcome = await self.session.get(SessionOutcome, outcome_id)
             outcome.session_charge = charge
             self.session.add(outcome)
-        return True
+        return outcome_status
 
     async def _adjust_sessions(self, student_id: uuid.UUID, delta: int, require_active: bool = False) -> bool:
         """Add `delta` sessions (negative = deduct). Deductions need sessions
