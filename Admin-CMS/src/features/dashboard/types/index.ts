@@ -17,6 +17,24 @@ export interface RecentSignup {
   createdAt: string;
 }
 
+export interface ScorePoint {
+  month: string; // "YYYY-MM"
+  avgPct: number;
+  count: number;
+}
+
+export interface TeacherScoreboardItem {
+  teacherId: string;
+  teacherName: string;
+  avgPct: number;
+  sessionCount: number;
+}
+
+export interface AttendancePoint {
+  week: string; // "YYYY-MM-DD", the Monday the week starts on
+  ratePct: number;
+}
+
 export interface PlatformMetrics {
   totalUsers: number;
   totalStudents: number;
@@ -28,123 +46,16 @@ export interface PlatformMetrics {
   totalCountries: number;
   signupsByMonth: SignupPoint[];
   recentSignups: RecentSignup[];
-}
 
-// ─── Legacy gamification-era types (kept for the unused dashboard/components/* —
-// not wired into any route; see Admin-CMS/PROGRESS.md) ─────────────────────────
+  avgSessionScorePct: number | null;
+  scoreTrendByMonth: ScorePoint[];
+  topTeachersByScore: TeacherScoreboardItem[];
 
-export interface DashboardMetrics {
-  totalUsers: number;
-  pendingUsers: number;
-  activeUsers: number;
-  inactiveUsers: number;
-  totalCountries: number;
-  totalOrganizations: number;
-  totalQuizzes: number;
-  totalArticlesPublished: number;
-  totalWebinars: number;
-  totalStories: number;
-  totalProducts: number;
-  totalCategories: number;
-}
+  attendanceBothJoinedRatePct: number | null;
+  attendanceTrendByWeek: AttendancePoint[];
 
-export interface MetricChange {
-  value: number;
-  percentage: number;
-  trend: 'up' | 'down' | 'stable';
-}
-
-export interface DashboardMetric {
-  id: string;
-  label: string;
-  value: number;
-  change: MetricChange;
-  icon: string;
-  color: 'primary' | 'success' | 'warning' | 'danger' | 'info';
-  format: 'number' | 'percentage' | 'duration' | 'currency';
-}
-
-export interface LeaderboardEntry {
-  id: string;
-  rank: number;
-  previousRank: number;
-  name: string;
-  avatar?: string;
-  organization?: string;
-  country: string;
-  countryCode: string;
-  points: number;
-  quizzesCompleted: number;
-  articlesRead: number;
-  webinarsAttended: number;
-  storiesShared: number;
-  streak: number;
-}
-
-export interface CountryLeaderboardEntry {
-  country: string;
-  countryCode: string;
-  flag: string;
-  totalUsers: number;
-  activeUsers: number;
-  totalPoints: number;
-  averageEngagement: number;
-  topOrganization?: string;
-}
-
-export interface ChartDataPoint {
-  date: string;
-  value: number;
-  label?: string;
-}
-
-export interface TimeSeriesData {
-  label: string;
-  data: ChartDataPoint[];
-  color: string;
-}
-
-export interface EngagementTrend {
-  period: string;
-  quizzes: number;
-  articles: number;
-  webinars: number;
-  stories: number;
-  products: number;
-}
-
-export interface CategoryDistribution {
-  category: string;
-  count: number;
-  percentage: number;
-  color: string;
-}
-
-export interface RecentActivity {
-  id: string;
-  userId: string;
-  userName: string;
-  userAvatar?: string;
-  action: 'quiz_completed' | 'article_read' | 'webinar_attended' | 'story_shared' | 'product_redeemed' | 'badge_earned';
-  target: string;
-  points?: number;
-  timestamp: string;
-}
-
-export interface DashboardFilters {
-  dateRange: 'today' | 'week' | 'month' | 'quarter' | 'year' | 'custom';
-  startDate?: string;
-  endDate?: string;
-  organization?: string;
-  country?: string;
-}
-
-export interface DashboardState {
-  filters: DashboardFilters;
-  isLoading: boolean;
-  metrics: DashboardMetrics | null;
-  leaderboard: LeaderboardEntry[];
-  countryLeaderboard: CountryLeaderboardEntry[];
-  engagementTrends: EngagementTrend[];
-  recentActivity: RecentActivity[];
+  // Categorical only — there's no price field anywhere in the schema, so
+  // this is subscription counts, not a $ revenue figure.
+  subscriptionsByStatus: Record<string, number>;
+  subscriptionsByPlan: Record<string, number>;
 }

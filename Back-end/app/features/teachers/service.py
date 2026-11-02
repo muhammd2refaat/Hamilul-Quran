@@ -12,6 +12,7 @@ from app.core.storage import save_certificate
 from app.features.allocations.models import Allocation
 from app.features.calendar.google_calendar_client import CAIRO_TZ
 from app.features.sessions.models import SessionAttendance, SessionScore
+from app.features.sessions.service import SessionService
 from app.features.teachers.models import Ijaza, IjazaType, ReviewKind, TeacherProfile, TeacherReview
 from app.features.teachers.schemas import (
     IjazaResponse,
@@ -24,10 +25,10 @@ from app.features.teachers.schemas import (
     TeacherReviewCreate,
     TeacherRatingsResponse,
     TeacherReviewResponse,
+    TeacherStatsResponse,
     TeacherStudentResponse,
 )
 from app.features.users.models import User, UserRole
-
 
 
 class TeacherService:
@@ -209,6 +210,34 @@ class TeacherService:
                 )
             )
         return out
+
+    async def get_my_stats(self, teacher_id: uuid.UUID) -> TeacherStatsResponse:
+        """Backend-computed roster + score aggregates for the teacher's own
+        Overview page — one query each, instead of the caller fetching the
+        full student list and reducing it client-side."""
+        roster_result = await self.session.exec(
+            select(func.count(), func.coalesce(func.sum(Allocation.sessions_per_week), 0))
+            .where(Allocation.teacher_id == teacher_id)
+        )
+        student_count, sessions_per_week_total = roster_result.one()
+
+        avg_score_result = await self.session.exec(
+            select(func.avg(SessionScore.score * 100.0 / SessionScore.max_score))
+            .where(SessionScore.teacher_id == teacher_id)
+        )
+        avg_score = avg_score_result.one()
+        avg_score_pct = round(avg_score, 1) if avg_score is not None else None
+
+        attendance = await SessionService(self.session).get_attendance_summary(
+            teacher_id, UserRole.TEACHER
+        )
+
+        return TeacherStatsResponse(
+            student_count=student_count,
+            sessions_per_week_total=sessions_per_week_total,
+            avg_score_pct=avg_score_pct,
+            sessions_attended_total=attendance.total_sessions,
+        )
 
     async def _require_own_student(self, teacher_id: uuid.UUID, student_id: uuid.UUID) -> None:
         """Raise 404 unless this student is currently allocated to this teacher."""
