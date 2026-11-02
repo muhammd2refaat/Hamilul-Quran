@@ -1,10 +1,11 @@
 from typing import Annotated, Literal, Optional
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.database import get_session
 from app.core.dependencies import AdminDep, CurrentUserDep
+from app.features.admins.service import guard_user_change
 from app.features.users.models import UserRole, UserStatus
 from app.features.users.schemas import UserCreate, UserUpdate, UserResponse, PaginatedUsers
 from app.features.users.service import UserService
@@ -47,6 +48,11 @@ async def list_users(
 
 @router.post("", response_model=UserResponse, status_code=201, summary="Create user (ADMIN)")
 async def create_user(_: AdminDep, svc: SvcDep, body: UserCreate):
+    if body.role == UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Admins are added and removed from the Admins page.",
+        )
     return await svc.create(body)
 
 
@@ -61,12 +67,17 @@ async def get_user(user_id: uuid.UUID, _: AdminDep, svc: SvcDep):
 
 
 @router.patch("/{user_id}", response_model=UserResponse, summary="Update user (ADMIN)")
-async def update_user(user_id: uuid.UUID, body: UserUpdate, _: AdminDep, svc: SvcDep):
+async def update_user(user_id: uuid.UUID, body: UserUpdate, actor: AdminDep, svc: SvcDep):
+    target = await svc.get_by_id(user_id)
+    guard_user_change(actor, target, new_role=body.role,
+                      status_change=body.status is not None and body.status != target.status)
     return await svc.update(user_id, body)
 
 
 @router.delete("/{user_id}", status_code=204, summary="Permanently delete user and all their data (ADMIN)")
-async def delete_user(user_id: uuid.UUID, _: AdminDep, svc: SvcDep):
+async def delete_user(user_id: uuid.UUID, actor: AdminDep, svc: SvcDep):
+    target = await svc.get_by_id(user_id)
+    guard_user_change(actor, target, deleting=True)
     await svc.delete(user_id)
 
 

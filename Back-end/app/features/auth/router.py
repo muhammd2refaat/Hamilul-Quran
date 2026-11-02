@@ -236,6 +236,10 @@ async def get_me(current_user: CurrentUserDep):
         email=current_user.email,
         role=current_user.role.value,
         is_active=(current_user.status == UserStatus.ACTIVE),
+        first_name=current_user.first_name,
+        last_name=current_user.last_name,
+        is_super_admin=current_user.is_super_admin,
+        must_change_password=current_user.must_change_password,
     )
 
 
@@ -249,13 +253,17 @@ async def get_me(current_user: CurrentUserDep):
 @limiter.limit("5/minute")
 async def change_password(
     request: Request,
+    response: Response,
     body: PasswordChangeRequest,
     current_user: CurrentUserDep,
     svc: AuthServiceDep,
 ):
     """Change the current user's password. Only works for accounts with a local
-    password (auth_provider=LOCAL). Google-only accounts return 400."""
+    password (auth_provider=LOCAL). Google-only accounts return 400. Every
+    other device is signed out; this one gets fresh tokens."""
     await svc.change_password(current_user, body.current_password, body.new_password)
+    tokens = await svc.issue_tokens_for_user(current_user)
+    set_auth_cookies(response, request, tokens.access_token, tokens.refresh_token)
 
 
 # ─── Password reset ───────────────────────────────────────────────────────────

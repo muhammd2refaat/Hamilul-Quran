@@ -181,6 +181,24 @@ def admin_headers(admin_user) -> dict:
 
 
 @pytest_asyncio.fixture
+async def super_admin_user(make_user) -> User:
+    return await make_user(role=UserRole.ADMIN, is_super_admin=True, recovery_email="recovery@apitest.dev")
+
+
+@pytest_asyncio.fixture
+def super_admin_headers(super_admin_user) -> dict:
+    return _auth_headers_for(super_admin_user)
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limits():
+    """Rate-limit counters are per process — start each test from zero."""
+    from app.core.rate_limit import limiter
+
+    limiter.reset()
+
+
+@pytest_asyncio.fixture
 async def teacher_user(make_user) -> User:
     return await make_user(role=UserRole.TEACHER)
 

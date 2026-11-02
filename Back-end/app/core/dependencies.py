@@ -1,3 +1,4 @@
+from datetime import timezone
 from typing import Annotated, Optional
 import uuid
 
@@ -62,8 +63,18 @@ async def get_current_user(
 
     if user is None or user.status != UserStatus.ACTIVE:
         raise credentials_exception
+    if issued_before_revocation(payload, user):
+        raise credentials_exception
 
     return user
+
+
+def issued_before_revocation(payload: dict, user: User) -> bool:
+    """True for a token minted before the user's last password change/reset."""
+    if user.sessions_valid_after is None:
+        return False
+    revoked_at = int(user.sessions_valid_after.replace(tzinfo=timezone.utc).timestamp())
+    return int(payload.get("iat", 0)) < revoked_at
 
 
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
@@ -71,11 +82,27 @@ CurrentUserDep = Annotated[User, Depends(get_current_user)]
 
 # ─── Role Guards ──────────────────────────────────────────────────────────────
 async def require_admin(current_user: CurrentUserDep) -> User:
-    """Dependency: Requires the authenticated user to have ADMIN role."""
+    """Dependency: Requires the authenticated user to have ADMIN role, and
+    an admin on a temporary password must set their own one first."""
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
+        )
+    if current_user.must_change_password:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Password change required",
+        )
+    return current_user
+
+
+async def require_super_admin(current_user: Annotated[User, Depends(require_admin)]) -> User:
+    """Dependency: only the Super Admin (manages the other admins)."""
+    if not current_user.is_super_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the Super Admin can do this",
         )
     return current_user
 
@@ -101,5 +128,6 @@ async def require_student(current_user: CurrentUserDep) -> User:
 
 
 AdminDep = Annotated[User, Depends(require_admin)]
+SuperAdminDep = Annotated[User, Depends(require_super_admin)]
 TeacherDep = Annotated[User, Depends(require_teacher)]
 StudentDep = Annotated[User, Depends(require_student)]

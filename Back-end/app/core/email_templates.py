@@ -425,3 +425,80 @@ def build_lesson_alert_email(
         ]),
     )
     return subject, text_body, html_body
+
+
+# ── Admin accounts: temporary password and reset code ───────────────────────
+
+def _admin_card(subject: str, preheader: str, heading: str, paragraphs: list[str], highlight: str,
+                highlight_label: str, note: str, link: str = "", link_label: str = "") -> str:
+    paras = "\n".join(
+        f'              <p style="margin:0 0 12px; font-size:14px; line-height:1.6; color:{_MUTED};">{escape(p)}</p>'
+        for p in paragraphs
+    )
+    button = (
+        f"""
+              <a href="{escape(link)}" style="display:inline-block; margin-top:6px; background:{_DARK};
+                 color:{_PARCHMENT}; text-decoration:none; font-size:14px; font-weight:600;
+                 padding:11px 22px; border-radius:8px;">{escape(link_label)}</a>"""
+        if link else ""
+    )
+    body_row = f"""\
+          <tr>
+            <td style="padding:30px 32px 30px;" align="left">
+              <h1 style="margin:0 0 12px; font-size:20px; font-weight:700; color:{_INK};">{escape(heading)}</h1>
+{paras}
+              <div style="margin:8px 0 16px; padding:14px 18px; background:{_PARCHMENT}; border-radius:10px;">
+                <div style="font-size:12px; color:{_MUTED};">{escape(highlight_label)}</div>
+                <div style="font-size:22px; font-weight:700; letter-spacing:2px; color:{_INK};
+                            font-family:Consolas, 'Courier New', monospace;">{escape(highlight)}</div>
+              </div>
+              <p style="margin:0 0 14px; font-size:12.5px; line-height:1.6; color:{_MUTED};">{escape(note)}</p>{button}
+            </td>
+          </tr>"""
+    return _shell(
+        lang="en",
+        subject=subject,
+        preheader=preheader,
+        body_rows="\n".join([_header_row("en"), body_row, _footer_row("en", "Admin account", "Elhafazah Academy")]),
+    )
+
+
+def build_admin_temp_password_email(
+    *, name: str, login_email: str, temp_password: str, hours: int, admin_url: str = "", is_new: bool
+) -> tuple[str, str, str]:
+    """A new admin's invitation, or a password reset by the Super Admin."""
+    if is_new:
+        subject = "[Elhafazah] Your admin account"
+        heading = f"Welcome, {name}"
+        intro = "An admin account was created for you on the Elhafazah Academy admin panel."
+    else:
+        subject = "[Elhafazah] Your admin password was reset"
+        heading = f"Hello {name}"
+        intro = "The Super Admin reset your admin password. You were signed out on every device."
+    paragraphs = [intro, f"Sign in with: {login_email}"]
+    note = (
+        f"This temporary password works for {hours} hours. You'll be asked to choose your own password "
+        "right after signing in. If you didn't expect this email, tell the academy."
+    )
+    link = admin_url.rstrip("/") + "/auth/login" if admin_url else ""
+    text_body = "\n".join([
+        heading, "", *paragraphs, f"Temporary password: {temp_password}", "", note,
+        *([f"", f"Admin panel: {link}"] if link else []), "", "— Elhafazah Academy",
+    ])
+    html = _admin_card(subject, intro, heading, paragraphs, temp_password, "Temporary password", note,
+                       link, "Open the admin panel")
+    return subject, text_body, html
+
+
+def build_admin_reset_code_email(*, name: str, code: str, minutes: int) -> tuple[str, str, str]:
+    """Forgot-password code for an admin."""
+    subject = f"[Elhafazah] Your password reset code: {code}"
+    heading = f"Hello {name}"
+    paragraphs = ["Someone asked to reset the password of your Elhafazah admin account. Use this code:"]
+    note = (
+        f"The code works for {minutes} minutes. Never share it. If you didn't ask for it, ignore this "
+        "email — your password stays the same."
+    )
+    text_body = "\n".join([heading, "", *paragraphs, "", code, "", note, "", "— Elhafazah Academy"])
+    html = _admin_card(subject, paragraphs[0], heading, paragraphs, code, "Reset code", note)
+    return subject, text_body, html

@@ -28,6 +28,11 @@ class UserInfo(BaseModel):
     email: str
     role: str
     is_active: bool
+    first_name: str = ""
+    last_name: str = ""
+    is_super_admin: bool = False
+    # The admin panel shows only the change-password screen while this is set.
+    must_change_password: bool = False
 
 
 # ─── Password change (authenticated users only) ──────────────────────────────
