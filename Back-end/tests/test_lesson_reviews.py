@@ -8,7 +8,7 @@ import pytest
 from app.config.settings import settings
 from app.features.allocations.models import Allocation
 from app.features.calendar.google_calendar_client import CAIRO_TZ
-from app.features.sessions.models import AttendeeRole, SessionAttendance
+from app.features.sessions.models import AttendeeRole, OutcomeStatus, SessionAttendance, SessionOutcome
 from app.features.teachers.models import TeacherProfile
 from app.features.users.models import UserRole
 
@@ -142,6 +142,81 @@ async def test_cannot_rate_an_old_lesson(client, db_session, student_headers, st
 
     r = await client.post("/lesson-reviews", headers=student_headers, json=_review(allocation, _days_ago(20)))
     assert r.status_code == 422
+
+
+# ─── Lessons an admin confirmed (joined outside the platform) ────────────────
+
+async def _outcome(db_session, allocation, session_date, status=OutcomeStatus.CONFIRMED, teacher=None):
+    db_session.add(SessionOutcome(
+        allocation_id=allocation.id, teacher_id=(teacher.id if teacher else allocation.teacher_id),
+        student_id=allocation.student_id, session_date=session_date,
+        scheduled_day=session_date.strftime("%a").lower(), scheduled_time=TIME, status=status.value,
+    ))
+    await db_session.commit()
+
+
+@pytest.mark.asyncio
+async def test_confirmed_lesson_is_listed_and_can_be_rated(client, db_session, student_headers, admin_headers, student_user, teacher_user):
+    allocation = await _allocation(db_session, teacher_user, student_user)
+    await _outcome(db_session, allocation, _days_ago(3))
+
+    [lesson] = (await client.get("/lesson-reviews/me", headers=student_headers)).json()
+    assert lesson["session_date"] == _days_ago(3).isoformat()
+    assert lesson["teacher_name"] == f"{teacher_user.first_name} {teacher_user.last_name}"
+
+    r = await client.post("/lesson-reviews", headers=student_headers, json=_review(allocation, _days_ago(3), 5, "Great"))
+    assert r.status_code == 200
+    assert r.json()["teacher_id"] == str(teacher_user.id)
+    [lesson] = (await client.get("/lesson-reviews/me", headers=student_headers)).json()
+    assert lesson["rating"] == 5
+
+
+@pytest.mark.asyncio
+async def test_joined_and_confirmed_lesson_is_listed_once(client, db_session, student_headers, student_user, teacher_user):
+    allocation = await _allocation(db_session, teacher_user, student_user)
+    await _joined(db_session, allocation, student_user, _days_ago(2))
+    await _outcome(db_session, allocation, _days_ago(2))
+    await _outcome(db_session, allocation, _days_ago(9))
+
+    lessons = (await client.get("/lesson-reviews/me", headers=student_headers)).json()
+    assert [l["session_date"] for l in lessons] == [_days_ago(2).isoformat(), _days_ago(9).isoformat()]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [OutcomeStatus.MISSED, OutcomeStatus.EXCUSED, OutcomeStatus.TEACHER_ONLY])
+async def test_lessons_not_confirmed_cannot_be_rated(client, db_session, student_headers, student_user, teacher_user, status):
+    allocation = await _allocation(db_session, teacher_user, student_user)
+    await _outcome(db_session, allocation, _days_ago(1), status=status)
+
+    assert (await client.get("/lesson-reviews/me", headers=student_headers)).json() == []
+    r = await client.post("/lesson-reviews", headers=student_headers, json=_review(allocation, _days_ago(1)))
+    assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_confirmed_lesson_rates_that_lessons_teacher(client, db_session, student_headers, student_user, teacher_user, make_user):
+    """The allocation moved to a new teacher after the lesson; the rating
+    still goes to the teacher who gave it."""
+    allocation = await _allocation(db_session, teacher_user, student_user)
+    await _outcome(db_session, allocation, _days_ago(4))
+    new_teacher = await make_user(role=UserRole.TEACHER, email="new-teacher@apitest.dev", username="new_teacher")
+    allocation.teacher_id = new_teacher.id
+    db_session.add(allocation)
+    await db_session.commit()
+
+    r = await client.post("/lesson-reviews", headers=student_headers, json=_review(allocation, _days_ago(4)))
+    assert r.json()["teacher_id"] == str(teacher_user.id)
+
+
+@pytest.mark.asyncio
+async def test_cannot_rate_someone_elses_confirmed_lesson(client, db_session, student_headers, student_user, teacher_user, make_user):
+    other = await make_user(role=UserRole.STUDENT, email="other-student2@apitest.dev", username="other_student2")
+    allocation = await _allocation(db_session, teacher_user, other)
+    await _outcome(db_session, allocation, _days_ago(1))
+
+    assert (await client.get("/lesson-reviews/me", headers=student_headers)).json() == []
+    r = await client.post("/lesson-reviews", headers=student_headers, json=_review(allocation, _days_ago(1)))
+    assert r.status_code == 403
 
 
 @pytest.mark.asyncio
