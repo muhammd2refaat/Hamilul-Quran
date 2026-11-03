@@ -11,7 +11,7 @@ from app.config.settings import settings
 from app.core.storage import save_certificate
 from app.features.allocations.models import Allocation
 from app.features.calendar.google_calendar_client import CAIRO_TZ
-from app.features.sessions.models import SessionAttendance, SessionScore
+from app.features.sessions.models import OutcomeStatus, SessionAttendance, SessionOutcome, SessionScore
 from app.features.sessions.service import SessionService
 from app.features.teachers.models import Ijaza, IjazaType, ReviewKind, TeacherProfile, TeacherReview
 from app.features.teachers.schemas import (
@@ -380,9 +380,21 @@ class ReviewService:
             update={"student_name": names.get(review.allocation_id)}
         )
 
+    async def _confirmed_lessons(self, student_id: uuid.UUID, since) -> list[SessionOutcome]:
+        """Lessons an admin confirmed took place (joined outside the platform,
+        so there's no Join click) for this student, in the review window."""
+        result = await self.session.exec(
+            select(SessionOutcome)
+            .where(SessionOutcome.student_id == student_id)
+            .where(SessionOutcome.status == OutcomeStatus.CONFIRMED.value)
+            .where(SessionOutcome.session_date >= since)
+        )
+        return list(result.all())
+
     async def recent_lessons_for_student(self, student: User) -> list[ReviewableLesson]:
-        """Lessons this student joined in the review window, newest first,
-        with the rating they already gave (if any)."""
+        """Lessons this student joined, or an admin confirmed took place, in
+        the review window, newest first, with the rating they already gave
+        (if any)."""
         since = datetime.now(CAIRO_TZ).date() - timedelta(days=LESSON_REVIEW_WINDOW_DAYS)
         result = await self.session.exec(
             select(SessionAttendance, User)
@@ -392,7 +404,24 @@ class ReviewService:
             .where(SessionAttendance.session_date >= since)
             .order_by(SessionAttendance.session_date.desc(), SessionAttendance.joined_at.desc())
         )
-        rows = result.all()
+        rows = [
+            (a.allocation_id, a.session_date, a.scheduled_day, a.scheduled_time, teacher)
+            for a, teacher in result.all()
+        ]
+
+        joined = {(r[0], r[1], r[3]) for r in rows}
+        confirmed = [
+            o for o in await self._confirmed_lessons(student.id, since)
+            if (o.allocation_id, o.session_date, o.scheduled_time) not in joined
+        ]
+        teacher_ids = {o.teacher_id for o in confirmed if o.teacher_id}
+        teachers = {}
+        if teacher_ids:
+            teachers = {u.id: u for u in (await self.session.exec(select(User).where(User.id.in_(teacher_ids)))).all()}
+        for o in confirmed:
+            if o.teacher_id in teachers:
+                rows.append((o.allocation_id, o.session_date, o.scheduled_day, o.scheduled_time, teachers[o.teacher_id]))
+        rows.sort(key=lambda r: (r[1], r[3]), reverse=True)
 
         reviews_result = await self.session.exec(
             select(TeacherReview)
@@ -405,13 +434,13 @@ class ReviewService:
         }
 
         lessons = []
-        for attendance, teacher in rows:
-            review = mine.get((attendance.allocation_id, attendance.session_date, attendance.scheduled_time))
+        for allocation_id, session_date, scheduled_day, scheduled_time, teacher in rows:
+            review = mine.get((allocation_id, session_date, scheduled_time))
             lessons.append(ReviewableLesson(
-                allocation_id=attendance.allocation_id,
-                session_date=attendance.session_date,
-                scheduled_day=attendance.scheduled_day,
-                scheduled_time=attendance.scheduled_time,
+                allocation_id=allocation_id,
+                session_date=session_date,
+                scheduled_day=scheduled_day,
+                scheduled_time=scheduled_time,
                 teacher_name=_full_name(teacher),
                 rating=review.rating if review else None,
                 comment=review.comment if review else None,
@@ -421,8 +450,9 @@ class ReviewService:
     async def submit_lesson_review(
         self, student: User, body: LessonReviewCreate
     ) -> TeacherReviewResponse:
-        """Rate one lesson the student joined. Submitting again for the same
-        lesson edits the earlier rating instead of adding a second one."""
+        """Rate one lesson the student joined, or that an admin confirmed took
+        place. Submitting again for the same lesson edits the earlier rating
+        instead of adding a second one."""
         since = datetime.now(CAIRO_TZ).date() - timedelta(days=LESSON_REVIEW_WINDOW_DAYS)
         if body.session_date < since:
             raise HTTPException(
@@ -438,10 +468,24 @@ class ReviewService:
             .where(SessionAttendance.scheduled_time == body.scheduled_time)
         )
         allocation = await self.session.get(Allocation, body.allocation_id)
-        if attended.first() is None or allocation is None or allocation.student_id != student.id:
+        teacher_id = allocation.teacher_id if allocation and allocation.student_id == student.id else None
+        if attended.first() is None:
+            # Not joined through the platform — an admin may have confirmed it.
+            # That lesson's own teacher is the one rated, even if the
+            # allocation's teacher has changed since.
+            confirmed = (await self.session.exec(
+                select(SessionOutcome)
+                .where(SessionOutcome.allocation_id == body.allocation_id)
+                .where(SessionOutcome.student_id == student.id)
+                .where(SessionOutcome.session_date == body.session_date)
+                .where(SessionOutcome.scheduled_time == body.scheduled_time)
+                .where(SessionOutcome.status == OutcomeStatus.CONFIRMED.value)
+            )).first()
+            teacher_id = confirmed.teacher_id if confirmed else None
+        if teacher_id is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only rate lessons you joined.",
+                detail="You can only rate lessons you attended.",
             )
 
         existing_result = await self.session.exec(
@@ -455,7 +499,7 @@ class ReviewService:
         review = existing_result.first()
         if review is None:
             review = TeacherReview(
-                teacher_id=allocation.teacher_id,
+                teacher_id=teacher_id,
                 reviewer_id=student.id,
                 reviewer_name=_full_name(student),
                 rating=body.rating,
