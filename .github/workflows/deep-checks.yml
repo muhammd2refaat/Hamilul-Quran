@@ -12,6 +12,11 @@ on:
   schedule:
     - cron: "7 5 * * *"   # 05:07 UTC = 07:07 Cairo
   workflow_dispatch:
+    inputs:
+      simulate_failure:
+        description: "Inject a fake failure to test alerting (nothing real is touched)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -33,5 +38,6 @@ jobs:
         run: ./.github/monitoring/monitor.sh deep
         env:
           EXPECTED_IP: ${{ secrets.MONITOR_EXPECTED_IP }}
+          SIMULATE_FAILURE: ${{ inputs.simulate_failure || false }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
