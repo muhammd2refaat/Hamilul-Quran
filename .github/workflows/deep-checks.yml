@@ -1,0 +1,37 @@
+name: Deep checks
+
+# Daily: TLS expiry, DNS, the Google site-verification TXT record, the Google
+# sign-in redirect, the teacher Calendar-connect endpoint being protected, and
+# the Limited Use text Google requires on the privacy policy.
+#
+# Public repo => public log. monitor.sh prints only "passed"/"failed"; details
+# go to the private Telegram channel. The server IP is read from a secret so
+# it never appears in this repo or its logs.
+
+on:
+  schedule:
+    - cron: "7 5 * * *"   # 05:07 UTC = 07:07 Cairo
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deep-checks
+  cancel-in-progress: false
+
+jobs:
+  deep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/monitoring
+          sparse-checkout-cone-mode: false
+      - name: Run checks
+        run: ./.github/monitoring/monitor.sh deep
+        env:
+          EXPECTED_IP: ${{ secrets.MONITOR_EXPECTED_IP }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
