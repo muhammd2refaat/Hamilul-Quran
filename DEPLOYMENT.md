@@ -61,6 +61,16 @@ HttpOnly-cookie auth) — see `Back-end/PROGRESS.md` for what changed.
    account (see "Smoke-testing auth" below) rather than trusting `/health`
    alone.
 
+   Then run the external uptime check from GitHub's side, which tests the
+   public domains the way a visitor reaches them (DNS, TLS, Traefik routing),
+   not just `localhost`:
+   ```bash
+   gh workflow run uptime.yml && sleep 5 && gh run watch "$(gh run list -w uptime.yml -L1 --json databaseId -q '.[0].databaseId')" --exit-status
+   ```
+   A pass prints "Checks passed." A failure prints nothing more — the repo
+   is public, so details go only to the private Telegram channel (see
+   "External monitoring" below).
+
 6. **Prune stale Docker build cache.** `docker build`/`docker compose build`
    leaves intermediate layers behind that nothing ever garbage-collects on
    its own — left unchecked this silently ate 18GB+ of disk over a few
@@ -217,13 +227,44 @@ pre-migration database backup (see above) — check `alembic history` and
   is wired up (not Frontend/Admin-CMS, which would need their own Sentry
   projects/DSNs and a browser SDK — not done here).
 
-- **Uptime monitoring** is not set up — this needs an external service
-  (e.g. UptimeRobot, Better Uptime, healthchecks.io) polling
-  `https://api.elhafazah-academy.com/api/v1/health` (and ideally the
-  Frontend/Admin-CMS root URLs too) from outside this infrastructure, which
-  requires an account only you can create. Recommended: point a free
-  UptimeRobot monitor at the health endpoint with a 5-minute interval and
-  alert-on-down notifications to whatever channel the team actually watches.
+- **External monitoring (GitHub Actions)** — `.github/workflows/`:
+
+  | Workflow | When | Checks |
+  |---|---|---|
+  | `uptime.yml` | hourly at :07, and manually after a deploy | site `/`, `/privacy`, `/terms`, admin, API `/health` (database + redis `ok`) — prod and staging |
+  | `deep-checks.yml` | daily 05:07 UTC (07:07 Cairo) | TLS expiry (fails under 14 days), DNS A records, Google site-verification TXT, Google sign-in redirect, teacher Calendar-connect endpoint still protected (401), privacy policy "Limited Use" text |
+  | `codeql.yml` | push to `main`, Sundays | static security analysis; findings in the Security tab only |
+
+  All checks live in `.github/monitoring/monitor.sh`. **The repo is public,
+  so Actions logs are public**: the script prints only "Checks passed." or
+  "Checks failed." — never which check, status codes or responses. Details
+  go to Telegram. A failed scheduled run also makes GitHub email whoever
+  last edited the workflow's schedule. Each HTTP check retries 3× (10s
+  apart) before counting as a failure.
+
+  Secrets (Settings → Secrets and variables → Actions):
+  - `MONITOR_EXPECTED_IP` — the server IP the DNS check expects (kept out of
+    the repo; the DNS check is skipped if unset).
+  - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` — private alert channel. Without
+    them, failures still fail the run (and email you) but carry no details.
+
+  Never add `set -x`, `echo` of check results, GitHub Issues, or workflow
+  artifacts to this pipeline — all of those are public on a public repo.
+  CodeQL deliberately doesn't run on pull requests for the same reason (PR
+  annotations are public).
+
+  Limits: GitHub cron runs are often 5–15 min late and pause after 60 days
+  with no repo activity, so this is a safety net, not a pager. For real-time
+  alerting, also point a free UptimeRobot monitor (5-minute interval) at
+  `https://api.elhafazah-academy.com/api/v1/health`.
+
+- **Dependency vulnerability alerts (Dependabot)** are enabled and visible
+  only to repo admins. Automatic Dependabot *pull requests* are intentionally
+  off: on a public repo they'd announce which dependency is vulnerable before
+  it's fixed. Review alerts under Security → Dependabot and upgrade manually.
+
+- **Secret scanning + push protection** are enabled (GitHub blocks pushes
+  containing known credential formats; alerts are admin-only).
 
 - **Backup-failure alerting** is wired into `db/backup.sh` and
   `db/restore_drill.sh` but disabled until configured — same no-op-until-set

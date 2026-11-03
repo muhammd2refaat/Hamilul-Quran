@@ -1,0 +1,35 @@
+name: Uptime
+
+# Hourly external check of the public site, admin panel and API (prod + staging).
+# Also run it by hand right after a deploy:  gh workflow run uptime.yml
+#
+# This repo is public, so this run's log is public. monitor.sh prints only
+# "passed"/"failed"; failure details go to the private Telegram channel.
+# A failed scheduled run also triggers GitHub's own failure email to you.
+
+on:
+  schedule:
+    - cron: "7 * * * *"   # :07 past each hour — GitHub delays/drops runs on :00
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  uptime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/monitoring
+          sparse-checkout-cone-mode: false
+      - name: Run checks
+        run: ./.github/monitoring/monitor.sh uptime
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
