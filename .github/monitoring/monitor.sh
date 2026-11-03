@@ -116,6 +116,13 @@ case "$MODE" in
   *) echo "unknown mode"; exit 2 ;;
 esac
 
+# Manual drill: the workflow's "simulate_failure" input injects one fake
+# failure so the alert path (red run, Telegram message, GitHub email) can be
+# tested without breaking anything. Never set on scheduled runs.
+if [ "${SIMULATE_FAILURE:-false}" = "true" ]; then
+  fail "SIMULATED FAILURE — test drill, nothing is actually broken"
+fi
+
 if [ "${#FAILS[@]}" -eq 0 ]; then
   echo "Checks passed."
   exit 0
